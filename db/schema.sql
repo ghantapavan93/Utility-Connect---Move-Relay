@@ -368,6 +368,29 @@ CREATE TABLE auth_tuples (
 CREATE INDEX auth_tuples_object_idx ON auth_tuples (object, relation);
 
 -- ---------------------------------------------------------------------------
+-- Customer timeline read model
+-- ---------------------------------------------------------------------------
+
+-- A CQRS projection built by the outbox projector, in customer-safe language.
+-- The canonical tables speak in states like UNKNOWN and retry-blocked; the
+-- customer never sees those words. This table is where the translation lives —
+-- written asynchronously from domain events, rebuildable at any time by
+-- replaying the outbox, and carrying the id of the event that produced each
+-- row so even the projection has provenance.
+CREATE TABLE customer_timeline_entries (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  move_id          UUID NOT NULL REFERENCES moves(id) ON DELETE CASCADE,
+  headline         TEXT NOT NULL,
+  detail           TEXT,
+  tone             TEXT NOT NULL DEFAULT 'info',   -- info | progress | done
+  source_event_id  BIGINT,                          -- outbox event that produced this
+  occurred_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX customer_timeline_move_idx ON customer_timeline_entries (move_id, occurred_at);
+
+-- ---------------------------------------------------------------------------
 -- Contract quarantine
 -- ---------------------------------------------------------------------------
 

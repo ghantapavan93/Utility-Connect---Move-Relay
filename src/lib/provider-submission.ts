@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { withTransaction, type Queryable } from "./db";
 import { recordAudit } from "./audit";
+import { publish } from "./outbox";
 
 /**
  * Safe provider submission.
@@ -117,6 +118,12 @@ export async function submitToProvider(
       stateAfter: { state: "submitted" },
       detail: { operationKey: key, serviceRequestId: input.serviceRequestId },
     });
+    await publish(client, {
+      organizationId: input.organizationId,
+      eventType: "provider.submitted",
+      aggregateId: input.moveId,
+      payload: { moveId: input.moveId, serviceRequestId: input.serviceRequestId },
+    });
 
     return { prior: inserted.rows[0]!, created: true as const };
   });
@@ -207,6 +214,12 @@ export async function submitToProvider(
            VALUES ($1, $2, 'timeout_unknown_outcome')`,
           [input.organizationId, submissionId],
         );
+        await publish(client, {
+          organizationId: input.organizationId,
+          eventType: "provider.unknown",
+          aggregateId: input.moveId,
+          payload: { moveId: input.moveId, serviceRequestId: input.serviceRequestId },
+        });
       }
 
       await recordAudit(client, {
@@ -268,6 +281,12 @@ export async function submitToProvider(
       stateAfter: { state, providerOrderId: response.orderId },
       detail: { operationKey: key },
     });
+    await publish(client, {
+      organizationId: input.organizationId,
+      eventType: "provider.confirmed",
+      aggregateId: input.moveId,
+      payload: { moveId: input.moveId, serviceRequestId: input.serviceRequestId },
+    });
 
     return {
       state,
@@ -323,6 +342,25 @@ export async function reconcile(
           WHERE id = $1`,
         [input.submissionId],
       );
+    }
+
+    if (found) {
+      // The event must carry the service_request id so the projector can name
+      // the service in customer language — look it up from the submission row.
+      const srRows = await client.query<{ service_request_id: string }>(
+        `SELECT service_request_id FROM provider_submissions WHERE id = $1`,
+        [input.submissionId],
+      );
+      await publish(client, {
+        organizationId: input.organizationId,
+        eventType: "provider.reconciled",
+        aggregateId: input.moveId,
+        payload: {
+          moveId: input.moveId,
+          submissionId: input.submissionId,
+          serviceRequestId: srRows.rows[0]?.service_request_id,
+        },
+      });
     }
 
     await recordAudit(client, {

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Constellation, type Source } from "@/components/Constellation";
 import { StateBadge, type State } from "@/components/StateBadge";
 import { EngineeringPanel } from "@/components/EngineeringPanel";
+import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
 
 /**
  * The demo control room — Screens 2, 3, 4, 6, 9 in one guided flow.
@@ -48,6 +49,7 @@ export default function DemoPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [move, setMove] = useState<MoveData | null>(null);
   const [lastResult, setLastResult] = useState<{ step: string; data: unknown } | null>(null);
+  const [drawerField, setDrawerField] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/v1/move");
@@ -147,12 +149,13 @@ export default function DemoPage() {
           )}
         </div>
 
-        {/* Live field provenance */}
+        {/* Live field provenance — tap any row for the full version history */}
         {move?.fields && move.fields.length > 0 && (
-          <Panel title="Canonical Move Record — every value keeps its source">
-            <FieldTable fields={move.fields} />
+          <Panel title="Canonical Move Record — tap a field for its full history">
+            <FieldTable fields={move.fields} onSelect={setDrawerField} />
           </Panel>
         )}
+        <ProvenanceDrawer field={drawerField} onClose={() => setDrawerField(null)} />
 
         {/* Provider + services */}
         {move?.services && move.services.length > 0 && (
@@ -223,7 +226,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function FieldTable({ fields }: { fields: Array<Record<string, unknown>> }) {
+function FieldTable({
+  fields,
+  onSelect,
+}: {
+  fields: Array<Record<string, unknown>>;
+  onSelect: (field: string) => void;
+}) {
   const canonical = fields.filter((f) => f.is_canonical);
   const shown = canonical.length > 0 ? canonical : fields;
   return (
@@ -239,7 +248,13 @@ function FieldTable({ fields }: { fields: Array<Record<string, unknown>> }) {
         </thead>
         <tbody>
           {shown.map((f, i) => (
-            <tr key={i} className="border-t" style={{ borderColor: "var(--color-ground-3)" }}>
+            <tr
+              key={i}
+              onClick={() => onSelect(String(f.field_path))}
+              className="cursor-pointer border-t transition-colors hover:bg-white/5"
+              style={{ borderColor: "var(--color-ground-3)" }}
+              title="Tap for full version history"
+            >
               <td className="py-1.5 font-mono text-xs">{String(f.field_path)}</td>
               <td className="py-1.5">{fmt(f.value)}</td>
               <td className="py-1.5 text-xs" style={{ color: "var(--color-text-mid)" }}>{String(f.channel)}</td>

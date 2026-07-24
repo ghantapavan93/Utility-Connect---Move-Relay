@@ -11,6 +11,9 @@ import {
 import { submitToProvider, reconcile, operationKey } from "./provider-submission";
 import { callProvider, lookupOrder, __simulator } from "./provider-simulator";
 import { buildBriefing } from "./briefing";
+import { publish } from "./outbox";
+import { runProjector } from "./projector";
+import { defineWorkflow, startWorkflow, runWorkflow, signal as signalWorkflow, load as loadWorkflow } from "./workflow";
 
 /**
  * Drives the Maya Patel scenario one deliberate step at a time.
@@ -275,9 +278,18 @@ export async function approveMerge(decisions: Array<{ fieldPath: string; value: 
       stateAfter: { state: "canonical" },
       detail: { fieldsResolved: decisions.map((d) => d.fieldPath) },
     });
+    // The domain event rides the same transaction as the state change.
+    await publish(c, {
+      organizationId: ctx.org,
+      eventType: "move.canonical.approved",
+      aggregateId: ctx.move,
+      payload: { moveId: ctx.move },
+    });
   });
 
-  return { step: "merge", approvedBy: actor, fields: decisions.length };
+  const projected = await runProjector();
+
+  return { step: "merge", approvedBy: actor, fields: decisions.length, timelineEntriesProjected: projected };
 }
 
 /** Generate the source-grounded concierge briefing from canonical rows. */
@@ -306,31 +318,110 @@ export async function generateBriefing() {
   };
 }
 
-/** Submit the electric service, driving the chosen provider scenario. */
+/**
+ * The fulfillment workflow — the durable engine driving the REAL submission.
+ *
+ * The submission itself pauses on ambiguity: when the provider's response is
+ * lost the workflow parks in `waiting_signal` until reconciliation resolves the
+ * truth and signals it forward. A worker restart at any point resumes from the
+ * persisted step. This is the engine and the domain wired together, not two
+ * parallel demos.
+ */
+defineWorkflow({
+  type: "move_fulfillment",
+  steps: [
+    {
+      name: "reserve_service",
+      run: async (wctx) => {
+        const rows = await query<{ id: string }>(
+          `INSERT INTO service_requests (organization_id, move_id, service_type, provider_name)
+           VALUES ($1,$2,'electric','Reliant')
+           ON CONFLICT (move_id, service_type, provider_name)
+             DO UPDATE SET state = service_requests.state
+           RETURNING id`,
+          [String(wctx["organizationId"]), String(wctx["moveId"])],
+        );
+        return { context: { serviceRequestId: rows[0]!.id } };
+      },
+    },
+    {
+      name: "submit_to_provider",
+      run: async (wctx) => {
+        const result = await submitToProvider(
+          {
+            organizationId: String(wctx["organizationId"]),
+            moveId: String(wctx["moveId"]),
+            serviceRequestId: String(wctx["serviceRequestId"]),
+            payload: { service: "electric", address: "1420 Windhaven Pkwy" },
+            correlationId: CORRELATION,
+            actor: "human:concierge-7",
+          },
+          (p) =>
+            callProvider(p, {
+              scenario: (wctx["scenario"] as "ok" | "timeout_after_create") ?? "timeout_after_create",
+              requestKey: REQUEST_KEY,
+              serviceType: "electric",
+              now: NOW,
+            }),
+        );
+        if (result.state === "unknown") {
+          // Truth is at the provider. Park until reconciliation finds it.
+          return { wait: "reconciliation", output: { state: result.state } };
+        }
+        return { output: { state: result.state, providerOrderId: result.providerOrderId } };
+      },
+    },
+    {
+      name: "record_outcome",
+      run: async (wctx) => {
+        const sig = wctx["signal:reconciliation"] as { providerOrderId?: string } | undefined;
+        return { output: { providerOrderId: sig?.providerOrderId ?? null, resolvedVia: sig ? "reconciliation" : "direct" } };
+      },
+    },
+  ],
+});
+
+/** Find or start the fulfillment execution for the demo move. */
+async function fulfillmentExecution(org: string, move: string, scenario: string): Promise<string> {
+  const existing = await query<{ id: string }>(
+    `SELECT id FROM workflow_executions
+      WHERE workflow_type = 'move_fulfillment' AND subject_id = $1`,
+    [move],
+  );
+  if (existing[0]) return existing[0].id;
+  return startWorkflow(org, "move_fulfillment", move, {
+    organizationId: org,
+    moveId: move,
+    scenario,
+  });
+}
+
+/** Submit the electric service — through the durable workflow engine. */
 export async function submitElectric(scenario: "ok" | "timeout_after_create" = "timeout_after_create") {
   const ctx = await ids();
   if (!ctx?.move) throw new Error("run create_move first");
 
-  const sr = (
-    await query<{ id: string }>(
-      `INSERT INTO service_requests (organization_id, move_id, service_type, provider_name)
-       VALUES ($1,$2,'electric','Reliant')
-       ON CONFLICT (move_id, service_type, provider_name) DO UPDATE SET state = service_requests.state
-       RETURNING id`,
-      [ctx.org, ctx.move],
-    )
-  )[0]!.id;
+  const executionId = await fulfillmentExecution(ctx.org, ctx.move, scenario);
+  const exec = await runWorkflow(executionId);
 
-  const result = await submitToProvider(
-    {
-      organizationId: ctx.org, moveId: ctx.move, serviceRequestId: sr,
-      payload: { service: "electric", address: "1420 Windhaven Pkwy" },
-      correlationId: CORRELATION, actor: "human:concierge-7",
-    },
-    (p) => callProvider(p, { scenario, requestKey: REQUEST_KEY, serviceType: "electric", now: NOW }),
+  const submission = await query<{ state: string; provider_order_id: string | null }>(
+    `SELECT ps.state, ps.provider_order_id
+       FROM provider_submissions ps
+       JOIN service_requests sr ON sr.id = ps.service_request_id
+      WHERE sr.move_id = $1 AND sr.service_type = 'electric'`,
+    [ctx.move],
   );
 
-  return { step: "submit", serviceRequestId: sr, ...result, providerOrders: __simulator.size() };
+  const projected = await runProjector();
+
+  return {
+    step: "submit",
+    state: submission[0]?.state ?? "pending",
+    providerOrderId: submission[0]?.provider_order_id ?? null,
+    workflow: { state: exec.state, waitingFor: exec.waiting_for, executionId },
+    providerOrders: __simulator.size(),
+    timelineEntriesProjected: projected,
+  };
 }
 
 /** Attempt a naive retry — proves the system refuses it. */
@@ -378,7 +469,35 @@ export async function runReconciliation() {
     () => lookupOrder(REQUEST_KEY),
   );
 
-  return { step: "reconcile", ...outcome, providerOrders: __simulator.size() };
+  // Reconciliation is the signal the parked fulfillment workflow is waiting
+  // for. Deliver it and let the workflow run to completion.
+  let workflowState: string | null = null;
+  const exec = await query<{ id: string }>(
+    `SELECT id FROM workflow_executions
+      WHERE workflow_type = 'move_fulfillment' AND subject_id = $1`,
+    [ctx.move],
+  );
+  if (exec[0]) {
+    const loaded = await loadWorkflow(exec[0].id);
+    if (loaded.state === "waiting_signal" && loaded.waiting_for === "reconciliation") {
+      const done = await signalWorkflow(exec[0].id, "reconciliation", {
+        providerOrderId: outcome.providerOrderId,
+      });
+      workflowState = done.state;
+    } else {
+      workflowState = loaded.state;
+    }
+  }
+
+  const projected = await runProjector();
+
+  return {
+    step: "reconcile",
+    ...outcome,
+    workflow: workflowState ? { state: workflowState } : null,
+    providerOrders: __simulator.size(),
+    timelineEntriesProjected: projected,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -167,7 +167,23 @@ export async function customerView(moveId: string) {
     .filter((c) => !resolvedSet.has(c.field_path) && CUSTOMER_ALLOW.has(c.field_path))
     .map((c) => `Please confirm your ${(LABELS[c.field_path] ?? c.field_path).toLowerCase()}.`);
 
-  return { audience: "customer", details, services, needsYou };
+  // The projected timeline read model — built asynchronously from domain
+  // events by the outbox projector, already in customer language. The words
+  // "unknown", "retry", and "blocked" cannot appear here because the projector
+  // never writes them.
+  const timeline = await query<{
+    headline: string;
+    detail: string | null;
+    tone: string;
+    occurred_at: string;
+  }>(
+    `SELECT headline, detail, tone, occurred_at
+       FROM customer_timeline_entries WHERE move_id = $1
+      ORDER BY occurred_at, id`,
+    [moveId],
+  );
+
+  return { audience: "customer", details, services, needsYou, timeline };
 }
 
 /** Customer-facing status. Never exposes 'unknown', 'failed', or error categories. */

@@ -157,6 +157,7 @@ function CustomerView({ d }: { d: Record<string, unknown> }) {
   const details = (d.details as Array<{ label: string; value: unknown }>) ?? [];
   const services = (d.services as Array<{ service: string; status: string }>) ?? [];
   const needsYou = (d.needsYou as string[]) ?? [];
+  const timeline = (d.timeline as Array<{ headline: string; detail: string | null; tone: string }>) ?? [];
 
   return (
     <div className="space-y-4">
@@ -183,6 +184,35 @@ function CustomerView({ d }: { d: Record<string, unknown> }) {
           <ul className="space-y-1 text-sm" style={{ color: "var(--color-text-mid)" }}>
             {needsYou.map((n, i) => <li key={i}>• {n}</li>)}
           </ul>
+        </Panel>
+      )}
+
+      {timeline.length > 0 && (
+        <Panel title="Your move so far">
+          <ol className="space-y-3">
+            {timeline.map((t, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span
+                  aria-hidden
+                  className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold"
+                  style={{
+                    background: t.tone === "done" ? "var(--color-state-verified)" : "var(--color-ground-3)",
+                    color: t.tone === "done" ? "white" : "var(--color-text-mid)",
+                  }}
+                >
+                  {t.tone === "done" ? "✓" : "·"}
+                </span>
+                <div>
+                  <div className="text-sm font-medium">{t.headline}</div>
+                  {t.detail && <div className="text-xs" style={{ color: "var(--color-text-lo)" }}>{t.detail}</div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-3 text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+            Built asynchronously from domain events by the outbox projector — already in
+            customer language. The system&rsquo;s internal states never reach this list.
+          </p>
         </Panel>
       )}
 
