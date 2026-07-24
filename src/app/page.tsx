@@ -2,76 +2,63 @@ import Link from "next/link";
 import { Constellation3D } from "@/components/Constellation3D";
 import { Reveal } from "@/components/Reveal";
 import { SiteNav } from "@/components/SiteNav";
+import { HowItWorks } from "@/components/HowItWorks";
+import { Industries } from "@/components/Industries";
 
 /**
- * Screen 1 — the premium public entry.
+ * The redesigned Utility Connect experience.
  *
- * Built to Utility Connect's own visual DNA: bold uppercase headlines, a single
- * cyan accent word, pill buttons, a deep navy ground. The hero is the 3D Handoff
- * Constellation — their orbiting-particle logo made functional. Every claim on
- * the page is demonstrable in the live demo or explicitly labelled as vision.
+ * It mirrors their real marketing site section-for-section — hero, how it works
+ * (customer/partner), the numbers, the features, the industries they name, the
+ * reviews, the about — and elevates each with the project's motion language and
+ * the 3D handoff network. Woven into the middle is the one thing their public
+ * site does not show: the Platform. That is where the working Move Relay product
+ * lives, so the redesign is simultaneously a faithful marketing site and an
+ * interactive product demonstration.
  */
 export default function Home() {
   return (
     <>
       <SiteNav />
       <main>
-        {/* Hero */}
+        {/* ── Hero ─────────────────────────────────────────────── */}
         <section className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-center px-6 pt-20">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10"
-            style={{
-              background:
-                "radial-gradient(60% 50% at 70% 30%, color-mix(in oklab, var(--color-state-verified) 12%, transparent), transparent)",
-            }}
+            style={{ background: "radial-gradient(60% 50% at 72% 32%, color-mix(in oklab, var(--color-state-verified) 13%, transparent), transparent)" }}
           />
-          <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_1fr]">
+          <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_1fr]">
             <div>
               <Reveal>
-                <span
-                  className="inline-block rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest"
-                  style={{ borderColor: "var(--color-ground-3)", color: "var(--color-state-verified)" }}
-                >
-                  Verified handoff infrastructure
+                <span className="inline-block rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-state-verified)" }}>
+                  Concierge · Technology · Verified handoffs
                 </span>
               </Reveal>
               <Reveal delay={0.05}>
                 <h1 className="mt-5 text-5xl font-bold uppercase leading-[1.02] tracking-tight sm:text-6xl">
-                  One move.
-                  <br />
-                  Every handoff{" "}
-                  <span style={{ color: "var(--color-state-verified)" }}>verified.</span>
+                  Compare all home services{" "}
+                  <span style={{ color: "var(--color-state-verified)" }}>in one place.</span>
                 </h1>
               </Reveal>
               <Reveal delay={0.1}>
                 <p className="mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                  One move arrives through a partner API, a CSV, and the customer&rsquo;s own
-                  form — and no two agree. Move Relay turns those contradictions into a
-                  single provenance-aware record: visible, attributable, reversible,
-                  verifiable. AI accelerates the people. It never becomes the source of truth.
+                  Simplify your move and save time. Compare providers, hear special offers,
+                  and connect every essential service — with a dedicated concierge and a
+                  platform that keeps every handoff visible, attributable, and verified.
                 </p>
               </Reveal>
               <Reveal delay={0.15}>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <Link
-                    href="/demo"
-                    className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5"
-                    style={{ background: "var(--color-state-verified)", color: "white" }}
-                  >
-                    Run the live demo
+                  <Link href="/connect-flow" className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)", color: "white" }}>
+                    Set up services
                   </Link>
-                  <Link
-                    href="/architecture"
-                    className="rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-colors hover:border-white"
-                    style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }}
-                  >
-                    See the architecture
+                  <Link href="/dashboard" className="rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-colors hover:border-white" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }}>
+                    Explore the platform
                   </Link>
                 </div>
               </Reveal>
             </div>
-
             <Reveal delay={0.2}>
               <Constellation3D
                 converged
@@ -88,94 +75,164 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Stat band */}
+        {/* ── How it works ─────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-20">
+          <Reveal>
+            <SectionHead eyebrow="Get started today" title={<>How Utility Connect <Accent>works</Accent></>} />
+          </Reveal>
+          <div className="mt-10">
+            <HowItWorks />
+          </div>
+        </section>
+
+        {/* ── Stat band ────────────────────────────────────────── */}
         <section className="border-y" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-10 sm:grid-cols-4">
             {[
-              { n: "51", l: "tests passing" },
-              { n: "11", l: "DB guarantees proven" },
-              { n: "0", l: "duplicate orders created" },
-              { n: "3", l: "audiences, safely projected" },
+              { n: "18", l: "Home services" },
+              { n: "9", l: "Partner industries" },
+              { n: "1", l: "Verified move record" },
+              { n: "0", l: "Duplicate orders" },
             ].map((s, i) => (
               <Reveal key={s.l} delay={i * 0.05}>
                 <div>
-                  <div className="text-4xl font-bold" style={{ color: "var(--color-state-verified)" }}>
-                    {s.n}
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-wide" style={{ color: "var(--color-text-lo)" }}>
-                    {s.l}
-                  </div>
+                  <div className="text-4xl font-bold" style={{ color: "var(--color-state-verified)" }}>{s.n}</div>
+                  <div className="mt-1 text-xs uppercase tracking-wide" style={{ color: "var(--color-text-lo)" }}>{s.l}</div>
                 </div>
               </Reveal>
             ))}
           </div>
         </section>
 
-        {/* The story spine */}
+        {/* ── Features ─────────────────────────────────────────── */}
         <section className="mx-auto max-w-6xl px-6 py-20">
           <Reveal>
-            <h2 className="text-3xl font-bold uppercase tracking-tight sm:text-4xl">
-              The failure is the <span style={{ color: "var(--color-state-conflict)" }}>product.</span>
-            </h2>
-            <p className="mt-3 max-w-2xl text-lg" style={{ color: "var(--color-text-mid)" }}>
-              Their own Terms of Service say the customer contracts directly with the
-              provider. So a lost response doesn&rsquo;t mean the order failed — it means we
-              don&rsquo;t know. Here is what the system does about that.
-            </p>
+            <SectionHead eyebrow="Just to list a few" title={<>Features Utility Connect <Accent>offers</Accent></>} />
           </Reveal>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {SPINE.map((step, i) => (
-              <Reveal key={step.k} delay={i * 0.06}>
-                <div className="h-full rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
-                  <div className="mb-3 h-1 w-10 rounded-full" style={{ background: step.c }} />
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: step.c }}>
-                    {step.tag}
-                  </div>
-                  <h3 className="mb-2 text-lg font-semibold">{step.k}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                    {step.v}
-                  </p>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f, i) => (
+              <Reveal key={f.title} delay={(i % 3) * 0.05}>
+                <div className="h-full rounded-xl border p-5" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+                  <div className="mb-2 text-xl" aria-hidden style={{ color: "var(--color-state-verified)" }}>{f.glyph}</div>
+                  <h3 className="mb-1.5 text-sm font-semibold">{f.title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-lo)" }}>{f.body}</p>
                 </div>
               </Reveal>
             ))}
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="mx-auto max-w-6xl px-6 pb-24">
+        {/* ── The Platform — Move Relay woven in ───────────────── */}
+        <section className="border-y" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <Reveal>
+              <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+                The platform · built and functioning
+              </span>
+              <h2 className="mt-3 max-w-3xl text-3xl font-bold uppercase tracking-tight sm:text-4xl">
+                Every move becomes a living, <Accent>verified</Accent> record.
+              </h2>
+              <p className="mt-3 max-w-2xl text-lg" style={{ color: "var(--color-text-mid)" }}>
+                Behind the concierge is Move Relay — a working system where a move arrives from
+                many channels, conflicts are resolved by a human, and a provider timeout is
+                recovered without ever creating a duplicate order. Real code, real database, 51 tests.
+              </p>
+            </Reveal>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {PLATFORM.map((p, i) => (
+                <Reveal key={p.title} delay={i * 0.05}>
+                  <Link href={p.href as never} className="group block h-full rounded-xl border p-5 transition-colors hover:border-white" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}>
+                    <div className="mb-2 h-1 w-8 rounded-full" style={{ background: "var(--color-state-verified)" }} />
+                    <h3 className="mb-1 text-sm font-semibold">{p.title}</h3>
+                    <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-lo)" }}>{p.body}</p>
+                    <span className="mt-3 inline-block text-xs font-semibold" style={{ color: "var(--color-state-verified)" }}>
+                      Open →
+                    </span>
+                  </Link>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Industries ───────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-20">
           <Reveal>
-            <div
-              className="grid place-items-center rounded-3xl border px-6 py-16 text-center"
-              style={{
-                borderColor: "var(--color-ground-3)",
-                background:
-                  "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, var(--color-state-verified) 14%, var(--color-ground-1)), var(--color-ground-1))",
-              }}
-            >
+            <SectionHead eyebrow="Let us add value" title={<>Industries we <Accent>work with</Accent></>} />
+          </Reveal>
+          <div className="mt-10">
+            <Industries />
+          </div>
+        </section>
+
+        {/* ── Reviews ──────────────────────────────────────────── */}
+        <section className="border-t" style={{ borderColor: "var(--color-ground-3)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <Reveal>
+              <SectionHead eyebrow="What movers say" title={<>Recent customer <Accent>reviews</Accent></>} />
+            </Reveal>
+            <div className="mt-10 grid gap-4 md:grid-cols-3">
+              {REVIEWS.map((r, i) => (
+                <Reveal key={r.name} delay={i * 0.06}>
+                  <figure className="h-full rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+                    <div className="mb-3" style={{ color: "var(--color-state-verified)" }}>★★★★★</div>
+                    <blockquote className="text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>&ldquo;{r.quote}&rdquo;</blockquote>
+                    <figcaption className="mt-3 text-xs font-semibold" style={{ color: "var(--color-text-lo)" }}>— {r.name}</figcaption>
+                  </figure>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── CTA ──────────────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-20">
+          <Reveal>
+            <div className="grid place-items-center rounded-3xl border px-6 py-16 text-center" style={{ borderColor: "var(--color-ground-3)", background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, var(--color-state-verified) 14%, var(--color-ground-1)), var(--color-ground-1))" }}>
               <h2 className="max-w-2xl text-3xl font-bold uppercase tracking-tight sm:text-4xl">
-                Watch one move survive a lost provider response.
+                Get your own Utility Connect account.
               </h2>
               <p className="mt-3 max-w-xl" style={{ color: "var(--color-text-mid)" }}>
-                Ten steps, real database, real state. The retry gets blocked. No duplicate.
-                The existing order is recovered. Every transition is in the audit trail.
+                Ready to get the ball rolling? Bring the concierge and the verified platform to
+                your brand.
               </p>
-              <Link
-                href="/demo"
-                className="mt-8 rounded-full px-8 py-3.5 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5"
-                style={{ background: "var(--color-state-verified)", color: "white" }}
-              >
-                Run the demo
-              </Link>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <Link href="/connect-flow" className="rounded-full px-8 py-3.5 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)", color: "white" }}>
+                  Get started
+                </Link>
+                <Link href="/demo" className="rounded-full border px-8 py-3.5 text-sm font-semibold uppercase tracking-wide" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }}>
+                  Watch the live demo
+                </Link>
+              </div>
             </div>
           </Reveal>
         </section>
 
-        <footer className="border-t" style={{ borderColor: "var(--color-ground-3)" }}>
-          <div className="mx-auto max-w-6xl px-6 py-8 text-xs" style={{ color: "var(--color-text-lo)" }}>
-            A hypothesis-driven, additive product layer based on public workflows. Not a
-            claim that Utility Connect currently lacks any capability shown here. All demo
-            data is synthetic.
+        {/* ── Footer ───────────────────────────────────────────── */}
+        <footer className="border-t" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+          <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 sm:grid-cols-4">
+            <div className="sm:col-span-1">
+              <div className="text-sm font-bold tracking-tight">MOVE<span style={{ color: "var(--color-state-verified)" }}>RELAY</span></div>
+              <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
+                A redesign of Utility Connect, with the platform made visible.
+              </p>
+            </div>
+            {FOOTER.map((col) => (
+              <div key={col.head}>
+                <div className="mb-3 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-lo)" }}>{col.head}</div>
+                <ul className="space-y-2 text-sm">
+                  {col.links.map((l) => (
+                    <li key={l.label}>
+                      <Link href={l.href as never} style={{ color: "var(--color-text-mid)" }} className="transition-colors hover:text-white">{l.label}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="border-t px-6 py-5 text-center text-xs" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-lo)" }}>
+            A hypothesis-driven, additive redesign based on public workflows. Not affiliated with
+            Utility Connect. All demo data is synthetic.
           </div>
         </footer>
       </main>
@@ -183,23 +240,43 @@ export default function Home() {
   );
 }
 
-const SPINE = [
-  {
-    tag: "Ingest",
-    k: "Three doors, one human",
-    v: "Partner API, CSV, and the customer form arrive with contradictory values. Deterministic scoring identifies the duplicate despite a mistyped phone digit.",
-    c: "var(--color-state-transit)",
-  },
-  {
-    tag: "Resolve",
-    k: "A human decides. AI cannot.",
-    v: "Conflicts surface field by field with provenance. The merge requires a named concierge — enforced by a database constraint, not a policy.",
-    c: "var(--color-state-verified)",
-  },
-  {
-    tag: "Recover",
-    k: "Unknown, not failed",
-    v: "The provider times out after creating the order. The system blocks a blind retry, reconciles against the provider, and recovers the existing order. One order, never two.",
-    c: "var(--color-state-conflict)",
-  },
+function SectionHead({ eyebrow, title }: { eyebrow: string; title: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>{eyebrow}</div>
+      <h2 className="mt-2 text-3xl font-bold uppercase tracking-tight sm:text-4xl">{title}</h2>
+    </div>
+  );
+}
+
+function Accent({ children }: { children: React.ReactNode }) {
+  return <span style={{ color: "var(--color-state-verified)" }}>{children}</span>;
+}
+
+const FEATURES = [
+  { glyph: "☎", title: "Concierge", body: "A trained moving expert who supports you through the whole journey." },
+  { glyph: "✦", title: "Promotions & specials", body: "The best products and offers for your new home, tailored to your lifestyle." },
+  { glyph: "✉", title: "USPS mail forwarding", body: "Your concierge forwards your mail on your behalf." },
+  { glyph: "◈", title: "Community resources", body: "Get to know your new schools, parks, and neighborhood." },
+  { glyph: "✓", title: "Moving checklist", body: "A detailed checklist so nothing slips before moving day." },
+  { glyph: "▤", title: "Provider summary", body: "A written summary of selections and account numbers for your records." },
+];
+
+const PLATFORM = [
+  { title: "Operator dashboard", body: "Live figures from real database counts.", href: "/dashboard" },
+  { title: "Live workflow", body: "Ten steps: ingest → conflict → merge → timeout → recover.", href: "/demo" },
+  { title: "Three audiences", body: "One record, safely projected for each viewer.", href: "/views" },
+  { title: "Architecture", body: "Six risk-bearing decisions, each enforced by a test.", href: "/architecture" },
+];
+
+const REVIEWS = [
+  { name: "Heather M.", quote: "Professional and very friendly. So easy to get our utilities set up. Fantastic service." },
+  { name: "Alli M.", quote: "Amazing to work with. Explained all our options in detail so we knew everything available." },
+  { name: "Justin S.", quote: "Buying a home and moving is stressful — this made it so much easier. Much appreciated." },
+];
+
+const FOOTER = [
+  { head: "Company", links: [ { label: "About", href: "/future" }, { label: "Careers", href: "/future" }, { label: "Become a vendor", href: "/future" }, { label: "Branding", href: "/architecture" } ] },
+  { head: "Platform", links: [ { label: "Dashboard", href: "/dashboard" }, { label: "Live demo", href: "/demo" }, { label: "Audiences", href: "/views" } ] },
+  { head: "Get started", links: [ { label: "Set up services", href: "/connect-flow" }, { label: "Partner with us", href: "/connect-flow" }, { label: "Future vision", href: "/future" } ] },
 ];
