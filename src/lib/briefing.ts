@@ -120,15 +120,21 @@ export async function buildBriefing(orgId: string, moveId: string): Promise<Brie
     }
   }
 
-  // Services requested, from the customer form specifically.
-  const services = fields
-    .filter((f) => f.field_path.startsWith("services"))
-    .map((f) => String(f.value));
-  if (services.length) {
-    const uniqueServices = [...new Set(services)];
+  // Services requested. Each channel stored its own list, so flatten every
+  // list into individual service names and dedupe — otherwise the briefing
+  // reads "electric,internet, electric, electric,internet,security" instead of
+  // the actual set of distinct services.
+  const serviceRows = fields.filter((f) => f.field_path.startsWith("services"));
+  const serviceNames = new Set<string>();
+  for (const row of serviceRows) {
+    const v = row.value;
+    if (Array.isArray(v)) for (const s of v) serviceNames.add(String(s));
+    else if (typeof v === "string") serviceNames.add(v.replace(/^"|"$/g, ""));
+  }
+  if (serviceNames.size) {
     claims.push({
-      text: `Services requested: ${uniqueServices.join(", ")}.`,
-      sourceFieldIds: fields.filter((f) => f.field_path.startsWith("services")).map((f) => f.id),
+      text: `Services requested: ${[...serviceNames].sort().join(", ")}.`,
+      sourceFieldIds: serviceRows.map((f) => f.id),
       verification: "customer_confirmed",
       kind: "known",
     });
