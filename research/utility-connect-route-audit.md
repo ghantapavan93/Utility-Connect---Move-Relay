@@ -144,12 +144,32 @@ That is the whole argument. It never requires a claim about their internals.
 
 ---
 
+---
+
+## R4 — `/priv` Privacy Policy · R5 — `/tos` Terms of Use
+
+Both audited 2026-07-23. **Highest-value pages on the site.** Note the real paths are
+`/priv` and `/tos`; `/privacy-policy` returns a 404 shell. `[FACT]`
+
+Full extraction and analysis lives in
+[`public-facts-vs-assumptions.md`](public-facts-vs-assumptions.md). Summary of what they
+changed:
+
+| Finding | Effect |
+|---|---|
+| UC technology is hosted on third-party partner sites, and PII is shared back to the "Hosting Business" | Multi-surface capture **and** partner projection go `[INFER]` → `[FACT]` |
+| Partners submit name, email, both addresses, phone, relocation dates — overlapping the customer form almost exactly | The duplicate/conflict condition is documented, not assumed |
+| Providers contract directly with the customer; UC "facilitates" and is "not responsible for the performance of any service provider" | UC is **not** the system of record for an order. Reconciliation-after-timeout is architecturally necessary |
+| SSN is collected from registered users | PII minimisation in AI prompts becomes a real hazard, not a teaching example |
+| Consent is scoped to four named purposes, per-channel, revocable by 7 keywords, deletion in 7–30 business days | A boolean consent flag is insufficient. Consent ledger justified |
+| Google Analytics Remarketing, Display Network, DoubleClick | Tracking surface noted |
+
 ## Not yet audited
 
 - `WHO WE WORK WITH` dropdown → 9 industry pages
 - `SIGN UP` dropdown targets
-- Careers · Become A Vendor · Branding · Internships · Contact Us
-- Terms of Use · Privacy Policy — **high value**, likely names data handling and sharing
+- `/ccpa` — referenced by the privacy policy
+- Careers · Become A Vendor · **Branding** (needed for brand tokens) · Internships · Contact Us
 - `EN` localization behaviour
 - Mobile / tablet / ultra-wide layouts
 - Validation, error, empty, and success states
