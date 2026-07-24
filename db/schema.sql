@@ -361,4 +361,24 @@ CREATE TABLE auth_tuples (
 
 CREATE INDEX auth_tuples_object_idx ON auth_tuples (object, relation);
 
+-- ---------------------------------------------------------------------------
+-- Contract quarantine
+-- ---------------------------------------------------------------------------
+
+-- A payload that fails its channel contract is not dropped and not force-fed
+-- into the pipeline — it is quarantined with its reasons, visible, and
+-- resolvable. One drifting partner integration can produce thousands of bad
+-- records before anyone notices; the quarantine is where that noise lands
+-- instead of the canonical store.
+CREATE TABLE quarantined_submissions (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id   UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  channel           channel_type NOT NULL,
+  contract_version  TEXT NOT NULL,
+  payload           JSONB NOT NULL,
+  issues            JSONB NOT NULL,       -- machine-readable validation failures
+  received_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved          BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 COMMIT;

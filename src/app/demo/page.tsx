@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Constellation, type Source } from "@/components/Constellation";
 import { StateBadge, type State } from "@/components/StateBadge";
+import { EngineeringPanel } from "@/components/EngineeringPanel";
 
 /**
  * The demo control room — Screens 2, 3, 4, 6, 9 in one guided flow.
@@ -93,13 +94,17 @@ export default function DemoPage() {
         <p className="mb-3 text-xs" style={{ color: "var(--color-text-lo)" }}>
           Maya Patel · North Texas Realty · synthetic data
         </p>
-        <a
-          href="/views"
-          className="mb-4 inline-block text-xs font-semibold"
-          style={{ color: "var(--color-state-verified)" }}
-        >
-          See this record as concierge / customer / partner →
-        </a>
+        <div className="mb-4 flex flex-col gap-1">
+          <a href="/views" className="text-xs font-semibold" style={{ color: "var(--color-state-verified)" }}>
+            See this record as concierge / customer / partner →
+          </a>
+          <a href="/story" className="text-xs font-semibold" style={{ color: "var(--color-state-transit)" }}>
+            Watch it as a story — The Living Move →
+          </a>
+          <a href="/theater" className="text-xs font-semibold" style={{ color: "var(--color-state-conflict)" }}>
+            Try to break it — Failure Theater →
+          </a>
+        </div>
         <ol className="space-y-1.5">
           {STEPS.map((s) => {
             const complete = done.has(s.key);
@@ -131,6 +136,7 @@ export default function DemoPage() {
 
       {/* Stage */}
       <section className="space-y-6">
+        <EngineeringPanel />
         <div className="grid place-items-center rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
           <Constellation sources={sources} converged={done.has("create_move")} />
           {moveState && (
