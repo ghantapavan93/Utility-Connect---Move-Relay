@@ -4,15 +4,23 @@ import Link from "next/link";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { INDUSTRIES } from "@/lib/industries-data";
+import type { Lang } from "@/lib/site-copy";
 
 /**
  * The marketing header — a faithful match to Utility Connect's own: a dark navy
- * bar, the orbiting-particle mark, a "Who we work with" dropdown, a phone number,
- * and cyan pill buttons. Their nav collapses to a menu; on desktop it lays the
- * items out. This keeps their structure and adds an animated dropdown.
+ * bar, the orbiting-particle mark, a "Who we work with" dropdown, the EN/ES
+ * language selector their site carries, the phone number, and cyan pill
+ * buttons. On mobile it collapses to a hamburger, as theirs does.
  */
-export function MarketingHeader() {
-  const [open, setOpen] = useState(false);
+export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
+  const [industriesOpen, setIndustriesOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const t =
+    lang === "es"
+      ? { who: "Con quién trabajamos", platform: "Plataforma", company: "Compañía", setup: "Configurar servicios", partner: "Sea nuestro socio" }
+      : { who: "Who we work with", platform: "Platform", company: "Company", setup: "Set up services", partner: "Partner with us" };
 
   return (
     <header className="sticky top-0 z-50" style={{ background: "var(--uc-navy-1)" }}>
@@ -24,21 +32,21 @@ export function MarketingHeader() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+        {/* Desktop nav */}
+        <nav className="hidden items-center gap-1 lg:flex">
+          <div className="relative" onMouseEnter={() => setIndustriesOpen(true)} onMouseLeave={() => setIndustriesOpen(false)}>
             <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white/80 hover:text-white">
-              Who we work with
-              <span className="text-xs">▾</span>
+              {t.who} <span className="text-xs" aria-hidden>▾</span>
             </button>
             <AnimatePresence>
-              {open && (
+              {industriesOpen && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute left-0 top-full grid w-[520px] grid-cols-2 gap-1 rounded-xl border p-2 shadow-2xl"
-                  style={{ background: "white", borderColor: "#e3e6ea" }}
+                  className="absolute left-0 top-full grid w-[520px] grid-cols-2 gap-1 rounded-xl border bg-white p-2 shadow-2xl"
+                  style={{ borderColor: "#e3e6ea" }}
                 >
                   {INDUSTRIES.map((i) => (
                     <Link
@@ -47,7 +55,7 @@ export function MarketingHeader() {
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-[#f1f1f1]"
                       style={{ color: "#1a2128" }}
                     >
-                      <span style={{ color: "var(--color-state-verified)" }}>{i.glyph}</span>
+                      <span style={{ color: i.accent }}>{i.glyph}</span>
                       {i.name}
                     </Link>
                   ))}
@@ -57,13 +65,39 @@ export function MarketingHeader() {
           </div>
 
           <Link href="/dashboard" className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white/80 hover:text-white">
-            Platform
+            {t.platform}
           </Link>
           <Link href="/future" className="rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white/80 hover:text-white">
-            Company
+            {t.company}
           </Link>
 
-          <a href="tel:8775879566" className="ml-2 text-sm font-semibold text-white/70">
+          {/* Language selector — theirs is an EN dropdown; so is this. */}
+          <div className="relative" onMouseEnter={() => setLangOpen(true)} onMouseLeave={() => setLangOpen(false)}>
+            <button className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold uppercase tracking-wide text-white/80 hover:text-white">
+              <span aria-hidden>🌐</span> {lang.toUpperCase()} <span className="text-xs" aria-hidden>▾</span>
+            </button>
+            <AnimatePresence>
+              {langOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.16 }}
+                  className="absolute right-0 top-full w-32 rounded-xl border bg-white p-1 shadow-2xl"
+                  style={{ borderColor: "#e3e6ea" }}
+                >
+                  <Link href={{ pathname: "/", query: {} }} className="block rounded-lg px-3 py-2 text-sm hover:bg-[#f1f1f1]" style={{ color: "#1a2128", fontWeight: lang === "en" ? 700 : 400 }}>
+                    English
+                  </Link>
+                  <Link href={{ pathname: "/", query: { lang: "es" } }} className="block rounded-lg px-3 py-2 text-sm hover:bg-[#f1f1f1]" style={{ color: "#1a2128", fontWeight: lang === "es" ? 700 : 400 }}>
+                    Español
+                  </Link>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <a href="tel:8775879566" className="ml-1 text-sm font-semibold text-white/70">
             (877) 587-9566
           </a>
         </nav>
@@ -71,20 +105,80 @@ export function MarketingHeader() {
         <div className="flex items-center gap-2">
           <Link
             href="/connect-flow"
-            className="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-px sm:text-sm"
+            className="hidden rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-px sm:block sm:text-sm"
             style={{ background: "var(--color-state-verified)" }}
           >
-            Set up services
+            {t.setup}
           </Link>
           <Link
             href="/connect-flow"
-            className="hidden rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-wide text-white sm:block"
+            className="hidden rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-wide text-white lg:block"
             style={{ borderColor: "rgba(255,255,255,0.3)" }}
           >
-            Partner with us
+            {t.partner}
           </Link>
+
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            className="grid h-10 w-10 place-items-center rounded-lg text-white lg:hidden"
+          >
+            <span aria-hidden className="text-xl">{mobileOpen ? "✕" : "☰"}</span>
+          </button>
         </div>
       </div>
+
+      {/* Mobile panel */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.nav
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden border-t lg:hidden"
+            style={{ borderColor: "rgba(255,255,255,0.12)", background: "var(--uc-navy-1)" }}
+          >
+            <div className="space-y-1 px-6 py-4">
+              {[
+                { href: "/connect-flow", label: t.setup },
+                { href: "/dashboard", label: t.platform },
+                { href: "/story", label: lang === "es" ? "La historia" : "The story" },
+                { href: "/future", label: t.company },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href as never}
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-lg px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-white/85"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <div className="pt-2 text-xs font-semibold uppercase tracking-widest text-white/40">{t.who}</div>
+              <div className="grid grid-cols-2 gap-1">
+                {INDUSTRIES.slice(0, 6).map((i) => (
+                  <Link
+                    key={i.slug}
+                    href={`/industries/${i.slug}` as never}
+                    onClick={() => setMobileOpen(false)}
+                    className="rounded-lg px-3 py-2 text-sm text-white/75"
+                  >
+                    {i.name}
+                  </Link>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <Link href={{ pathname: "/", query: {} }} className="text-sm font-bold text-white/85">EN</Link>
+                <Link href={{ pathname: "/", query: { lang: "es" } }} className="text-sm font-bold text-white/85">ES</Link>
+                <a href="tel:8775879566" className="ml-auto text-sm font-semibold text-white/70">(877) 587-9566</a>
+              </div>
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

@@ -350,6 +350,19 @@ CREATE TABLE outbox_consumers (
   PRIMARY KEY (consumer, event_id)
 );
 
+-- Where events go when a handler throws. Without this table a failing handler
+-- would strand its event invisibly — claimed, unprocessed, and never retried.
+-- A dead letter is visible, carries its error, and is replayable once the
+-- handler is fixed. Silence is the failure mode this table exists to prevent.
+CREATE TABLE dead_letter_events (
+  consumer      TEXT NOT NULL,
+  event_id      BIGINT NOT NULL REFERENCES outbox_events(id) ON DELETE CASCADE,
+  error         TEXT NOT NULL,
+  attempts      INT NOT NULL DEFAULT 1,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (consumer, event_id)
+);
+
 -- ---------------------------------------------------------------------------
 -- Relationship-based authorization
 -- ---------------------------------------------------------------------------

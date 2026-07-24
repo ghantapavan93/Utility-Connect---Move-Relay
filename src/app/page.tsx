@@ -8,6 +8,7 @@ import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
 import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
+import { SITE_COPY, getLang } from "@/lib/site-copy";
 
 /**
  * A faithful clone of the Utility Connect marketing site, in their own light
@@ -18,10 +19,17 @@ import { CountUp } from "@/components/CountUp";
  *
  * The page wraps in .theme-light so the shared components render on white.
  */
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const lang = getLang((await searchParams).lang);
+  const copy = SITE_COPY[lang];
+
   return (
     <div className="theme-light">
-      <MarketingHeader />
+      <MarketingHeader lang={lang} />
       <main>
         {/* ── Hero — navy, mirroring their photo-overlay hero ──── */}
         <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-1)" }}>
@@ -30,25 +38,21 @@ export default function Home() {
             <div>
               <Reveal>
                 <h1 className="text-4xl font-extrabold uppercase leading-[1.05] tracking-tight text-white sm:text-5xl">
-                  Compare all{" "}
-                  <span style={{ color: "var(--color-state-verified)" }}>home services</span>{" "}
-                  in one place
+                  {copy.hero.h1a}{" "}
+                  <span style={{ color: "var(--color-state-verified)" }}>{copy.hero.h1accent}</span>{" "}
+                  {lang === "es" ? "en un solo lugar" : "in one place"}
                 </h1>
               </Reveal>
               <Reveal delay={0.08}>
-                <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/70">
-                  Simplify your move and save time using our integrated platform to compare
-                  providers, hear special offers, and connect all your essential services in
-                  one place — with a dedicated concierge and verified handoffs behind it.
-                </p>
+                <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/70">{copy.hero.p}</p>
               </Reveal>
               <Reveal delay={0.15}>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link href="/connect-flow" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>
-                    Set up services
+                    {copy.hero.ctaPrimary}
                   </Link>
                   <Link href="/connect-flow" className="rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white" style={{ borderColor: "rgba(255,255,255,0.3)" }}>
-                    Partner with us
+                    {copy.hero.ctaSecondary}
                   </Link>
                 </div>
               </Reveal>
@@ -76,9 +80,9 @@ export default function Home() {
         <section className="bg-white">
           <div className="mx-auto max-w-6xl px-6 py-20">
             <Reveal>
-              <Center eyebrow="Get started today" title={<>How Utility Connect <Accent>works</Accent></>} />
+              <Center eyebrow={copy.how.eyebrow} title={<>{copy.how.title} <Accent>{copy.how.titleAccent}</Accent></>} />
             </Reveal>
-            <div className="mt-10"><HowItWorks /></div>
+            <div className="mt-10"><HowItWorks lang={lang} /></div>
           </div>
         </section>
 
@@ -86,7 +90,12 @@ export default function Home() {
         <section style={{ background: "var(--uc-navy-1)" }}>
           <div className="mx-auto max-w-6xl px-6 py-14">
             <div className="grid grid-cols-2 gap-6 text-center text-white sm:grid-cols-4">
-              {STATS.map((s, i) => (
+              {[
+                { value: 846714, label: copy.stats.happy },
+                { value: 3851, label: copy.stats.partners },
+                { value: 14073, label: copy.stats.reviews },
+                { value: 2347485, label: copy.stats.connections },
+              ].map((s, i) => (
                 <Reveal key={s.label} delay={i * 0.05}>
                   <div>
                     <div className="text-3xl font-extrabold sm:text-4xl" style={{ color: "var(--color-state-verified)" }}>
@@ -99,9 +108,7 @@ export default function Home() {
                 </Reveal>
               ))}
             </div>
-            <p className="mt-6 text-center text-[11px] text-white/40">
-              Figures as published on utilityconnect.net. See &ldquo;which number is the source of truth?&rdquo; below.
-            </p>
+            <p className="mt-6 text-center text-[11px] text-white/40">{copy.stats.attribution}</p>
           </div>
         </section>
 
@@ -109,7 +116,7 @@ export default function Home() {
         <section style={{ background: "var(--color-ground-1)" }}>
           <div className="mx-auto max-w-6xl px-6 py-20">
             <Reveal>
-              <Center eyebrow="Just to list a few" title={<>Features Utility Connect <Accent>offers</Accent></>} />
+              <Center eyebrow={copy.features.eyebrow} title={<>{copy.features.title} <Accent>{copy.features.titleAccent}</Accent></>} />
             </Reveal>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f, i) => (
@@ -211,11 +218,11 @@ export default function Home() {
         <section style={{ background: "var(--uc-navy-1)" }}>
           <div className="mx-auto max-w-6xl px-6 py-20 text-center">
             <Reveal>
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight text-white sm:text-4xl">Get your own Utility Connect account.</h2>
-              <p className="mx-auto mt-3 max-w-xl text-white/70">Ready to get the ball rolling? Bring the concierge and the verified platform to your brand.</p>
+              <h2 className="text-3xl font-extrabold uppercase tracking-tight text-white sm:text-4xl">{copy.cta.title}</h2>
+              <p className="mx-auto mt-3 max-w-xl text-white/70">{copy.cta.p}</p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link href="/connect-flow" className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>Get started</Link>
-                <Link href="/demo" className="rounded-full border px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white" style={{ borderColor: "rgba(255,255,255,0.3)" }}>Watch the live demo</Link>
+                <Link href="/connect-flow" className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>{copy.cta.primary}</Link>
+                <Link href="/demo" className="rounded-full border px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white" style={{ borderColor: "rgba(255,255,255,0.3)" }}>{copy.cta.secondary}</Link>
               </div>
             </Reveal>
           </div>
@@ -259,13 +266,6 @@ function Center({ eyebrow, title }: { eyebrow: string; title: React.ReactNode })
 function Accent({ children }: { children: React.ReactNode }) {
   return <span style={{ color: "var(--color-state-verified)" }}>{children}</span>;
 }
-
-const STATS = [
-  { value: 846714, label: "Happy customers" },
-  { value: 3851, label: "Satisfied partners" },
-  { value: 14073, label: "Positive reviews" },
-  { value: 2347485, label: "Total connections" },
-];
 
 const FEATURES = [
   { glyph: "☎", title: "Concierge", body: "A trained moving expert who supports you through the whole journey." },

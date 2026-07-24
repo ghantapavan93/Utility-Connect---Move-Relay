@@ -43,13 +43,27 @@ export default function ReliabilityPage() {
       </Link>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">Reliability</h1>
-        <button
-          onClick={load}
-          className="rounded-full border px-4 py-1.5 text-xs font-semibold"
-          style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}
-        >
-          {loading ? "computing…" : "↻ recompute from rows"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              // The scheduled worker, as a button: drain every UNKNOWN through
+              // provider lookup, then recompute the objectives from rows.
+              await fetch("/api/v1/ops/sweep", { method: "POST" });
+              load();
+            }}
+            className="rounded-full px-4 py-1.5 text-xs font-semibold"
+            style={{ background: "var(--color-state-recovered)", color: "#0b1a12" }}
+          >
+            ⟳ run reconciliation sweep
+          </button>
+          <button
+            onClick={load}
+            className="rounded-full border px-4 py-1.5 text-xs font-semibold"
+            style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}
+          >
+            {loading ? "computing…" : "↻ recompute from rows"}
+          </button>
+        </div>
       </div>
       <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--color-text-lo)" }}>
         {data?.label ?? "Prototype SLOs — project targets computed live from the database."}

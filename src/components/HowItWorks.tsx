@@ -1,29 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { SITE_COPY, type Lang } from "@/lib/site-copy";
 
 /**
  * "How it works" — a faithful reimagining of Utility Connect's own
  * customer/partner toggle, elevated with a motion transition between the two
- * tracks. Their site has this exact FOR CUSTOMERS / FOR PARTNERS switch; this
- * keeps the structure and adds the animated step reveal.
+ * tracks, bilingual like their site, with their "Watch Video" affordance
+ * pointing at The Living Move.
  */
-
-const TRACKS = {
-  customers: [
-    { n: 1, title: "Start enrollment", body: "Submit your details online or over the phone. One form, one place." },
-    { n: 2, title: "Compare service options", body: "A dedicated concierge shops and compares every utility and home service for your address." },
-    { n: 3, title: "We handle the rest", body: "Installations scheduled, a written service summary sent. You move in ready." },
-  ],
-  partners: [
-    { n: 1, title: "Connect your channel", body: "Branded microsite, API, widget, or CSV — refer a client the way that fits your workflow." },
-    { n: 2, title: "Every handoff stays verified", body: "Move Relay preserves who referred whom, through which channel, with attribution intact." },
-    { n: 3, title: "See safe, live status", body: "A partner-safe view of engagement and progress — never another partner's pipeline." },
-  ],
-};
-
-export function HowItWorks() {
+export function HowItWorks({ lang = "en" }: { lang?: Lang }) {
+  const copy = SITE_COPY[lang].how;
+  const TRACKS = { customers: copy.customers, partners: copy.partners };
+  const LABELS = { customers: copy.customersLabel, partners: copy.partnersLabel };
   const [track, setTrack] = useState<"customers" | "partners">("customers");
 
   return (
@@ -44,7 +35,7 @@ export function HowItWorks() {
                 transition={{ type: "spring", stiffness: 400, damping: 32 }}
               />
             )}
-            <span className="relative z-10">For {t}</span>
+            <span className="relative z-10">{LABELS[t]}</span>
           </button>
         ))}
       </div>
@@ -80,6 +71,17 @@ export function HowItWorks() {
             ))}
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* Their "Watch Video" affordance — ours opens the cinematic story. */}
+      <div className="mt-8 text-center">
+        <Link
+          href="/story"
+          className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+          style={{ background: "var(--color-state-verified)" }}
+        >
+          <span aria-hidden>▶</span> {copy.watchStory}
+        </Link>
       </div>
     </div>
   );

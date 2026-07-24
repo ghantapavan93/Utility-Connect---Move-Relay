@@ -85,10 +85,57 @@ export async function dispatch(consumer: string, handler: Handler): Promise<numb
     );
     if (!claimed[0]) continue; // another dispatcher got here first
 
-    await handler(event);
-    processed++;
+    try {
+      await handler(event);
+      processed++;
+    } catch (err) {
+      // A throwing handler must not strand its event invisibly. The claim
+      // stays (so normal dispatch skips it — no hot retry loop) and the event
+      // is recorded as a dead letter with its error, replayable once the
+      // handler is fixed. Failure is visible, never silent.
+      await query(
+        `INSERT INTO dead_letter_events (consumer, event_id, error)
+         VALUES ($1,$2,$3)
+         ON CONFLICT (consumer, event_id)
+           DO UPDATE SET attempts = dead_letter_events.attempts + 1,
+                         error = EXCLUDED.error`,
+        [consumer, event.id, err instanceof Error ? err.message : String(err)],
+      );
+    }
   }
   return processed;
+}
+
+/** Dead letters awaiting a fixed handler. */
+export async function deadLetters(consumer: string) {
+  return query<{ event_id: number; error: string; attempts: number; created_at: string }>(
+    `SELECT event_id, error, attempts, created_at
+       FROM dead_letter_events WHERE consumer = $1 ORDER BY event_id`,
+    [consumer],
+  );
+}
+
+/**
+ * Replay dead letters through a (presumably fixed) handler. Releasing the
+ * claim and the dead-letter row makes the events eligible for normal dispatch
+ * again; the following dispatch reprocesses them with full exactly-once
+ * semantics. Returns how many were released for replay.
+ */
+export async function replayDeadLetters(consumer: string, handler: Handler): Promise<number> {
+  const dead = await deadLetters(consumer);
+  for (const d of dead) {
+    await query(
+      `DELETE FROM dead_letter_events WHERE consumer = $1 AND event_id = $2`,
+      [consumer, d.event_id],
+    );
+    await query(
+      `DELETE FROM outbox_consumers WHERE consumer = $1 AND event_id = $2`,
+      [consumer, d.event_id],
+    );
+  }
+  if (dead.length === 0) return 0;
+  await dispatch(consumer, handler);
+  return dead.length;
 }
 
 /** Events not yet processed by a consumer — the queue-depth metric. */
