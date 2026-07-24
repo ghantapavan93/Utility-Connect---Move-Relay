@@ -164,12 +164,60 @@ changed:
 | Consent is scoped to four named purposes, per-channel, revocable by 7 keywords, deletion in 7–30 business days | A boolean consent flag is insufficient. Consent ledger justified |
 | Google Analytics Remarketing, Display Network, DoubleClick | Tracking surface noted |
 
+## R6 — `/brokers-and-agents` (industry page) · R7 — `/careers` · R8 — `/branding`
+
+Crawled 2026-07-24.
+
+**`/brokers-and-agents`** `[FACT]`
+- Headline: *"Shake up the Real Estate Industry"*
+- Value prop: *"Offer our free relocation tools to help acquire, assist, engage &
+  convert more customers & keep them coming back."*
+- Section **"Your Branded Microsite"** — *"branded microsite with company colors
+  and customization."* Third independent confirmation of white-label. `[FACT]`
+- Partner onboarding stated as: Get Signed Up → Add Your Branding (logo for
+  private labeling) → Refer Your Clients.
+
+**The counter discrepancy just got much larger — and more useful** `[FACT]`
+
+| Metric | Homepage | `/brokers-and-agents` |
+|---|---|---|
+| Happy customers | 1,503 | **846,714** |
+| Satisfied partners | 33 | **3,851** |
+| Positive reviews | 33 | **14,073** |
+| Total connections | 1,503 | **2,347,485** |
+
+The **same four metrics** render **wildly different values on two pages of the
+same site**, same visit. This is not a small rounding drift; it is three orders
+of magnitude. `[FACT]`
+
+Reinforces the marketing-layer observation, and sharpens the *narrative hook*:
+"the same metric shows 1,503 on one page and 846,714 on another — which is the
+source of truth?" is the most concrete possible motivation for a provenance
+platform. **Still marketing-layer only** — it says nothing about internal data
+and must never be presented as if it does. See ADR-007 and
+[`public-facts-vs-assumptions.md`](public-facts-vs-assumptions.md).
+
+**`/careers`** `[FACT]`
+- *"Join Our Team… The Fastest Growing Company In The Relocation Industry!"*
+- Culture: *"a happy customer… is a happy employee"*, *"simplicity is the new
+  standard! We are the experience!"*
+- Open roles include **engineering and design internships** and an Internet
+  Marketing Manager — they hire technical people directly. Relevant framing for
+  the application: the company already invests in engineering talent.
+
+**`/branding`** `[FACT]`
+- Public tagline used in the page title: *"Demo The Top Relocation Industry
+  Technology."*
+- Brand statement: *"bringing consumers and providers together under your brand."*
+- No public hex values or a formal brand book on the page; the logo is served as
+  `logo.png`. Brand colours were therefore taken by measurement (see
+  `docs/DESIGN_SYSTEM.md`), not from a published guide.
+
 ## Not yet audited
 
-- `WHO WE WORK WITH` dropdown → 9 industry pages
-- `SIGN UP` dropdown targets
-- `/ccpa` — referenced by the privacy policy
-- Careers · Become A Vendor · **Branding** (needed for brand tokens) · Internships · Contact Us
+- Remaining 8 industry pages (property managers, mortgage & title, builders,
+  movers, inspectors, apartment locators, transaction coordinators, municipalities)
+- `SIGN UP` dropdown targets · `/ccpa` · Become A Vendor · Internships · Contact Us
 - `EN` localization behaviour
 - Mobile / tablet / ultra-wide layouts
 - Validation, error, empty, and success states

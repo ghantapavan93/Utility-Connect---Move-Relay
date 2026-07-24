@@ -5,6 +5,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
 import { FrontDoor } from "@/components/FrontDoor";
+import { HeroBackdrop } from "@/components/HeroBackdrop";
 
 /**
  * The redesigned Utility Connect experience.
@@ -24,11 +25,7 @@ export default function Home() {
       <main>
         {/* ── Hero ─────────────────────────────────────────────── */}
         <section className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-center px-6 pt-20">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 -z-10"
-            style={{ background: "radial-gradient(60% 50% at 72% 32%, color-mix(in oklab, var(--color-state-verified) 13%, transparent), transparent)" }}
-          />
+          <HeroBackdrop />
           <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_1fr]">
             <div>
               <Reveal>
@@ -121,6 +118,44 @@ export default function Home() {
               </Reveal>
             ))}
           </div>
+        </section>
+
+        {/* ── The provenance hook — a real observation ──────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <Reveal>
+            <div className="rounded-3xl border p-8 sm:p-12" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+              <div className="grid items-center gap-8 lg:grid-cols-[1fr_1fr]">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-conflict)" }}>
+                    Why provenance
+                  </div>
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                    Which number is the source of truth?
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+                    Two pages of a single site show the same metric — happy customers —
+                    with very different values. When one fact can arrive from several
+                    places, the question that matters is not <em>what</em> the value is, but{" "}
+                    <em>where it came from</em>. That is the whole idea behind Move Relay.
+                  </p>
+                  <p className="mt-3 text-xs" style={{ color: "var(--color-text-lo)" }}>
+                    A public marketing-page observation only. Not a claim about any internal
+                    system.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border p-5 text-center" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-text-hi)" }}>1,503</div>
+                    <div className="mt-1 text-xs" style={{ color: "var(--color-text-lo)" }}>on one page</div>
+                  </div>
+                  <div className="rounded-xl border p-5 text-center" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}>
+                    <div className="text-3xl font-bold" style={{ color: "var(--color-state-conflict)" }}>846,714</div>
+                    <div className="mt-1 text-xs" style={{ color: "var(--color-text-lo)" }}>on another</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </section>
 
         {/* ── The Platform — Move Relay woven in ───────────────── */}
