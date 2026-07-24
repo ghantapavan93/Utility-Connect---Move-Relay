@@ -49,6 +49,17 @@ which downstream action relied on it.
    rate limiting, queue coordination only. Correctness must survive cache eviction.
 6. **Every claim is tagged** `[FACT]` / `[INFER]` / `[ASSUME]` / `[HYPO]`.
    Never silently promote an assumption to a fact.
+6a. **Every demo element carries one of three labels**, never blurred:
+   **BUILT AND FUNCTIONING** (real code, real DB, covered by tests) ·
+   **INTERACTIVE CONCEPT** (explorable, not wired to a backend) ·
+   **FUTURE HYPOTHESIS** (reasoned about, not built).
+6b. **Documents state conclusions, not their derivation.** Write in one
+   authoritative voice as a single reasoned product and engineering vision.
+   No meta-commentary about where a requirement came from, no "the brief says",
+   no references to prior discussion or to how the strategy was assembled.
+   Research documents cite *public sources* — that is evidence, and required.
+   Provenance of the company's data is the product; provenance of the project's
+   own planning is noise.
 7. **Never fabricate** candidate project details, metrics, or architecture.
    Write `Candidate must supply evidence here.` instead.
 8. All demo data is synthetic. Never submit real info to utilityconnect.net.
@@ -76,8 +87,11 @@ React Three Fiber (**exactly one** signature 3D experience).
 **Deliberately deferred, with reasons in ADRs:** RAG (v1 briefing generates from
 structured DB rows) · vector DB · MCP server (read-only, optional) · agents.
 Matter.js/Phaser only if a contained simulation justifies it. **Vanta.js: no.**
-`MLKill` / `TailSkill` were mentioned but are unrecognised — **do not install
-anything under those names; confirm with Pavan first.**
+
+**In and justified:** `sonner` (async provider and reconciliation events need
+non-blocking notification) · `vaul` (mobile: tap a field, drawer of source
+history, no route change) · `@electric-sql/pglite` (embedded Postgres so the
+proof runs with no Docker and no server).
 
 No new library without: stated purpose, non-duplication check, performance
 estimate, and an ADR entry.
@@ -96,7 +110,12 @@ glassmorphism · endless rounded cards · purple-blue "AI" palettes · meaningle
 particle fields · oversized empty hero copy · robot/chat icons · motion that does
 not communicate system state.
 
-Palette derives from Utility Connect's navy/teal, refined into real tokens.
+Palette is measured from their live site, not approximated: primary `#0087B5`
+(cyan-blue), ground `#1A2128`, body `#5C5E64`. `#0087B5` carries exactly one
+meaning here — **verified**. Conflict is amber, not red: a conflict needs
+judgement, it is not a failure. Full tokens in `docs/DESIGN_SYSTEM.md`.
+
+Motion: sub-280ms, `ease-out`, `transform`/`opacity` only, 60fps, interruptible.
 Mobile must work with **no 3D**. Reduced-motion must be honoured.
 
 ## Demo scenario — memorise this
@@ -127,14 +146,33 @@ The timeout is the centrepiece. It is the one real failure and recovery.
 
 ## Current milestone
 
-**Phase 0 — Research.** Not frozen. No application code yet.
+**Deadline: 2026-07-26 23:59 CT.** Scope frozen to the central story spine.
 
-Done: git init · scaffold · homepage + `/connect` + `/partnership` crawled ·
-`research/utility-connect-route-audit.md`.
+**BUILT AND FUNCTIONING — 35 tests green (`npm run verify`)**
+- `db/schema.sql` — provenance, consent, idempotency, append-only audit
+- 11 schema guarantees proven by SQL that must be rejected
+- `ingestion.ts` — deterministic duplicate detection and conflict surfacing
+- `provider-submission.ts` — UNKNOWN state, blocked retry, reconciliation
+- `provider-simulator.ts` — six failure modes, own ledger separate from ours
+- `scenario.test.ts` — the entire demo narrative, 21 tests, real Postgres
+- Design tokens, Next 16 skeleton, dual pg/PGlite backend
 
-Next: finish route audit (industry pages, privacy policy, careers, mobile) →
-`public-facts-vs-assumptions.md` → six-perspective analysis → red-team →
-**Phase 1 product freeze**. No major coding before the freeze.
+**NEXT, in order**
+1. REST API routes (`/api/v1/...`) + demo orchestration endpoint
+2. Screen 1 entry · Screen 3 conflict · Screen 6 resilience · Screen 9 audit
+3. Grounded concierge briefing + `ai_runs` wiring
+4. Docs, deploy, demo package
+
+Screens 2/4/5/7/8 ship functional, not polished. Network Launchpad and Service
+Continuity Graph ship as **INTERACTIVE CONCEPT** / **FUTURE HYPOTHESIS**.
+
+## Business value
+
+No invented metrics, ever. Instrumentation instead — see `docs/BUSINESS_VALUE.md`.
+Six categories, each signal tagged INSTRUMENTED / DERIVABLE / REQUIRES COMPANY
+DATA, every baseline explicitly unknown. The headline operational metric is
+`provider.retry.blocked` — a direct count of duplicate provider orders that did
+not happen.
 
 ## Known limitations — state these honestly, never hide them
 

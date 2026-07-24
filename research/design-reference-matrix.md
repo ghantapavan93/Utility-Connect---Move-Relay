@@ -23,14 +23,14 @@ reasons:
 1. **Their job is to impress. Ours is to be trusted.** A portfolio wants you to feel
    something. An operational integrity console wants you to believe a number. Opposite
    burdens of proof.
-2. **Their motion is expressive. Ours must be diagnostic.** The brief bans "motion that
-   does not communicate system state." Most SOTD motion is, by design, exactly that.
+2. **Their motion is expressive. Ours must be diagnostic.** This product bans motion
+   that does not communicate system state. Most SOTD motion is, by design, exactly that.
 3. **They carry almost no data density.** Move Relay's hardest screens are field-level
    conflict tables and audit timelines. Portfolio sites solve no comparable problem.
 
 Copying that aesthetic onto a provenance platform produces a beautiful site a CTO
-distrusts within ten seconds. That is the specific failure the brief's red-teamer warns
-about: *"Is the visual design masking weak engineering?"*
+distrusts within ten seconds. That is the specific failure the red-team review exists to
+catch: *is the visual design masking weak engineering?*
 
 **Correct use of Awwwards: craft technique, not information architecture.** Study easing
 curves, typographic scale, scroll choreography, and 60fps discipline. Take none of the
@@ -92,8 +92,8 @@ Scored 1–5 on what we should *learn* from each, not on how good they are overa
 
 **No reference scores above 3 on 3D.** Serious operational software essentially never
 uses 3D. That is a warning, not a gap in the market: the Handoff Constellation must earn
-its place by rendering real demo state, or it becomes the exact decoration the brief
-bans. It is the project's largest design risk. See ADR-005.
+its place by rendering real demo state, or it becomes exactly the decoration this
+product bans. It is the largest design risk here. See ADR-005.
 
 ---
 
@@ -112,7 +112,7 @@ Five recurring properties. These become the design system's acceptance tests.
 5. **Empty, loading, and error states are designed.** This is the clearest tell. Generated
    work ships the happy path only. Resend and Sentry treat failure as a first-class screen.
 
-Property 5 maps directly onto the brief's centrepiece: our most important screen is a
+Property 5 maps directly onto this product's centrepiece: the most important screen is a
 timeout. **The failure state is the product.**
 
 ---
@@ -131,7 +131,7 @@ timeout. **The failure state is the product.**
 - **3D:** exactly one instance. Renders live demo state. Static image fallback on mobile
   and under `prefers-reduced-motion`. Never blocks a CTA.
 
-## Banned, per brief — restated as review checklist
+## Banned — review checklist
 
 Neon gradients · floating glowing spheres · heavy glassmorphism · endless rounded cards ·
 purple-blue "AI" palettes · decorative particle fields · oversized empty hero copy ·
@@ -140,10 +140,7 @@ libraries used because they exist.
 
 Add one, from the analysis above: **no colour that carries no meaning.**
 
-## Open — needs Pavan's input
+## Open
 
-- Exact navy/teal values from Utility Connect brand assets. Their `/branding` page is not
-  yet audited.
+- Their `/branding` page is not yet audited and may publish official brand assets.
 - Whether to match their existing typeface or deliberately diverge.
-- `MLKill` and `TailSkill` remain unidentified. Nothing will be installed under those
-  names. Confirm what was meant.

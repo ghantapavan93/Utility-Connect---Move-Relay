@@ -163,8 +163,13 @@ Never assume these. Never imply the prototype fills these gaps.
 - Whether provider submissions are automated or concierge-manual
 - Real provider APIs, contracts, SLAs, error semantics
 - Actual volumes, conversion, partner mix, revenue model
-- VendorHub, LeadingRE partnership, founder background — **user has not supplied this
-  material yet**; `leadership-and-product-signals.md` cannot be written honestly without it
+- Exact technical implementation, commercial terms, adoption volume, or integration
+  state behind the LeadingRE relationship. The partnership itself is public; nothing
+  about how it is wired is. Treated as a strategic signal only — see
+  `leadership-and-product-signals.md`
+- VendorHub's stack, production status, data model, pricing, customer count, or
+  corporate relationship to Utility Connect. Its stated purpose is public; none of
+  the above is
 - Whether a partner microsite is a subdomain, a full domain, or an embed
 
 ## The argument, in five lines

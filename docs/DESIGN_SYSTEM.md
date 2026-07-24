@@ -8,7 +8,8 @@ principles. Every value below is measured or cited, not invented.
 
 ## 1. Their actual brand — measured, not guessed
 
-The brief said "navy/teal". **The measurement says otherwise.** Correcting the record:
+Utility Connect reads at a glance as a navy-and-teal brand. **The measurement
+says otherwise**, and the difference matters enough to build on:
 
 | Role | Measured value | Hex | Usage count |
 |---|---|---|---|
@@ -124,9 +125,10 @@ Emil is a Design Engineer at **Linear**, previously **Vercel** — reference #1 
 6. **Honour `prefers-reduced-motion`** — fall back to opacity-only.
 7. **Only animate where it enriches information or indicates a state change.**
 
-Rule 7 *is* the brief's own rule — "motion that does not communicate system state" is
-banned — arrived at independently. That agreement is the strongest evidence we have that
-the motion principle is correct.
+Rule 7 is the one that governs this product. Motion that does not communicate
+system state is banned outright, and rule 7 states the same constraint from a
+craft direction rather than an architectural one. Two independent routes to the
+same conclusion is the strongest evidence available that it is the right one.
 
 His article **"You Don't Need Animations"** is the counterweight. Default to none.
 
@@ -170,8 +172,7 @@ Everything else: no animation.
 `@react-three/fiber` is deferred to Phase 3, gated on ADR-005.
 
 **Not adopted:** Vanta.js (banned by brief). Matter.js / Phaser (no justified contained
-simulation yet). **`TailSkill` remains unidentified** — likely another transcription
-artefact. Nothing will be installed under that name.
+simulation yet).
 
 ## 8. Accessibility floor
 
