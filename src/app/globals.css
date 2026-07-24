@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* Move Relay design tokens.
+   Brand values measured from utilityconnect.net on 2026-07-23 by sampling
+   computed styles across 996 DOM elements. See docs/DESIGN_SYSTEM.md. */
+
+@theme {
+  /* Ground — dark-first, as every serious operational console is */
+  --color-ground-0: #12171c;
+  --color-ground-1: #1a2128; /* measured from their site */
+  --color-ground-2: #202830; /* measured */
+  --color-ground-3: #2a333d;
+
+  --color-text-hi: #e8eaed;
+  --color-text-mid: #9ba1a9;
+  --color-text-lo: #5f636a; /* measured */
+
+  /* Their brand primary. Here it carries exactly one meaning: verified.
+     Scarcity is what gives it meaning. */
+  --color-state-verified: #0087b5; /* measured — the Utility Connect blue */
+  --color-state-pending: #8a8f98;
+  --color-state-conflict: #e8a33d; /* amber, not red: a conflict needs judgement,
+                                      it is not a failure */
+  --color-state-transit: #4da8c8;
+  --color-state-failed: #e5484d;
+  --color-state-recovered: #3da76a;
+  --color-state-locked: #a78bfa;
+
+  /* Motion — Emil Kowalski's rules. Nothing exceeds 280ms. */
+  --ease-out-relay: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout-relay: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+:root {
+  --dur-instant: 100ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-slow: 280ms;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ground-0);
+  color: var(--color-text-hi);
+  /* Tabular numerals throughout. This product is timestamps, correlation IDs and
+     version counters in aligned columns; proportional figures visibly jitter
+     between rows in the audit timeline. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Rule 6: honour reduced motion. Fall back to opacity only, never to nothing —
+   a state change that becomes invisible is worse than one that animates. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
