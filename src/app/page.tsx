@@ -6,6 +6,8 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
 import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
+import { TrustStrip } from "@/components/TrustStrip";
+import { CountUp } from "@/components/CountUp";
 
 /**
  * A faithful clone of the Utility Connect marketing site, in their own light
@@ -65,6 +67,9 @@ export default function Home() {
               />
             </Reveal>
           </div>
+          <div className="relative">
+            <TrustStrip />
+          </div>
         </section>
 
         {/* ── How it works — white ─────────────────────────────── */}
@@ -77,22 +82,26 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── Stats — cyan band ────────────────────────────────── */}
-        <section style={{ background: "var(--color-state-verified)" }}>
-          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-12 text-white sm:grid-cols-4">
-            {[
-              { n: "18", l: "Home services" },
-              { n: "9", l: "Partner industries" },
-              { n: "24/7", l: "Concierge support" },
-              { n: "1", l: "Verified move record" },
-            ].map((s, i) => (
-              <Reveal key={s.l} delay={i * 0.05}>
-                <div className="text-center">
-                  <div className="text-4xl font-extrabold">{s.n}</div>
-                  <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-white/80">{s.l}</div>
-                </div>
-              </Reveal>
-            ))}
+        {/* ── Stats — count-up band, mirroring theirs ──────────── */}
+        <section style={{ background: "var(--uc-navy-1)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-14">
+            <div className="grid grid-cols-2 gap-6 text-center text-white sm:grid-cols-4">
+              {STATS.map((s, i) => (
+                <Reveal key={s.label} delay={i * 0.05}>
+                  <div>
+                    <div className="text-3xl font-extrabold sm:text-4xl" style={{ color: "var(--color-state-verified)" }}>
+                      <CountUp to={s.value} />
+                    </div>
+                    <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-white/70">
+                      {s.label}
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+            <p className="mt-6 text-center text-[11px] text-white/40">
+              Figures as published on utilityconnect.net. See &ldquo;which number is the source of truth?&rdquo; below.
+            </p>
           </div>
         </section>
 
@@ -250,6 +259,13 @@ function Center({ eyebrow, title }: { eyebrow: string; title: React.ReactNode })
 function Accent({ children }: { children: React.ReactNode }) {
   return <span style={{ color: "var(--color-state-verified)" }}>{children}</span>;
 }
+
+const STATS = [
+  { value: 846714, label: "Happy customers" },
+  { value: 3851, label: "Satisfied partners" },
+  { value: 14073, label: "Positive reviews" },
+  { value: 2347485, label: "Total connections" },
+];
 
 const FEATURES = [
   { glyph: "☎", title: "Concierge", body: "A trained moving expert who supports you through the whole journey." },

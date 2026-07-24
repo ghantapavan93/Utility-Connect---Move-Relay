@@ -49,31 +49,37 @@ export function HowItWorks() {
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <AnimatePresence mode="wait">
-          {TRACKS[track].map((step, i) => (
-            <motion.div
-              key={`${track}-${step.n}`}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.26, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-2xl border p-6"
-              style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}
-            >
-              <div
-                className="mb-3 grid h-10 w-10 place-items-center rounded-full text-lg font-bold"
-                style={{ background: "color-mix(in oklab, var(--color-state-verified) 16%, transparent)", color: "var(--color-state-verified)" }}
+      {/* Connecting timeline — a line with a node above each step, like theirs */}
+      <div className="relative">
+        <div className="absolute left-[16.66%] right-[16.66%] top-5 hidden h-px md:block" style={{ background: "var(--color-ground-3)" }} />
+        <div className="relative grid gap-4 md:grid-cols-3">
+          <AnimatePresence mode="wait">
+            {TRACKS[track].map((step, i) => (
+              <motion.div
+                key={`${track}-${step.n}`}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.26, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col items-center text-center"
               >
-                {step.n}
-              </div>
-              <h3 className="mb-1.5 text-lg font-semibold">{step.title}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                {step.body}
-              </p>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                {/* node on the line */}
+                <div
+                  className="relative z-10 mb-5 grid h-10 w-10 place-items-center rounded-full ring-4"
+                  style={{ background: "var(--color-state-verified)", color: "white", ...( { "--tw-ring-color": "var(--color-ground-0)" } as React.CSSProperties) }}
+                >
+                  <span className="text-sm font-bold">{step.n}</span>
+                </div>
+                <div className="rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}>
+                  <h3 className="mb-1.5 text-lg font-semibold" style={{ color: "var(--color-text-hi)" }}>{step.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+                    {step.body}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
