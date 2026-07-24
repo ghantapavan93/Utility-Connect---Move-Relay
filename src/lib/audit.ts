@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { Queryable } from "./db";
 
 /**
  * Append-only audit log.
@@ -49,7 +49,7 @@ export function redact(
 }
 
 export async function recordAudit(
-  client: PoolClient,
+  client: Queryable,
   input: AuditInput,
 ): Promise<void> {
   await client.query(

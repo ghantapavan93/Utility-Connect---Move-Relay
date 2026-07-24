@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import type { PoolClient } from "pg";
-import { withTransaction } from "./db";
+import { withTransaction, type Queryable } from "./db";
 import { recordAudit } from "./audit";
 
 /**
@@ -359,7 +358,7 @@ export interface ProviderResponse {
   raw: Record<string, unknown>;
 }
 
-interface ProviderSubmissionRow {
+export interface ProviderSubmissionRow {
   id: string;
   state: string;
   provider_order_id: string | null;
@@ -367,4 +366,4 @@ interface ProviderSubmissionRow {
   attempt: number;
 }
 
-export type { PoolClient };
+export type { Queryable };
