@@ -201,6 +201,32 @@ advice, not an action).
 
 ---
 
+## 9 · The restart that never happened
+
+**Component** dev tooling · `/api/v1/health`
+
+**What happened.** For several sessions, "restart the dev server" used `pkill -f
+"next dev"` from a POSIX shell — which does not kill Windows processes. The
+server kept running for hours; Next hot-reloaded the *code*, so everything
+looked fresh, but the in-memory embedded database still held the **old schema**.
+The first live call against a new column failed with "column does not exist"
+while all 76 tests and the production build were green.
+
+**How it was caught.** The health endpoint reported `uptime_s: 12662` on a
+server that was "just restarted." One observability field contradicted the
+assumption and exposed the whole class of error: *code reloads, state does not.*
+
+**Correction.** Kill by port ownership (`Get-NetTCPConnection` → `Stop-Process`)
+and verify the restart by checking `uptime_s` afterwards — which is now part of
+the live-verification habit.
+
+**The lesson, again.** Green tests and a green build did not mean a working
+server. Entries 6, 7, and now 9 all reduce to the same discipline: **run the
+thing and look at what it actually reports.** The health endpoint paid for
+itself the first week it existed.
+
+---
+
 ## What this ledger is really claiming
 
 Not that the AI was wrong and a human was right. That the two together produced

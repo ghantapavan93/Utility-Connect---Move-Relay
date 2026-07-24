@@ -284,7 +284,26 @@ export async function approveMerge(decisions: Array<{ fieldPath: string; value: 
 export async function generateBriefing() {
   const ctx = await ids();
   if (!ctx?.move) throw new Error("run create_move first");
-  return { step: "briefing", ...(await buildBriefing(ctx.org, ctx.move)) };
+  const briefing = await buildBriefing(ctx.org, ctx.move);
+
+  // Pass the claims through the AI Gateway. With ANTHROPIC_API_KEY set this is
+  // a real model call behind the grounding guards; without it, the deterministic
+  // claims serve — and the response says which happened. Never hidden.
+  const { renderBriefingNarrative } = await import("./briefing");
+  const narrative = await renderBriefingNarrative(briefing, ctx.org, ctx.move);
+
+  return {
+    step: "briefing",
+    ...briefing,
+    narrative: {
+      mode: narrative.mode,
+      model: narrative.model,
+      promptVersion: narrative.promptVersion,
+      lines: narrative.narrative,
+      droppedUngrounded: narrative.droppedUngrounded,
+      latencyMs: narrative.latencyMs,
+    },
+  };
 }
 
 /** Submit the electric service, driving the chosen provider scenario. */

@@ -240,6 +240,12 @@ CREATE TABLE ai_runs (
   input_field_ids   UUID[] NOT NULL,       -- exactly which field_versions were shown
   output            JSONB NOT NULL,
   grounded          BOOLEAN NOT NULL,      -- did every claim cite an input field?
+  -- True when the model path failed (timeout, invalid output, no key) and the
+  -- deterministic path served instead. Fallbacks are recorded, never hidden —
+  -- the fallback rate is an operational metric, not an embarrassment.
+  fallback          BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Latency, token usage, dropped-claim count. Cost visibility per run.
+  metrics           JSONB,
   human_decision    TEXT,                  -- 'accepted' | 'edited' | 'rejected'
   human_actor       TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()

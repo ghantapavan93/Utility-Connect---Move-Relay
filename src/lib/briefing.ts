@@ -201,15 +201,28 @@ export async function buildBriefing(orgId: string, moveId: string): Promise<Brie
 }
 
 /**
- * Future LLM seam. Given the deterministic briefing, a model may only rephrase
- * claims it is handed, and must return, per output sentence, the source field
- * ids it used. Any sentence without a citation is discarded before display.
+ * The LLM seam, now live through the AI Gateway.
  *
- * Left unimplemented on purpose: v1 ships the grounded, testable version.
+ * The contract holds exactly as documented: the model may only rephrase claims
+ * it is handed; every output sentence must cite source field ids drawn from the
+ * input; uncited sentences are dropped before display; PII is masked before the
+ * input leaves the process; and on timeout, invalid output, or no configured
+ * key, the deterministic claims serve unchanged. Every run — model or fallback —
+ * is recorded in ai_runs with its metrics. See ai-gateway.ts and ADR-004.
  */
-export async function renderNarrative(_briefing: Briefing): Promise<never> {
-  throw new Error(
-    "LLM narrative rendering is a future version. v1 briefings are deterministic and grounded.",
+export async function renderBriefingNarrative(
+  briefing: Briefing,
+  organizationId: string,
+  moveId: string | null,
+) {
+  const { renderNarrative } = await import("./ai-gateway");
+  return renderNarrative(
+    briefing.claims.map((c) => ({
+      text: c.text,
+      sourceFieldIds: c.sourceFieldIds,
+      kind: c.kind,
+    })).filter((c) => c.sourceFieldIds.length > 0),
+    { organizationId, moveId },
   );
 }
 
