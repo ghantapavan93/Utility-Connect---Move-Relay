@@ -4,6 +4,7 @@ import { Reveal } from "@/components/Reveal";
 import { SiteNav } from "@/components/SiteNav";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
+import { FrontDoor } from "@/components/FrontDoor";
 
 /**
  * The redesigned Utility Connect experience.
@@ -153,6 +154,11 @@ export default function Home() {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* ── Front door modernization ─────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-20">
+          <FrontDoor />
         </section>
 
         {/* ── Industries ───────────────────────────────────────── */}
