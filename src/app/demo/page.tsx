@@ -90,9 +90,16 @@ export default function DemoPage() {
       {/* Step rail */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <h1 className="mb-1 text-lg font-semibold tracking-tight">Move Relay — live demo</h1>
-        <p className="mb-4 text-xs" style={{ color: "var(--color-text-lo)" }}>
+        <p className="mb-3 text-xs" style={{ color: "var(--color-text-lo)" }}>
           Maya Patel · North Texas Realty · synthetic data
         </p>
+        <a
+          href="/views"
+          className="mb-4 inline-block text-xs font-semibold"
+          style={{ color: "var(--color-state-verified)" }}
+        >
+          See this record as concierge / customer / partner →
+        </a>
         <ol className="space-y-1.5">
           {STEPS.map((s) => {
             const complete = done.has(s.key);
