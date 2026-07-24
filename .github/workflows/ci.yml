@@ -1,0 +1,42 @@
+# CI — every push proves the claims.
+#
+# The same three commands a reviewer is told to run locally, run automatically:
+# typecheck, the 11 schema-guarantee checks against an embedded Postgres, and the
+# 51-test suite. If any invariant the docs claim is broken by a commit, the badge
+# goes red. That is what makes the documentation trustworthy.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Schema guarantees (11 constraints that must reject)
+        run: node scripts/verify-constraints.mjs
+
+      - name: Test suite
+        run: npx vitest run
+        env:
+          RELAY_DB: embedded
+
+      - name: Production build
+        run: npx next build
+        env:
+          RELAY_DB: embedded
