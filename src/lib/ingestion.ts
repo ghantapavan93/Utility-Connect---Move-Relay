@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { Queryable } from "./db";
 import { recordAudit } from "./audit";
 
 /**
@@ -244,7 +244,7 @@ export function detectConflicts(candidates: FieldCandidate[]): FieldConflict[] {
 // --- persistence ----------------------------------------------------------
 
 export async function persistCandidates(
-  client: PoolClient,
+  client: Queryable,
   opts: { organizationId: string; moveId: string; correlationId: string },
   candidates: FieldCandidate[],
 ): Promise<void> {
