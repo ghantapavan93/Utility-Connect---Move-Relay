@@ -4,7 +4,9 @@
 
 BEGIN;
 
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- No pgcrypto. gen_random_uuid() has been in Postgres core since 13, so
+-- requiring the extension bought nothing and cost portability: it is absent from
+-- PGlite, which is what lets this schema run with no Docker and no server.
 
 -- ---------------------------------------------------------------------------
 -- Tenancy
