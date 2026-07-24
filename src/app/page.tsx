@@ -5,6 +5,7 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
 import { FrontDoor } from "@/components/FrontDoor";
+import { HomeScene } from "@/components/HomeScene";
 
 /**
  * A faithful clone of the Utility Connect marketing site, in their own light
@@ -22,7 +23,7 @@ export default function Home() {
       <main>
         {/* ── Hero — navy, mirroring their photo-overlay hero ──── */}
         <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-1)" }}>
-          <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(70% 60% at 75% 30%, color-mix(in oklab, var(--color-state-verified) 22%, transparent), transparent 70%)" }} />
+          <HomeScene />
           <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-6 py-20 lg:grid-cols-[1.05fr_1fr] lg:py-28">
             <div>
               <Reveal>

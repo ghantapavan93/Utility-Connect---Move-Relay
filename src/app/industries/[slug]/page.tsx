@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { SiteNav } from "@/components/SiteNav";
+import { MarketingHeader } from "@/components/MarketingHeader";
 import { Reveal } from "@/components/Reveal";
 import { INDUSTRIES, getIndustry } from "@/lib/industries-data";
 
@@ -25,9 +25,9 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
   const others = INDUSTRIES.filter((i) => i.slug !== slug).slice(0, 6);
 
   return (
-    <>
-      <SiteNav />
-      <main className="mx-auto max-w-5xl px-6 pb-24 pt-28">
+    <div className="theme-light" style={{ background: "var(--color-ground-0)", minHeight: "100dvh" }}>
+      <MarketingHeader />
+      <main className="mx-auto max-w-5xl px-6 pb-24 pt-16">
         {/* Hero */}
         <Reveal>
           <Link href="/#industries" className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
@@ -153,6 +153,6 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
           </p>
         )}
       </main>
-    </>
+    </div>
   );
 }
