@@ -111,6 +111,12 @@ CREATE TABLE field_versions (
   is_canonical       BOOLEAN NOT NULL DEFAULT FALSE,
   selected_by        TEXT,                 -- actor id; NULL until chosen
   selection_reason   TEXT,
+  -- Bitemporal split. recorded_at is SYSTEM time: when we learned the value.
+  -- valid_at is VALID time: when the fact was true in the world, where known.
+  -- The two answer different questions — "what did we believe on Tuesday?"
+  -- (recorded_at) vs "when did her move date actually change?" (valid_at) —
+  -- and conflating them is how a workflow acts on stale truth undetected.
+  valid_at           TIMESTAMPTZ,
   recorded_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

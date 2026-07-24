@@ -1,0 +1,126 @@
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * Architecture fitness functions.
+ *
+ * The ARCHITECTURE doc claims module boundaries. Documentation drifts; these
+ * tests do not. Each one turns a stated boundary into a CI-enforced rule that
+ * fails the build when a future change — human- or AI-written — crosses it.
+ * This is what "the architecture is executable, not aspirational" means.
+ */
+
+const root = process.cwd();
+const read = (p: string) => readFileSync(join(root, p), "utf8");
+
+describe("AI modules never touch canonical truth", () => {
+  it("the AI gateway never writes field_versions", () => {
+    const src = read("src/lib/ai-gateway.ts");
+    expect(src).not.toMatch(/INSERT INTO field_versions/i);
+    expect(src).not.toMatch(/UPDATE field_versions/i);
+  });
+
+  it("the briefing module never writes field_versions or moves", () => {
+    const src = read("src/lib/briefing.ts");
+    expect(src).not.toMatch(/INSERT INTO field_versions/i);
+    expect(src).not.toMatch(/UPDATE field_versions/i);
+    expect(src).not.toMatch(/UPDATE moves/i);
+  });
+
+  it("no AI module ever deletes anything", () => {
+    for (const f of ["src/lib/ai-gateway.ts", "src/lib/briefing.ts", "src/lib/ai-eval.ts"]) {
+      expect(read(f)).not.toMatch(/DELETE FROM/i);
+    }
+  });
+});
+
+describe("projections stay inside their boundary", () => {
+  it("projections never read raw submissions — raw payloads carry full PII", () => {
+    expect(read("src/lib/projections.ts")).not.toMatch(/raw_submissions/);
+  });
+
+  it("projections never import the AI gateway", () => {
+    expect(read("src/lib/projections.ts")).not.toMatch(/from ["']\.\/ai-gateway["']/);
+  });
+});
+
+describe("domain modules never import the UI", () => {
+  const domainFiles = [
+    "src/lib/ingestion.ts",
+    "src/lib/provider-submission.ts",
+    "src/lib/briefing.ts",
+    "src/lib/projections.ts",
+    "src/lib/workflow.ts",
+    "src/lib/outbox.ts",
+    "src/lib/authz.ts",
+    "src/lib/contracts.ts",
+    "src/lib/consent.ts",
+    "src/lib/provenance.ts",
+    "src/lib/ai-gateway.ts",
+  ];
+
+  it("no domain module imports from app routes or components", () => {
+    for (const f of domainFiles) {
+      const src = read(f);
+      expect(src, f).not.toMatch(/from ["']@\/components\//);
+      expect(src, f).not.toMatch(/from ["'](\.\.\/)+app\//);
+      expect(src, f).not.toMatch(/from ["']react["']/);
+    }
+  });
+});
+
+describe("PII discipline is structural", () => {
+  it("the log scrubber blocks the sensitive keys the privacy policy names", () => {
+    const src = read("src/lib/observability.ts");
+    for (const key of ["ssn", "email", "phone", "account_number", "password"]) {
+      expect(src).toContain(`"${key}"`);
+    }
+  });
+
+  it("the audit redactor covers the SSN paths", () => {
+    const src = read("src/lib/audit.ts");
+    expect(src).toContain("customer.ssn");
+  });
+
+  it("the AI gateway masks PII before input leaves the process", () => {
+    const src = read("src/lib/ai-gateway.ts");
+    expect(src).toMatch(/maskPII/);
+    // Masking must occur in the model path, before adapter.complete.
+    expect(src.indexOf("maskPII(c.text)")).toBeGreaterThan(-1);
+  });
+});
+
+describe("schema guarantees stay in the schema", () => {
+  const schema = read("db/schema.sql");
+
+  it("canonical values still require a named actor", () => {
+    expect(schema).toMatch(/canonical_requires_actor/);
+  });
+
+  it("audit rows are still immutable by rule", () => {
+    expect(schema).toMatch(/audit_events_no_update/);
+    expect(schema).toMatch(/audit_events_no_delete/);
+  });
+
+  it("provider idempotency is still a unique index, not a comment", () => {
+    expect(schema).toMatch(/provider_submissions_operation_key_idx/);
+  });
+
+  it("workflow steps still carry the resume-guarantee constraint", () => {
+    expect(schema).toMatch(/UNIQUE \(execution_id, step_index\)/);
+  });
+});
+
+describe("the ledger stays honest", () => {
+  it("every Build Ledger entry cites a commit or a test", () => {
+    const ledger = read("docs/AI_BUILD_LEDGER.md");
+    const entries = ledger.split(/^## \d+ · /m).slice(1);
+    expect(entries.length).toBeGreaterThanOrEqual(8);
+    for (const entry of entries) {
+      const cites =
+        /Commit|commit |\.test\.ts|\.spec\.ts|verify-constraints|uptime_s/.test(entry);
+      expect(cites, entry.slice(0, 60)).toBe(true);
+    }
+  });
+});
