@@ -18,6 +18,12 @@ export interface Industry {
   valueProp: string;
   note: string;
   benefits: { title: string; body: string }[];
+  /**
+   * Per-industry accent. Utility Connect color-themes each industry page (their
+   * branded-microsite "color theme your page" feature made real): Builders is
+   * green, Home Inspectors teal, and so on. Each page reskins its accent to this.
+   */
+  accent: string;
 }
 
 export const INDUSTRIES: Industry[] = [
@@ -30,6 +36,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Offer our free relocation tools to help acquire, assist, engage & convert more customers — and keep them coming back.",
     note: "Add value beyond the transaction.",
+    accent: "#0087b5",
     benefits: [
       { title: "Get signed up", body: "Submit company details online or by phone." },
       { title: "Add your branding", body: "Your logo, your colors, on your own microsite." },
@@ -44,6 +51,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Rentals and apartments are a hot commodity. Give every resident a concierge move-in that sets your properties apart.",
     note: "A great resident move-in experience.",
+    accent: "#7c4dff",
     benefits: [
       { title: "One handoff per lease", body: "Every new resident routed to a concierge automatically." },
       { title: "Branded to your property", body: "Residents see your brand, not ours." },
@@ -58,6 +66,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Mortgage lenders are restricted in what they can offer. Stand out with a complimentary concierge that costs your borrower nothing.",
     note: "A free concierge that sets you apart.",
+    accent: "#e8a33d",
     benefits: [
       { title: "Compliant by design", body: "A value-add that stays clear of RESPA concerns." },
       { title: "Borrower goodwill", body: "Reduce the stress of the move around closing." },
@@ -72,6 +81,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Developers, builders and HOAs own the presentation. Let us handle the move-in experience so the handover feels effortless.",
     note: "Handle expectations at handover.",
+    accent: "#5aa832",
     benefits: [
       { title: "Community-ready", body: "New owners connected before the keys change hands." },
       { title: "One integration", body: "Wire a whole community in through a single channel." },
@@ -86,6 +96,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Relocating a client has many challenges. Locating the property is your specialty; setting up the home services is ours.",
     note: "You locate; we set up the home.",
+    accent: "#e5484d",
     benefits: [
       { title: "Complementary, not competing", body: "We handle services, never the move itself." },
       { title: "Warm handoff", body: "Your client is expected, not cold-transferred." },
@@ -100,6 +111,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Inspecting a home is vital but rarely celebrated. Add a concierge service that turns a routine touchpoint into a referral.",
     note: "A service they won't stop talking about.",
+    accent: "#12b5b0",
     benefits: [
       { title: "Add-on value", body: "Hand the buyer something memorable after the inspection." },
       { title: "Zero overhead", body: "No cost to you or the buyer." },
@@ -114,6 +126,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "You already locate apartments for busy clients. Offer a concierge to locate their home services too.",
     note: "Concierge for their home services too.",
+    accent: "#d6478f",
     benefits: [
       { title: "Full-service impression", body: "You solved the apartment and the utilities." },
       { title: "Branded microsite", body: "Your locator brand, our concierge engine." },
@@ -128,6 +141,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "You liaise between seller, buyer, agents and third parties. Offer the concierge to take the home-services stress off everyone's plate.",
     note: "Alleviate stress across every party.",
+    accent: "#3d7ae5",
     benefits: [
       { title: "One less handoff to chase", body: "Utilities coordinated without your involvement." },
       { title: "Clean attribution", body: "Referrals traceable across every party." },
@@ -142,6 +156,7 @@ export const INDUSTRIES: Industry[] = [
     valueProp:
       "Cities are often old-school. We integrate our systems into municipal workflows to streamline the enrollment process for city utilities.",
     note: "Integrated enrollment for city utilities.",
+    accent: "#0f9b6c",
     benefits: [
       { title: "Systems integration", body: "Wire municipal enrollment into a modern flow." },
       { title: "Resident-friendly", body: "One intake instead of many forms." },

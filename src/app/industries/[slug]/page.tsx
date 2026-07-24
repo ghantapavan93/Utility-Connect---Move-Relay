@@ -25,7 +25,14 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
   const others = INDUSTRIES.filter((i) => i.slug !== slug).slice(0, 6);
 
   return (
-    <div className="theme-light" style={{ background: "var(--color-ground-0)", minHeight: "100dvh" }}>
+    // Reskin the whole page to this industry's accent by overriding the
+    // verified-state token locally. Utility Connect color-themes each industry
+    // page; this is that, driven by one variable. The state semantics elsewhere
+    // in the app are untouched — this override is scoped to this page.
+    <div
+      className="theme-light"
+      style={{ background: "var(--color-ground-0)", minHeight: "100dvh", ["--color-state-verified" as string]: industry.accent }}
+    >
       <MarketingHeader />
       <main className="mx-auto max-w-5xl px-6 pb-24 pt-16">
         {/* Hero */}
@@ -80,8 +87,32 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
           </div>
         </section>
 
-        {/* Your Branded Microsite — their signature partner promise */}
+        {/* Your Branded Microsite — the four-feature block their pages carry */}
         <section className="mt-16">
+          <Reveal>
+            <div className="text-center">
+              <h2 className="text-2xl font-extrabold uppercase tracking-tight" style={{ color: "var(--color-text-hi)" }}>
+                Your <Accent>branded</Accent> microsite
+              </h2>
+              <div className="mx-auto mt-3 h-1 w-14 rounded-full" style={{ background: "var(--color-state-verified)" }} />
+              <p className="mt-3 text-sm" style={{ color: "var(--color-text-lo)" }}>Extend your brand</p>
+            </div>
+          </Reveal>
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {MICROSITE_FEATURES.map((f, i) => (
+              <Reveal key={f.title} delay={(i % 4) * 0.05}>
+                <div className="text-center">
+                  <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl text-xl" style={{ background: "color-mix(in oklab, var(--color-state-verified) 12%, white)", color: "var(--color-state-verified)" }} aria-hidden>{f.glyph}</div>
+                  <h3 className="mb-1.5 text-sm font-bold" style={{ color: "var(--color-text-hi)" }}>{f.title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-mid)" }}>{f.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* The branded microsite, shown live */}
+        <section className="mt-12">
           <Reveal>
             <div className="overflow-hidden rounded-3xl border" style={{ borderColor: "var(--color-ground-3)" }}>
               <div className="grid gap-8 p-8 sm:p-12 lg:grid-cols-[1fr_1fr]" style={{ background: "radial-gradient(90% 120% at 0% 0%, color-mix(in oklab, var(--color-state-verified) 14%, var(--color-ground-1)), var(--color-ground-1))" }}>
@@ -156,3 +187,14 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
     </div>
   );
 }
+
+function Accent({ children }: { children: React.ReactNode }) {
+  return <span style={{ color: "var(--color-state-verified)" }}>{children}</span>;
+}
+
+const MICROSITE_FEATURES = [
+  { glyph: "◎", title: "Use your company branding", body: "Bolt the concierge onto your existing offering and add value under your brand." },
+  { glyph: "✎", title: "Color theme your page", body: "Style the microsite in your company colors so the two systems look identical." },
+  { glyph: "▣", title: "Customize background", body: "Choose any background you want to put the spotlight on your business." },
+  { glyph: "☎", title: "Unique phone number", body: "A private-labeled, custom-branded phone number routed through our systems." },
+];
