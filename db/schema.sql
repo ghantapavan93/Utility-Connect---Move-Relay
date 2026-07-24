@@ -72,6 +72,11 @@ CREATE TABLE moves (
   organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   reference        TEXT NOT NULL,           -- human-facing, e.g. MR-2026-0001
   state            move_state NOT NULL DEFAULT 'intake',
+  -- Optimistic concurrency. Two concierges editing the same move cannot
+  -- silently overwrite each other: a write must name the version it read, and
+  -- a stale version updates zero rows, which the service layer surfaces as a
+  -- conflict rather than a lost update.
+  version          INT NOT NULL DEFAULT 1,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (organization_id, reference)
@@ -266,5 +271,88 @@ CREATE INDEX audit_events_correlation_idx ON audit_events (correlation_id);
 -- Audit rows are immutable. Enforced, not merely intended.
 CREATE RULE audit_events_no_update AS ON UPDATE TO audit_events DO INSTEAD NOTHING;
 CREATE RULE audit_events_no_delete AS ON DELETE TO audit_events DO INSTEAD NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Durable workflow execution
+-- ---------------------------------------------------------------------------
+
+-- A long-running business workflow persisted as rows, so a crashed worker
+-- resumes exactly where it stopped. This is the pattern engines like Temporal
+-- implement; here it is built directly on Postgres so the mechanism itself is
+-- inspectable. A move may pause for days awaiting a human signal — memory is
+-- not a place to keep that.
+CREATE TABLE workflow_executions (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  workflow_type    TEXT NOT NULL,
+  subject_id       UUID NOT NULL,          -- the aggregate this run is about
+  state            TEXT NOT NULL DEFAULT 'running',
+                   -- running | waiting_signal | completed | failed
+  current_step     INT NOT NULL DEFAULT 0,
+  context          JSONB NOT NULL DEFAULT '{}',
+  waiting_for      TEXT,                   -- signal name while waiting_signal
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- One live execution per subject per workflow type.
+  UNIQUE (workflow_type, subject_id)
+);
+
+-- Each completed step is a row. The unique constraint is the resume guarantee:
+-- a step that already ran cannot record a second completion, so replay after a
+-- crash cannot double side effects.
+CREATE TABLE workflow_steps (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  execution_id   UUID NOT NULL REFERENCES workflow_executions(id) ON DELETE CASCADE,
+  step_index     INT NOT NULL,
+  step_name      TEXT NOT NULL,
+  status         TEXT NOT NULL,            -- completed | failed
+  output         JSONB,
+  completed_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (execution_id, step_index)
+);
+
+-- ---------------------------------------------------------------------------
+-- Transactional outbox
+-- ---------------------------------------------------------------------------
+
+-- Domain events are written in the same transaction as the state change they
+-- describe, then dispatched asynchronously. Publishing directly to a broker
+-- from application code loses events on crash between commit and publish; the
+-- outbox makes the event part of the commit.
+CREATE TABLE outbox_events (
+  id               BIGSERIAL PRIMARY KEY,
+  organization_id  UUID NOT NULL,
+  event_type       TEXT NOT NULL,
+  aggregate_id     UUID,
+  payload          JSONB NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Per-consumer processed set. Delivery is at-least-once; the primary key makes
+-- handling exactly-once per consumer: a redelivered event conflicts here and is
+-- skipped.
+CREATE TABLE outbox_consumers (
+  consumer      TEXT NOT NULL,
+  event_id      BIGINT NOT NULL REFERENCES outbox_events(id) ON DELETE CASCADE,
+  processed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (consumer, event_id)
+);
+
+-- ---------------------------------------------------------------------------
+-- Relationship-based authorization
+-- ---------------------------------------------------------------------------
+
+-- Access in a brokerage network is relational: network → brokerage → office →
+-- agent. A flat role column cannot answer "may this actor see this exact
+-- referral"; relationship tuples can. Same model class as OpenFGA/Zanzibar,
+-- reduced to the relations this domain needs.
+CREATE TABLE auth_tuples (
+  subject   TEXT NOT NULL,   -- 'user:agent-amy' | 'org:office-a'
+  relation  TEXT NOT NULL,   -- 'member' | 'admin' | 'parent' | 'owner'
+  object    TEXT NOT NULL,   -- 'org:office-a' | 'referral:<uuid>'
+  PRIMARY KEY (subject, relation, object)
+);
+
+CREATE INDEX auth_tuples_object_idx ON auth_tuples (object, relation);
 
 COMMIT;
