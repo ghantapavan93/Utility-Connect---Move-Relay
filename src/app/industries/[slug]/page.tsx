@@ -1,0 +1,158 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { SiteNav } from "@/components/SiteNav";
+import { Reveal } from "@/components/Reveal";
+import { INDUSTRIES, getIndustry } from "@/lib/industries-data";
+
+/**
+ * A dedicated page per industry, mirroring Utility Connect's own "Who we work
+ * with" pages: a bold headline, a value proposition, a how-it-works, and their
+ * signature "Your Branded Microsite" section — the white-label promise their
+ * site makes to partners, here made concrete with the measured brand tokens.
+ *
+ * Statically generated for all nine industries.
+ */
+
+export function generateStaticParams() {
+  return INDUSTRIES.map((i) => ({ slug: i.slug }));
+}
+
+export default async function IndustryPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const industry = getIndustry(slug);
+  if (!industry) notFound();
+
+  const others = INDUSTRIES.filter((i) => i.slug !== slug).slice(0, 6);
+
+  return (
+    <>
+      <SiteNav />
+      <main className="mx-auto max-w-5xl px-6 pb-24 pt-28">
+        {/* Hero */}
+        <Reveal>
+          <Link href="/#industries" className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+            ← Who we work with
+          </Link>
+          <div className="mt-4 flex items-center gap-4">
+            <span className="grid h-14 w-14 place-items-center rounded-2xl text-3xl" style={{ background: "color-mix(in oklab, var(--color-state-verified) 14%, transparent)", color: "var(--color-state-verified)" }} aria-hidden>
+              {industry.glyph}
+            </span>
+            <div className="text-sm font-semibold uppercase tracking-wide" style={{ color: "var(--color-text-lo)" }}>
+              {industry.name}
+            </div>
+          </div>
+          <h1 className="mt-5 max-w-3xl text-4xl font-bold uppercase leading-[1.05] tracking-tight sm:text-5xl">
+            {industry.headline}
+            {industry.verbatim && <span className="align-super text-xs" style={{ color: "var(--color-text-lo)" }}> ¹</span>}
+          </h1>
+          <p className="mt-5 max-w-2xl text-lg leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+            {industry.valueProp}
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link href="/connect-flow" className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)", color: "white" }}>
+              Partner with us
+            </Link>
+            <Link href="/demo" className="rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }}>
+              See the platform
+            </Link>
+          </div>
+        </Reveal>
+
+        {/* Benefits */}
+        <section className="mt-16">
+          <Reveal>
+            <h2 className="text-2xl font-bold uppercase tracking-tight">
+              Why <span style={{ color: "var(--color-state-verified)" }}>{industry.name}</span> choose us
+            </h2>
+          </Reveal>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {industry.benefits.map((b, i) => (
+              <Reveal key={b.title} delay={i * 0.06}>
+                <div className="h-full rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+                  <div className="mb-3 grid h-9 w-9 place-items-center rounded-full text-sm font-bold" style={{ background: "color-mix(in oklab, var(--color-state-verified) 16%, transparent)", color: "var(--color-state-verified)" }}>
+                    {i + 1}
+                  </div>
+                  <h3 className="mb-1.5 text-base font-semibold">{b.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>{b.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* Your Branded Microsite — their signature partner promise */}
+        <section className="mt-16">
+          <Reveal>
+            <div className="overflow-hidden rounded-3xl border" style={{ borderColor: "var(--color-ground-3)" }}>
+              <div className="grid gap-8 p-8 sm:p-12 lg:grid-cols-[1fr_1fr]" style={{ background: "radial-gradient(90% 120% at 0% 0%, color-mix(in oklab, var(--color-state-verified) 14%, var(--color-ground-1)), var(--color-ground-1))" }}>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+                    Your branded microsite
+                  </div>
+                  <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                    Your brand on the front. Verified handoffs behind it.
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+                    Refer a client through a microsite on your own domain, in your colors,
+                    with your logo. Every referral that arrives keeps its source, its
+                    channel, and its attribution — so a handoff through your brand stays
+                    traceable all the way to a scheduled install.
+                  </p>
+                </div>
+                {/* A tiny mock browser showing the partner's branded microsite */}
+                <div className="rounded-xl border" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}>
+                  <div className="flex items-center gap-1.5 border-b px-3 py-2" style={{ borderColor: "var(--color-ground-3)" }}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-state-failed)" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-state-conflict)" }} />
+                    <span className="h-2 w-2 rounded-full" style={{ background: "var(--color-state-recovered)" }} />
+                    <span className="ml-2 text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                      move.{industry.slug.replace(/-/g, "")}.com
+                    </span>
+                  </div>
+                  <div className="p-5">
+                    <div className="mb-2 h-2 w-24 rounded-full" style={{ background: "var(--color-state-verified)" }} />
+                    <div className="mb-4 text-sm font-semibold">{industry.name} · move concierge</div>
+                    <div className="space-y-2">
+                      {["Address", "Services", "Contact"].map((f) => (
+                        <div key={f} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-lo)" }}>{f}</div>
+                      ))}
+                    </div>
+                    <div className="mt-3 rounded-full px-3 py-2 text-center text-xs font-semibold" style={{ background: "var(--color-state-verified)", color: "white" }}>
+                      Start my move
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* Other industries */}
+        <section className="mt-16">
+          <Reveal>
+            <h2 className="text-sm font-semibold uppercase tracking-widest" style={{ color: "var(--color-text-lo)" }}>
+              Explore more industries we serve
+            </h2>
+          </Reveal>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {others.map((o, i) => (
+              <Reveal key={o.slug} delay={(i % 3) * 0.05}>
+                <Link href={`/industries/${o.slug}` as never} className="flex items-center gap-3 rounded-xl border p-4 transition-colors hover:border-white" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+                  <span className="text-lg" style={{ color: "var(--color-state-verified)" }} aria-hidden>{o.glyph}</span>
+                  <span className="text-sm font-medium">{o.name}</span>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {industry.verbatim && (
+          <p className="mt-12 text-xs" style={{ color: "var(--color-text-lo)" }}>
+            ¹ Headline as published on utilityconnect.net. Other copy is written in the same
+            voice for this redesign. All data is synthetic; not affiliated with Utility Connect.
+          </p>
+        )}
+      </main>
+    </>
+  );
+}

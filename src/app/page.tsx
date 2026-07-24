@@ -197,7 +197,7 @@ export default function Home() {
         </section>
 
         {/* ── Industries ───────────────────────────────────────── */}
-        <section className="mx-auto max-w-6xl px-6 py-20">
+        <section id="industries" className="mx-auto max-w-6xl px-6 py-20 scroll-mt-20">
           <Reveal>
             <SectionHead eyebrow="Let us add value" title={<>Industries we <Accent>work with</Accent></>} />
           </Reveal>
