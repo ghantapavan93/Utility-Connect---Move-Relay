@@ -31,6 +31,7 @@ export function SiteNav() {
           </span>
         </Link>
         <div className="flex items-center gap-1 text-sm">
+          <NavLink href="/dashboard">Dashboard</NavLink>
           <NavLink href="/demo">Live demo</NavLink>
           <NavLink href="/views">Audiences</NavLink>
           <NavLink href="/architecture">Architecture</NavLink>

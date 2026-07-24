@@ -68,15 +68,19 @@ function SourceNode({
           metalness={0.2}
         />
       </mesh>
-      <Html center distanceFactor={16} position={[0, 0.4, 0]}>
+      {/* drei's Html scales children by distanceFactor / distance, so a SMALL
+          factor keeps labels compact instead of ballooning as the camera nears
+          in a short widget. */}
+      <Html center distanceFactor={7} position={[0, 0.42, 0]} zIndexRange={[10, 0]}>
         <div
           style={{
-            color: "#9ba1a9",
+            color: "#c4c9d0",
             fontSize: 12,
             fontWeight: 600,
             whiteSpace: "nowrap",
             pointerEvents: "none",
-            letterSpacing: "0.02em",
+            letterSpacing: "0.01em",
+            textShadow: "0 1px 3px rgba(0,0,0,0.85)",
           }}
         >
           {source.label}
