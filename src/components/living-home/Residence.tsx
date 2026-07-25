@@ -47,6 +47,30 @@ export const CHAPTER = {
 export const lv = (p: number, [a, b]: readonly [number, number]) =>
   THREE.MathUtils.clamp((p - a) / (b - a), 0, 1);
 
+/**
+ * The height furniture stands at.
+ *
+ * Every piece in Furniture.tsx is authored to stand on y = 0, but the floors
+ * are slabs at y = 0.02 (limestone) and y = 0.03 (oak). Placing furniture at 0
+ * therefore sank all of it 2-3cm into the ground, and in one case sank it
+ * exactly: the counter stool's base was a 2cm disc whose top face landed
+ * precisely on the limestone plane. Two coplanar upward-facing surfaces give
+ * the depth buffer a tie it cannot break, so the winner flipped from frame to
+ * frame and the stools strobed as the camera moved.
+ *
+ * One constant clear of the highest slab fixes the whole class of defect
+ * rather than the one place it happened to become visible.
+ */
+const FURNITURE_Y = 0.034;
+
+/**
+ * Rugs sit 4mm proud of the furniture base, not below it. A rug has thickness,
+ * and a leg standing on one should stop at the pile rather than beside it — so
+ * the bottom few millimetres of each leg pass under the rug plane and the leg
+ * reads as resting on it. Both heights stay clear of both floor slabs.
+ */
+const RUG_Y = 0.038;
+
 // ---------------------------------------------------------------------------
 // Building blocks
 // ---------------------------------------------------------------------------
@@ -438,8 +462,12 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
       {/* ── LIVING — internet and connectivity ───────────────── */}
       {/* sunken seating: sofa, rug, console */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-2.5, 0.04, -1.5]} receiveShadow>
-        <planeGeometry args={[5.4, 4]} />
+      {/* 4.3 wide, not 5.4: at 5.4 this rug ran under the dining rug at the
+          same height, and two coplanar planes overlapping by ~0.5 x 2.2m is the
+          largest depth-fighting surface the scene had. They now stop short of
+          each other with the circulation gap a real room would have. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-2.7, RUG_Y, -1.5]} receiveShadow>
+        <planeGeometry args={[4.3, 4]} />
         <meshStandardMaterial color={MATERIAL.linen} roughness={0.98} />
       </mesh>
       <group position={[-3.6, 0, -3.4]}>
@@ -447,8 +475,11 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           <boxGeometry args={[3.0, 0.4, 1.0]} />
           <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
         </mesh>
+        {/* 2.88 rather than 3.0: a back exactly as wide as the seat puts their
+            end faces on the same plane, and coplanar same-facing surfaces are
+            a depth-buffer tie. Insetting it is also how upholstery is built. */}
         <mesh position={[0, 0.68, -0.42]} castShadow>
-          <boxGeometry args={[3.0, 0.58, 0.2]} />
+          <boxGeometry args={[2.88, 0.58, 0.2]} />
           <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
         </mesh>
       </group>
@@ -596,7 +627,9 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       */}
       <Wall position={[9.2, 1.7, -4.15]} size={[0.3, 3.4, 3.7]} />
       <Wall position={[9.2, 1.7, -0.15]} size={[0.3, 3.4, 2.1]} />
-      <Wall position={[9.2, 2.95, -1.77]} size={[0.3, 0.9, 1.15]} />
+      {/* 0.28 deep, not 0.30 — flush with the wall it sits in would put four
+          faces on two shared planes. */}
+      <Wall position={[9.2, 2.95, -1.77]} size={[0.28, 0.9, 1.15]} />
       {/* door lining, so the opening reads as an opening */}
       {[-2.32, -1.22].map((z) => (
         <mesh key={z} position={[9.2, 1.25, z]} castShadow receiveShadow>
@@ -749,37 +782,37 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           blank plaster because the rooms had walls but nothing in them. */}
 
       {/* Foyer: a runner, a planter, and art to look at on approach */}
-      <Rug position={[-9, 0.04, 3.2]} size={[2.2, 5.5]} color="#cdc4b6" />
-      <Planter position={[-11.4, 0, 0.6]} scale={1.1} />
+      <Rug position={[-9, RUG_Y, 3.2]} size={[2.2, 5.5]} color="#cdc4b6" />
+      <Planter position={[-11.4, FURNITURE_Y, 0.6]} scale={1.1} />
       <Artwork position={[-9, 1.75, -5.7]} w={1.5} h={1.05} tone="#7f8f93" />
 
       {/* Living: coffee table on the rug, shelving on the back wall, planting */}
-      <CoffeeTable position={[-3.4, 0, -1.9]} />
-      <Shelving position={[-7.6, 0, -5.5]} />
+      <CoffeeTable position={[-3.4, FURNITURE_Y, -1.9]} />
+      <Shelving position={[-7.6, FURNITURE_Y, -5.5]} />
       {/* Against the wall, not in the walking line — a planter parked in the
           circulation path becomes a green wall across every mid-house shot. */}
-      <Planter position={[-0.5, 0, -5.1]} scale={0.9} />
+      <Planter position={[-0.5, FURNITURE_Y, -5.1]} scale={0.9} />
       <Artwork position={[-4.6, 1.85, -5.72]} w={1.1} h={1.4} tone="#8a7f6c" />
 
       {/* Dining — the room between living and kitchen. Its absence was the
           dead zone the mid-house camera kept pointing into. */}
-      <Rug position={[1.4, 0.04, -2.6]} size={[3.4, 2.6]} color="#c4bcae" />
-      <DiningTable position={[1.4, 0, -2.6]} />
-      <Chair position={[0.55, 0, -1.85]} rotation={Math.PI} />
-      <Chair position={[1.4, 0, -1.85]} rotation={Math.PI} />
-      <Chair position={[2.25, 0, -1.85]} rotation={Math.PI} />
-      <Chair position={[0.55, 0, -3.35]} />
-      <Chair position={[1.4, 0, -3.35]} />
-      <Chair position={[2.25, 0, -3.35]} />
+      <Rug position={[1.4, RUG_Y, -2.6]} size={[3.4, 2.6]} color="#c4bcae" />
+      <DiningTable position={[1.4, FURNITURE_Y, -2.6]} />
+      <Chair position={[0.55, FURNITURE_Y, -1.85]} rotation={Math.PI} />
+      <Chair position={[1.4, FURNITURE_Y, -1.85]} rotation={Math.PI} />
+      <Chair position={[2.25, FURNITURE_Y, -1.85]} rotation={Math.PI} />
+      <Chair position={[0.55, FURNITURE_Y, -3.35]} />
+      <Chair position={[1.4, FURNITURE_Y, -3.35]} />
+      <Chair position={[2.25, FURNITURE_Y, -3.35]} />
 
       {/* Kitchen: stools at the island */}
-      <Stool position={[4.1, 0, -1.35]} />
-      <Stool position={[5.0, 0, -1.35]} />
-      <Stool position={[5.9, 0, -1.35]} />
+      <Stool position={[4.1, FURNITURE_Y, -1.35]} />
+      <Stool position={[5.0, FURNITURE_Y, -1.35]} />
+      <Stool position={[5.9, FURNITURE_Y, -1.35]} />
 
       {/* Utility: a planter softens the hardest-working room, set back
           against the dividing wall so it never crosses the walk */}
-      <Planter position={[9.6, 0, -4.6]} scale={0.8} />
+      <Planter position={[9.6, FURNITURE_Y, -4.6]} scale={0.8} />
 
       {/* ── Courtyard glazing — the long sightline ───────────── */}
       <Glazing x={-2} z={5.9} width={16} />

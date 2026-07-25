@@ -375,6 +375,27 @@ export function LivingHome() {
         <Canvas
           camera={{ position: [-30, 4.2, 22], fov: 52, near: 0.05, far: 400 }}
           dpr={[1, 1.75]}
+          /*
+            Development-only handle on the scene graph.
+
+            Z-fighting is invisible in source and obvious on screen: two opaque
+            faces on the same plane give the depth buffer a tie it cannot break,
+            so the winner flips as the camera moves and the surface strobes. It
+            is not findable by reading code, because the two surfaces are
+            usually authored in different files by different components that
+            happen to agree on a number.
+
+            Exposing the built scene makes it findable by measurement — walk
+            every mesh, compare world-space faces, report same-facing pairs that
+            share a plane and overlap. That audit is what turned "the stools are
+            flashing" into a list of four real defects across the sofa, the
+            shelving, the rugs and a door header. Stripped in production.
+          */
+          onCreated={({ scene }) => {
+            if (process.env.NODE_ENV !== "production") {
+              (window as unknown as { __scene?: unknown }).__scene = scene;
+            }
+          }}
           shadows={{ type: THREE.PCFSoftShadowMap }}
           /*
             Tone mapping is the difference between a render that looks like a

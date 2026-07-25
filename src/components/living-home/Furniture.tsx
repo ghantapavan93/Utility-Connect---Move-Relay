@@ -65,8 +65,10 @@ export function Chair({
         <boxGeometry args={[0.42, 0.42, 0.045]} />
         {wood(MATERIAL.walnut, 0.55)}
       </mesh>
+      {/* Legs stand on y = 0 like every other piece here — they were centred at
+          0.22 with a 0.45 length, which put their feet 5mm underground. */}
       {([[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]] as const).map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.22, z]} castShadow>
+        <mesh key={i} position={[x, 0.225, z]} castShadow>
           <cylinderGeometry args={[0.018, 0.022, 0.45, 8]} />
           <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.5} />
         </mesh>
@@ -92,8 +94,12 @@ export function Stool({ position }: { position: [number, number, number] }) {
         <torusGeometry args={[0.14, 0.012, 8, 20]} />
         <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.35} metalness={0.7} />
       </mesh>
-      <mesh position={[0, 0.01, 0]}>
-        <cylinderGeometry args={[0.19, 0.19, 0.02, 20]} />
+      {/* Weighted base. Deliberately 3cm rather than 2cm: a 2cm disc standing
+          on y = 0 put its top face at exactly the height of the limestone slab,
+          and two coplanar upward-facing surfaces is what made the stools strobe
+          as the camera moved. Depth buffers cannot order a tie. */}
+      <mesh position={[0, 0.015, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.19, 0.2, 0.03, 24]} />
         <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.6} />
       </mesh>
     </group>
@@ -148,9 +154,15 @@ export function Shelving({
           {wood(MATERIAL.walnut, 0.55)}
         </mesh>
       ))}
-      {[0.35, 0.82, 1.29, 1.76, 2.08].map((y) => (
+      {/* Boards sit *between* the uprights and slightly shallower than them.
+          At 1.85 x 0.34 they matched the carcass exactly, which put their front,
+          back and topmost faces on the same planes as the uprights — coplanar
+          same-facing surfaces that the depth buffer resolves differently from
+          frame to frame. Real casework is rebated for the same reason it looks
+          right: the shelf is never flush with the end panel. */}
+      {[0.35, 0.82, 1.29, 1.76, 2.04].map((y) => (
         <mesh key={y} position={[0, y, 0]} castShadow receiveShadow>
-          <boxGeometry args={[1.85, 0.04, 0.34]} />
+          <boxGeometry args={[1.75, 0.04, 0.31]} />
           {wood(MATERIAL.walnut, 0.55)}
         </mesh>
       ))}
