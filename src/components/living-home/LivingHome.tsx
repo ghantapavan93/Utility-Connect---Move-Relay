@@ -172,31 +172,70 @@ function KeyLight({ progress }: { progress: MotionValue<number> }) {
     // Daylight holds steady. Only the warmth shifts as the practicals join it,
     // so the room never dims — the services add light, they do not replace it.
     if (light.current) {
-      light.current.intensity = 1.35;
+      light.current.intensity = 3.6;
       light.current.color.lerpColors(dusk, warm, alive * 0.28);
     }
-    if (amb.current) amb.current.intensity = 0.42 + alive * 0.06;
+    if (amb.current) amb.current.intensity = 0.26 + alive * 0.04;
   });
 
   return (
     <>
-      <ambientLight ref={amb} intensity={0.42} color={LIGHT.daylight} />
+      {/*
+        Ambient is deliberately low. It was carrying most of the interior at
+        0.42, and ambient light has no direction — it cannot cast, cannot model
+        a surface, and cannot tell you where a window is. A room lit mostly by
+        ambient reads as a clay render no matter how good the materials are,
+        which is exactly what was happening here.
+      */}
+      <ambientLight ref={amb} intensity={0.26} color={LIGHT.daylight} />
+      {/*
+        The sun, at 15° elevation.
+
+        This is the change that matters most, and it is geometric rather than
+        aesthetic. The roof slab overhangs the glazing by 2.6m and its underside
+        sits at y=3.245. A sun at the old 35° elevation lands its light 4.7m in
+        from the roof edge — which is outside the glass, on the terrace. Not one
+        photon of direct sun was reaching the floor of any room the camera walks
+        through, so every interior shot was lit purely by ambient and image-based
+        light. That is why it looked flat and dead however the exposure was
+        tuned: there was no sunlight in the house.
+
+        The angle is arithmetic, not taste. The roof edge sits at z=8.5, its
+        underside at y=3.245, so the deepest a ray can reach past the glass is
+        z = 8.5 − 3.245/tan(elevation). At 35° that is z=3.8 — outside on the
+        terrace. At 15° it overshoots to z=−3.6, which is the strip of floor
+        hidden behind the kitchen counter. At 21° it lands at z≈0, which means
+        the sunlit floor runs from the glass line all the way to the middle of
+        the plan — straight through the open floor every interior station looks
+        across. That band, and the long shadows furniture throws along it, is
+        the single most recognisable feature of every interior photograph in the
+        reference set.
+
+        Azimuth is swung 40° off the courtyard axis so the sun still rakes
+        across the facade on the approach rather than flattening it head-on.
+      */}
       <directionalLight
         ref={light}
-        position={[26, 22, 18]}
-        intensity={1.35}
+        position={[18, 14, 31]}
+        intensity={3.6}
         color={LIGHT.daylight}
         castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.03}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={24}
-        shadow-camera-bottom={-24}
-        shadow-camera-far={90}
+        // 4096 over a frustum tightened to the building: ~1.3cm shadow texels,
+        // which is what keeps the mullion bars on the floor crisp instead of
+        // smearing them into a grey wash.
+        shadow-mapSize={[4096, 4096]}
+        shadow-bias={-0.0002}
+        shadow-normalBias={0.022}
+        shadow-camera-left={-26}
+        shadow-camera-right={26}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
+        shadow-camera-far={100}
       />
-      <directionalLight position={[-24, 14, -18]} intensity={0.35} color="#cfe0f5" />
+      {/* Cool sky fill from the opposite side, so shadow interiors are blue
+          rather than black — a shadow outdoors is lit by the sky, not by
+          nothing. */}
+      <directionalLight position={[-24, 16, -20]} intensity={0.45} color="#b9cfe8" />
     </>
   );
 }
@@ -515,18 +554,26 @@ export function LivingHome() {
               it costs GPU time instead of a Blender pipeline, but it is the
               same visual cue.
             */}
+            {/*
+              Radius back to 0.11 and intensity to 18. These had been cut to
+              0.06/7 while the scene was over-exposed, when the occlusion was
+              reading as grime — but the real problem then was the exposure, and
+              with that fixed the near-zero setting just made every junction
+              between a wall and a floor look like a decal. Contact darkening is
+              most of what tells the eye two surfaces are touching.
+            */}
             <SSAO
               blendFunction={BlendFunction.MULTIPLY}
-              samples={16}
-              radius={0.06}
-              intensity={7}
-              luminanceInfluence={0.85}
+              samples={24}
+              radius={0.11}
+              intensity={18}
+              luminanceInfluence={0.6}
               worldDistanceThreshold={12}
               worldDistanceFalloff={2}
               worldProximityThreshold={2}
               worldProximityFalloff={1}
             />
-            <Bloom intensity={0.5} luminanceThreshold={0.85} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
+            <Bloom intensity={0.62} luminanceThreshold={0.8} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
             <Vignette eskil={false} offset={0.32} darkness={0.42} />
           </EffectComposer>
         </Canvas>

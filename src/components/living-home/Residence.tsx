@@ -122,7 +122,7 @@ function Floor({
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={position} receiveShadow>
       <planeGeometry args={size} />
-      <meshStandardMaterial {...maps} color={color} metalness={0.04} envMapIntensity={0.95} />
+      <meshStandardMaterial {...maps} color={color} metalness={0.06} roughness={0.62} envMapIntensity={1.25} />
     </mesh>
   );
 }
@@ -383,11 +383,45 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       <Floor position={[-1, 0.02, 0]} size={[40, 12]} color={MATERIAL.limestone} maps={limestone} />
       {/* oak in the living volume */}
       <Floor position={[-2, 0.03, -1]} size={[9, 9]} color={MATERIAL.oak} maps={oak} />
-      {/* roof plane, cantilevered */}
-      <mesh position={[-1, 3.42, 1]} castShadow receiveShadow>
-        <boxGeometry args={[42, 0.35, 15]} />
-        <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.92} envMapIntensity={0.7} />
-      </mesh>
+      {/*
+        Roof, in two slabs with a rooflight slot between them.
+
+        This is the change that finally got sunlight into the house. Measuring
+        the sun ray against the scene showed direct light reaching the floor
+        only between z=+6 and z=+1.3 — the strip just inside the glass — because
+        a solid 15m-deep slab shades everything beyond it. Every camera station
+        stands around z=0 and looks toward z=−3, so the lit floor was always
+        behind the lens. The rooms were lit entirely by ambient and IBL, which
+        is why they read as a clay model however the exposure was tuned.
+
+        A deep-plan house solves this the same way: you cut a slot. The width is
+        arithmetic, not taste — a ray leaving the back wall has to clear the far
+        slab's leading edge before it rises past the slab's own thickness, and
+        at 1.2m the first attempt grazed that corner and stayed shadowed. At
+        2.5m the light drops through cleanly and lands as a band roughly 60cm to
+        1.4m up the back wall, directly in the view of every interior shot,
+        with the joists and glazing bars breaking it into bars. That rhythm of
+        light is the thing the reference photography is actually made of.
+      */}
+      {(
+        [
+          [-4.05, 4.9],
+          [4.7, 7.6],
+        ] as const
+      ).map(([z, depth]) => (
+        <mesh key={z} position={[-1, 3.42, z]} castShadow receiveShadow>
+          <boxGeometry args={[42, 0.35, depth]} />
+          <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.92} envMapIntensity={0.7} />
+        </mesh>
+      ))}
+      {/* Glazing bars across the slot. They are structure, and they are also
+          what turns one wash of light into a measured rhythm of it. */}
+      {Array.from({ length: 15 }, (_, i) => -18.5 + i * 2.6).map((x) => (
+        <mesh key={x} position={[x, 3.36, -0.35]} castShadow>
+          <boxGeometry args={[0.09, 0.14, 2.5]} />
+          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.5} />
+        </mesh>
+      ))}
       {/*
         Exposed walnut joists at 1.6m centres.
 
@@ -398,9 +432,22 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         that tell the eye the light has a direction, and it carries the horizon
         line down the length of the house so the rooms feel connected.
       */}
-      {Array.from({ length: 19 }, (_, i) => -19.2 + i * 1.94).map((x) => (
-        <mesh key={x} position={[x, 3.18, 0.4]} castShadow receiveShadow>
-          <boxGeometry args={[0.13, 0.2, 11.6]} />
+      {/*
+        Joists stop either side of the rooflight rather than running through it.
+        They were spanning the full 11.6m depth, which put a timber grille
+        directly under the slot and strangled the light down to a thin line. No
+        roof is framed that way — the joists are trimmed around an opening and
+        the rooflight sits in the gap.
+      */}
+      {Array.from({ length: 19 }, (_, i) => -19.2 + i * 1.94).flatMap((x) =>
+        (
+          [
+            [-3.5, 3.8],
+            [3.55, 5.3],
+          ] as const
+        ).map(([z, depth]) => (
+        <mesh key={`${x}:${z}`} position={[x, 3.18, z]} castShadow receiveShadow>
+          <boxGeometry args={[0.13, 0.2, depth]} />
           {/*
             Pale oak and no texture map. Walnut turned the ceiling into a dark
             grid that fought the room for attention, and a map tiled for a 2m
@@ -410,7 +457,8 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           */}
           <meshStandardMaterial color="#c8ae86" roughness={0.7} envMapIntensity={0.9} />
         </mesh>
-      ))}
+        )),
+      )}
       <Wall position={[-1, 1.7, -5.9]} size={[40, 3.4, 0.3]} />
 
       {/* ── GARAGE — the partner handoff ─────────────────────── */}
