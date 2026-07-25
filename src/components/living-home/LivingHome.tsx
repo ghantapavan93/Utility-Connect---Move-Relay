@@ -352,7 +352,20 @@ export function LivingHome() {
           camera={{ position: [-30, 4.2, 22], fov: 52, near: 0.05, far: 400 }}
           dpr={[1, 1.75]}
           shadows={{ type: THREE.PCFSoftShadowMap }}
-          gl={{ antialias: true }}
+          /*
+            Tone mapping is the difference between a render that looks like a
+            game and one that looks photographed. Three.js defaults to none,
+            which clips highlights hard and leaves midtones flat — the reason
+            every previous pass read as "3D" rather than as a photograph of a
+            room. ACES Filmic rolls the highlights off the way film does, so
+            the pendants bloom into warmth instead of blowing to white, and the
+            exposure lift keeps the architectural surfaces reading light.
+          */
+          gl={{
+            antialias: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.15,
+          }}
           style={{ position: "absolute", inset: 0 }}
         >
           <color attach="background" args={["#151d26"]} />
