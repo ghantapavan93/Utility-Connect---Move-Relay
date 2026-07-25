@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
+import { DetailedHouse } from "./HouseModel";
 import {
   motion,
   useScroll,
@@ -64,7 +65,9 @@ const CAM: Array<[number, THREE.Vector3, THREE.Vector3]> = [
   [0.6, new THREE.Vector3(-14, 5, 12), new THREE.Vector3(-3, 2.8, 1)],
   [0.73, new THREE.Vector3(-9, 5.5, 16), new THREE.Vector3(0, 2.2, 0)],
   [0.86, new THREE.Vector3(11, 9, 19), new THREE.Vector3(0, 1.6, 0)],
-  [1.0, new THREE.Vector3(0, 34, 44), new THREE.Vector3(0, 0, 0)],
+  // The final pull-back must still read as a neighborhood seen from above the
+  // hero house — too high and the subject shrinks to a speck in empty night.
+  [1.0, new THREE.Vector3(4, 22, 34), new THREE.Vector3(0, 1.5, 0)],
 ];
 
 function cameraAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): void {
@@ -77,17 +80,6 @@ function cameraAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): void {
   look.lerpVectors(l0, l1, t);
 }
 
-// Window slots on the house, in wake order.
-const WINDOWS: Array<{ pos: [number, number, number]; rot?: [number, number, number] }> = [
-  { pos: [-1.6, 1.5, 2.06] },
-  { pos: [1.6, 1.5, 2.06] },
-  { pos: [-3.06, 1.6, 0.6], rot: [0, -Math.PI / 2, 0] },
-  { pos: [3.06, 1.6, 0.6], rot: [0, Math.PI / 2, 0] },
-  { pos: [-1.2, 3.1, 2.06] },
-  { pos: [1.2, 3.1, 2.06] },
-];
-
-const WARM = new THREE.Color("#f3c242");
 const CYAN = new THREE.Color("#0087b5");
 const AMBER = new THREE.Color("#e8a33d");
 
@@ -96,10 +88,6 @@ const AMBER = new THREE.Color("#e8a33d");
 // ---------------------------------------------------------------------------
 
 function Scene({ progress }: { progress: MotionValue<number> }) {
-  const windowMats = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
-  const coreMat = useRef<THREE.MeshStandardMaterial>(null);
-  const coreLight = useRef<THREE.PointLight>(null);
-  const interiorLight = useRef<THREE.PointLight>(null);
   const orbRefs = useRef<(THREE.Mesh | null)[]>([]);
   const conflictMat = useRef<THREE.MeshStandardMaterial>(null);
   const conflictMesh = useRef<THREE.Mesh>(null);
@@ -158,33 +146,10 @@ function Scene({ progress }: { progress: MotionValue<number> }) {
       conflictMat.current.emissiveIntensity = vis * (4.5 + Math.sin(t * 14) * 1.8);
     }
 
-    // ── The merge ignites the core ──────────────────────────
+    // Wire state still needs these beats; the house owns its own windows.
     const wake = local(p, CH.wake);
-    if (coreMat.current && coreLight.current) {
-      coreMat.current.emissive = wake > 0 ? CYAN : AMBER;
-      coreMat.current.emissiveIntensity = 0.6 + wake * 4.5;
-      coreLight.current.intensity = wake * 9;
-    }
-
-    // ── Windows wake room by room; failure freezes them ─────
     const fail = local(p, CH.failure);
     const recover = local(p, CH.recovery);
-    const flicker = fail > 0 && recover === 0 ? 0.75 + 0.25 * Math.sin(t * 30) * Math.sin(t * 7.3) : 1;
-    windowMats.current.forEach((m, i) => {
-      if (!m) return;
-      const staged = THREE.MathUtils.clamp(wake * (WINDOWS.length + 2) * 0.55 - i * 0.55, 0, 1);
-      // During the failure, the LAST rooms never finished — they hold at the
-      // level the lost response left them. Recovery completes them.
-      const frozen = i >= 3 ? Math.min(staged, 0.35 + recover * 0.65) : staged;
-      const lit = (i >= 3 && fail > 0 ? frozen : staged) * (i < 3 ? 1 : flicker * (1 - recover) + recover);
-      // Bloom threshold is 0.25, so a lit window needs to sit well past it to
-      // bleed into the night the way a real window does.
-      m.emissiveIntensity = lit * 3.4;
-      m.color.lerpColors(new THREE.Color("#20242c"), WARM, Math.min(lit, 1));
-    });
-    if (interiorLight.current) {
-      interiorLight.current.intensity = wake * 2.2 * (fail > 0 ? flicker * (1 - recover) + recover : 1);
-    }
 
     // ── The power line: silent ≠ dead ───────────────────────
     if (wireMat.current) {
@@ -227,11 +192,6 @@ function Scene({ progress }: { progress: MotionValue<number> }) {
       {/* Rim light from behind-right: separates the roofline from the night sky
           so the silhouette reads as architecture, not a hole in the frame. */}
       <directionalLight position={[14, 9, -12]} intensity={0.8} color="#4da8c8" />
-      {/* The "interior" light lives OUTSIDE the facade: the walls are solid
-          boxes, so a light placed inside them never reaches the faces the
-          camera sees. The warmth has to wash the front. */}
-      <pointLight ref={interiorLight} position={[0, 2.2, 5.2]} color="#f3c242" intensity={0} distance={16} />
-      <pointLight ref={coreLight} position={[0, 2.6, 0.4]} color="#0087b5" intensity={0} distance={9} />
 
       <Stars />
 
@@ -248,59 +208,8 @@ function Scene({ progress }: { progress: MotionValue<number> }) {
         <meshBasicMaterial color="#12202c" transparent opacity={0.55} depthWrite={false} />
       </mesh>
 
-      {/* ── The house ──────────────────────────────────────── */}
-      <group>
-        {/* slab + walls */}
-        <mesh position={[0, 0.1, 0]}>
-          <boxGeometry args={[6.4, 0.2, 4.4]} />
-          <meshStandardMaterial color="#161d26" />
-        </mesh>
-        <mesh position={[0, 1.5, 0]}>
-          <boxGeometry args={[6, 2.8, 4]} />
-          <meshStandardMaterial color="#1b232e" roughness={0.9} />
-        </mesh>
-        {/* upper floor */}
-        <mesh position={[0, 3.15, 0]}>
-          <boxGeometry args={[5.2, 1.1, 3.4]} />
-          <meshStandardMaterial color="#182028" roughness={0.9} />
-        </mesh>
-        {/* pyramid roof */}
-        <mesh position={[0, 4.35, 0]} rotation={[0, Math.PI / 4, 0]}>
-          <coneGeometry args={[3.9, 1.6, 4]} />
-          <meshStandardMaterial color="#121821" roughness={0.95} flatShading />
-        </mesh>
-        {/* door */}
-        <mesh position={[0, 0.95, 2.01]}>
-          <planeGeometry args={[0.9, 1.7]} />
-          <meshStandardMaterial color="#242e3a" />
-        </mesh>
-        {/* chimney */}
-        <mesh position={[1.7, 4.6, -0.8]}>
-          <boxGeometry args={[0.5, 1.3, 0.5]} />
-          <meshStandardMaterial color="#151c25" />
-        </mesh>
-
-        {/* windows — the rooms that wake */}
-        {WINDOWS.map((w, i) => (
-          <mesh key={i} position={w.pos} rotation={w.rot ?? [0, 0, 0]}>
-            <planeGeometry args={[0.85, 0.85]} />
-            <meshStandardMaterial
-              ref={(m) => {
-                windowMats.current[i] = m;
-              }}
-              color="#20242c"
-              emissive={WARM}
-              emissiveIntensity={0}
-            />
-          </mesh>
-        ))}
-
-        {/* the Move core — the canonical record, made visible */}
-        <mesh position={[0, 2.6, 0.4]}>
-          <icosahedronGeometry args={[0.32, 1]} />
-          <meshStandardMaterial ref={coreMat} color="#202830" emissive={AMBER} emissiveIntensity={0.2} wireframe />
-        </mesh>
-      </group>
+      {/* ── The house — modeled, with custom shaders ───────── */}
+      <DetailedHouse progress={progress} wake={CH.wake} fail={CH.failure} recover={CH.recovery} />
 
       {/* Referral signals */}
       {[CYAN, AMBER, new THREE.Color("#4da8c8")].map((c, i) => (
@@ -360,7 +269,23 @@ function Scene({ progress }: { progress: MotionValue<number> }) {
               <planeGeometry args={[0.5, 0.5]} />
               <meshStandardMaterial color="#0e1319" emissive={CYAN} emissiveIntensity={0} transparent opacity={0} />
             </mesh>
-            <Line points={[[0, 1.4, 0], [-h.x, 1.2, -h.z]]} color="#0087b5" lineWidth={1} transparent opacity={0.25} />
+            {/*
+              These lines live inside a group translated to (h.x, h.z), so an
+              endpoint of (-h.x, -h.z) resolves to the WORLD ORIGIN — every
+              house fired a beam straight through the hero home, producing a
+              starburst. The link must end just outside this house instead,
+              suggesting a mesh rather than a hub-and-spoke.
+            */}
+            <Line
+              points={[
+                [0, 1.4, 0],
+                [-Math.sign(h.x) * 3.2, 1.2, -Math.sign(h.z) * 3.0],
+              ]}
+              color="#0087b5"
+              lineWidth={1}
+              transparent
+              opacity={0.22}
+            />
           </group>
         ))}
       </group>
