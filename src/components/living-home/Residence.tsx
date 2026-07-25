@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
 import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug } from "./Furniture";
 import { ServiceFixtures } from "./ServiceFixtures";
+import { applyGIBake } from "./gi-apply";
 import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
 
 /**
@@ -87,6 +88,24 @@ const RUG_Y = 0.038;
 // Building blocks
 // ---------------------------------------------------------------------------
 
+/**
+ * Vertex spacing for baked global illumination, in metres.
+ *
+ * Bounce light is low-frequency — it has no sharp edges — so half a metre is
+ * ample to carry it, and it keeps the shell under about 15k bakeable vertices.
+ */
+export const GI_GRID = 0.5;
+
+/**
+ * Stable name for a bakeable surface.
+ *
+ * The bake is stored on disk and matched back to meshes by name, so the name
+ * has to survive a re-render and be independent of traversal order. Position is
+ * the one thing about a wall that is both unique and stable.
+ */
+export const giName = (kind: string, [x, y, z]: readonly [number, number, number] | number[]) =>
+  `gi:${kind}:${x.toFixed(2)}_${y.toFixed(2)}_${z.toFixed(2)}`;
+
 function Wall({
   position,
   size,
@@ -100,9 +119,14 @@ function Wall({
   // normal map, so a grazing light rakes across the surface instead of
   // landing on it flat.
   const maps = useMemo(() => concreteMaps([Math.max(1, size[0] / 4), Math.max(1, size[1] / 3)]), [size]);
+  // Subdivided on a ~0.5m grid. The bake stores one irradiance value per
+  // vertex, so an unsubdivided 40m wall would hold exactly four samples of
+  // bounce light and interpolate a flat wash between them. Resolution here is
+  // lighting resolution.
+  const seg = (n: number) => Math.max(1, Math.round(n / GI_GRID));
   return (
-    <mesh position={position} castShadow receiveShadow>
-      <boxGeometry args={size} />
+    <mesh name={giName("wall", position)} position={position} castShadow receiveShadow>
+      <boxGeometry args={[...size, seg(size[0]), seg(size[1]), seg(size[2])]} />
       <meshStandardMaterial {...maps} color={color} metalness={0.02} envMapIntensity={0.85} />
     </mesh>
   );
@@ -119,9 +143,15 @@ function Floor({
   color: string;
   maps: { map: THREE.Texture; normalMap: THREE.Texture; roughnessMap: THREE.Texture };
 }) {
+  const seg = (n: number) => Math.max(1, Math.round(n / GI_GRID));
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={position} receiveShadow>
-      <planeGeometry args={size} />
+    <mesh
+      name={giName("floor", position)}
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={position}
+      receiveShadow
+    >
+      <planeGeometry args={[size[0], size[1], seg(size[0]), seg(size[1])]} />
       <meshStandardMaterial {...maps} color={color} metalness={0.06} roughness={0.62} envMapIntensity={1.25} />
     </mesh>
   );
@@ -210,7 +240,9 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   const solarMat = useRef<THREE.MeshStandardMaterial>(null);
 
   useEffect(() => {
-    root.current?.traverse((o) => {
+    const group = root.current;
+    if (!group) return;
+    group.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
       const mat = m.material as THREE.Material | undefined;
@@ -218,6 +250,18 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       m.castShadow = !soft;
       m.receiveShadow = !soft;
     });
+
+    // Baked bounce light. Applied after the shadow pass above so the materials
+    // are patched once, on materials that already exist.
+    const report = applyGIBake(group);
+    if (process.env.NODE_ENV !== "production" && (report.missing.length || report.mismatched.length)) {
+      // A stale bake is worse than none — it lights surfaces from a geometry
+      // that no longer exists. Say so loudly rather than shipping it quietly.
+      console.warn(
+        `[gi] bake is stale. Re-run window.__bakeGI().`,
+        { missing: report.missing, mismatched: report.mismatched },
+      );
+    }
   }, []);
 
   useFrame(({ clock }) => {
@@ -409,8 +453,8 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           [4.7, 7.6],
         ] as const
       ).map(([z, depth]) => (
-        <mesh key={z} position={[-1, 3.42, z]} castShadow receiveShadow>
-          <boxGeometry args={[42, 0.35, depth]} />
+        <mesh key={z} name={giName("roof", [-1, 3.42, z])} position={[-1, 3.42, z]} castShadow receiveShadow>
+          <boxGeometry args={[42, 0.35, depth, 84, 1, Math.max(1, Math.round(depth / GI_GRID))]} />
           <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.92} envMapIntensity={0.7} />
         </mesh>
       ))}

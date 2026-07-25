@@ -29,6 +29,28 @@ import { roomServiceLine, type Room } from "@/lib/service-catalogue";
 
 const EYE = 1.62;
 
+/**
+ * The lighting the bake integrates against.
+ *
+ * These must stay in step with the <directionalLight> and <Environment> below.
+ * If the sun moves and the bake is not regenerated, the bounce light will be
+ * arriving from a direction the direct light no longer comes from, which is
+ * worse than having no bounce at all — `gi-bake.test.ts` fails the build if
+ * these values drift from the ones the renderer uses.
+ */
+export const GI_SUN_POSITION = [18, 14, 31] as const;
+export const GI_SUN_INTENSITY = 3.6;
+
+const GI_LIGHTING = {
+  sunDir: new THREE.Vector3(...GI_SUN_POSITION).normalize(),
+  sunColor: new THREE.Color(LIGHT.daylight),
+  sunIntensity: GI_SUN_INTENSITY,
+  skyColor: new THREE.Color("#cfe0f5"),
+  skyIntensity: 0.55,
+  groundColor: new THREE.Color("#93a083"),
+  groundIntensity: 0.22,
+};
+
 interface Station {
   at: number;
   pos: [number, number, number];
@@ -172,22 +194,23 @@ function KeyLight({ progress }: { progress: MotionValue<number> }) {
     // Daylight holds steady. Only the warmth shifts as the practicals join it,
     // so the room never dims — the services add light, they do not replace it.
     if (light.current) {
-      light.current.intensity = 3.6;
+      light.current.intensity = GI_SUN_INTENSITY;
       light.current.color.lerpColors(dusk, warm, alive * 0.28);
     }
-    if (amb.current) amb.current.intensity = 0.26 + alive * 0.04;
+    if (amb.current) amb.current.intensity = 0.08 + alive * 0.03;
   });
 
   return (
     <>
       {/*
-        Ambient is deliberately low. It was carrying most of the interior at
-        0.42, and ambient light has no direction — it cannot cast, cannot model
-        a surface, and cannot tell you where a window is. A room lit mostly by
-        ambient reads as a clay render no matter how good the materials are,
-        which is exactly what was happening here.
+        Ambient is now almost off. It exists only as a floor for the furniture,
+        which is not in the bake. The shell gets its fill from baked irradiance
+        instead, which is the same quantity computed properly: it knows where
+        the windows are, it knows the floor is warm and the sky is blue, and it
+        varies across a wall the way real bounce does. Leaving ambient up as
+        well would double-count that light and flatten it straight back out.
       */}
-      <ambientLight ref={amb} intensity={0.26} color={LIGHT.daylight} />
+      <ambientLight ref={amb} intensity={0.08} color={LIGHT.daylight} />
       {/*
         The sun, at 15° elevation.
 
@@ -216,8 +239,8 @@ function KeyLight({ progress }: { progress: MotionValue<number> }) {
       */}
       <directionalLight
         ref={light}
-        position={[18, 14, 31]}
-        intensity={3.6}
+        position={GI_SUN_POSITION as unknown as [number, number, number]}
+        intensity={GI_SUN_INTENSITY}
         color={LIGHT.daylight}
         castShadow
         // 4096 over a frustum tightened to the building: ~1.3cm shadow texels,
@@ -479,7 +502,21 @@ export function LivingHome() {
           */
           onCreated={({ scene }) => {
             if (process.env.NODE_ENV !== "production") {
-              (window as unknown as { __scene?: unknown }).__scene = scene;
+              const w = window as unknown as { __scene?: unknown; __bakeGI?: unknown };
+              w.__scene = scene;
+              // Regenerating the bake: run window.__bakeGI() in the console with
+              // the dev server up. It raytraces the live scene and POSTs the
+              // result to /api/dev/gi-bake, which writes src/generated.
+              w.__bakeGI = async (samples = 64) => {
+                const { bakeGI } = await import("./gi-bake");
+                const result = bakeGI(scene, { samples, bounces: 2, secondarySamples: 10, lighting: GI_LIGHTING });
+                const res = await fetch("/api/dev/gi-bake", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify(result),
+                });
+                return { ...(await res.json()), stats: result.stats };
+              };
             }
           }}
           shadows={{ type: THREE.PCFSoftShadowMap }}
