@@ -312,16 +312,16 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
       */}
       <div
         className="max-w-md rounded-xl px-5 py-4 backdrop-blur-[3px]"
-        style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.72), rgba(10,14,20,0.92))" }}
+        style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.84), rgba(10,14,20,0.94))" }}
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
           <span
-            className="rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
+            className="whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
             style={{ background: `${LABEL_STYLE[c.label]}22`, color: LABEL_STYLE[c.label] }}
           >
             {c.label}
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
+          <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
             {c.room}
           </span>
         </div>
@@ -490,14 +490,14 @@ function StaticChapters() {
       <div className="mx-auto max-w-2xl space-y-12">
         {CHAPTERS.map((c) => (
           <div key={c.range[0]}>
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
               <span
-                className="rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
+                className="whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
                 style={{ background: `${LABEL_STYLE[c.label]}22`, color: LABEL_STYLE[c.label] }}
               >
                 {c.label}
               </span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">{c.room}</span>
+              <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">{c.room}</span>
             </div>
             <h2 className="mt-3 text-2xl font-semibold leading-tight text-white">{c.title}</h2>
             <p className="mt-3 leading-relaxed text-white/70">{c.body}</p>

@@ -153,7 +153,22 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   const kitchenPendant = useRef<THREE.MeshStandardMaterial>(null);
   const kitchenLight = useRef<THREE.PointLight>(null);
   const waterMat = useRef<THREE.MeshStandardMaterial>(null);
-  const utilityLed = useRef<THREE.MeshStandardMaterial>(null);
+  /**
+   * One material instance shared by every breaker on the provider-dependent
+   * rail. A ref can only ever bind to the last mesh that claims it, so driving
+   * the row through a ref would have left five of the six indicators dark and
+   * reduced "the circuit stalls half-lit" back to a single lamp standing in for
+   * a whole circuit.
+   */
+  const stallMaterial = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#1a1d22",
+        emissive: new THREE.Color(SERVICE.electricity),
+        emissiveIntensity: 0,
+      }),
+    [],
+  );
   const utilityLight = useRef<THREE.PointLight>(null);
   const securityMat = useRef<THREE.MeshStandardMaterial>(null);
   const solarMat = useRef<THREE.MeshStandardMaterial>(null);
@@ -222,12 +237,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         ? 0.62 + 0.38 * Math.abs(Math.sin(t * 7.5) * Math.sin(t * 2.3))
         : 1;
     const utilityLevel = Math.min(utility, 0.42 + recovery * 0.58) * (silence > 0 ? stall * (1 - recovery) + recovery : 1);
-    if (utilityLed.current) {
-      utilityLed.current.emissive.set(
-        recovery > 0.4 ? SERVICE.recovered : silence > 0 ? SERVICE.unknown : SERVICE.electricity,
-      );
-      utilityLed.current.emissiveIntensity = utilityLevel * 4;
-    }
+    stallMaterial.emissive.set(
+      recovery > 0.4 ? SERVICE.recovered : silence > 0 ? SERVICE.unknown : SERVICE.electricity,
+    );
+    stallMaterial.emissiveIntensity = utilityLevel * 4;
     if (utilityLight.current) utilityLight.current.intensity = utilityLevel * 5;
 
     // Security: settles to a steady verified state once approved.
@@ -587,20 +600,73 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
             </mesh>
           </group>
         ))}
-        {/* the circuit indicator — this is the fixture that stalls */}
-        <mesh position={[0, 1.28, -0.3]} castShadow>
-          <boxGeometry args={[0.5, 0.7, 0.14]} />
-          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.5} />
-        </mesh>
-        <mesh position={[0, 1.28, -0.21]}>
-          <planeGeometry args={[0.32, 0.5]} />
-          <meshStandardMaterial
-            ref={utilityLed}
-            color="#1a1d22"
-            emissive={SERVICE.electricity}
-            emissiveIntensity={0}
-          />
-        </mesh>
+        {/*
+          The consumer unit — the fixture that stalls, and the single most
+          important object in the film.
+
+          It used to be a flat emissive rectangle on a grey box, and the chapter
+          that carries the whole UNKNOWN story was resting on a colour swatch.
+          A real unit is an enclosure, a DIN rail, and a row of individually
+          switched breakers, and building it that way makes the narrative
+          literal rather than symbolic: "the circuit stalls half-lit" stops
+          being a metaphor when you can see which breakers came up and which
+          row is still waiting on a provider that never answered.
+
+          The shared `utilityLed` material drives only the stalled row, so the
+          existing state animation keeps working untouched.
+        */}
+        <group position={[0, 1.3, -0.28]}>
+          {/* enclosure and recessed door frame */}
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[0.6, 0.46, 0.11]} />
+            <meshStandardMaterial color="#d9d6d0" roughness={0.42} metalness={0.18} envMapIntensity={1.1} />
+          </mesh>
+          <mesh position={[0, 0, 0.056]} receiveShadow>
+            <boxGeometry args={[0.52, 0.38, 0.012]} />
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.55} metalness={0.25} />
+          </mesh>
+          {/* two DIN rails */}
+          {[0.077, -0.077].map((y) => (
+            <mesh key={y} position={[0, y, 0.064]}>
+              <boxGeometry args={[0.48, 0.022, 0.014]} />
+              <meshStandardMaterial color="#8c9099" roughness={0.35} metalness={0.7} />
+            </mesh>
+          ))}
+          {/*
+            Twelve breakers, six per rail. The upper rail is the household
+            circuits and is simply on; the lower rail is the provider-dependent
+            one, and its indicators carry the shared stall material.
+          */}
+          {([0.077, -0.077] as const).map((railY, rail) =>
+            Array.from({ length: 6 }, (_, i) => {
+              const x = -0.2 + i * 0.08;
+              const stalled = rail === 1;
+              return (
+                <group key={`${rail}-${i}`} position={[x, railY, 0.076]}>
+                  {/* body */}
+                  <mesh castShadow>
+                    <boxGeometry args={[0.066, 0.115, 0.05]} />
+                    <meshStandardMaterial color="#efece6" roughness={0.5} envMapIntensity={0.9} />
+                  </mesh>
+                  {/* toggle — the stalled rail sits down, the live rail up */}
+                  <mesh position={[0, stalled ? -0.026 : 0.026, 0.032]} castShadow>
+                    <boxGeometry args={[0.03, 0.042, 0.022]} />
+                    <meshStandardMaterial color={stalled ? "#b9bcc2" : "#3c4149"} roughness={0.45} />
+                  </mesh>
+                  {/* indicator */}
+                  <mesh position={[0, 0.044, 0.027]}>
+                    <planeGeometry args={[0.03, 0.012]} />
+                    {stalled ? (
+                      <primitive object={stallMaterial} attach="material" />
+                    ) : (
+                      <meshStandardMaterial color="#1a1d22" emissive={SERVICE.verified} emissiveIntensity={1.6} />
+                    )}
+                  </mesh>
+                </group>
+              );
+            }),
+          )}
+        </group>
         <pointLight
           ref={utilityLight}
           position={[0, 1.9, 0.6]}
