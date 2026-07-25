@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { WalkThrough } from "@/components/WalkThrough";
+import { LivingHome } from "@/components/living-home/LivingHome";
 
 /**
  * The Living Move.
@@ -16,7 +16,7 @@ import { WalkThrough } from "@/components/WalkThrough";
 export default function StoryPage() {
   return (
     <main style={{ background: "#0a0f15" }}>
-      <WalkThrough />
+      <LivingHome />
       <FailureLive />
       <Closing />
     </main>
