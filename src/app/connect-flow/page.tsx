@@ -22,6 +22,7 @@ const SERVICES = [
 
 interface IntakeResponse {
   status: string;
+  moveId?: string;
   reference?: string;
   duplicate?: { ofReference: string; score: number; verdict: string } | null;
   conflictFields?: string[];
@@ -208,6 +209,15 @@ export default function ConnectFlow() {
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
+                {result.moveId && (result.conflictFields?.length ?? 0) > 0 && (
+                  <Link
+                    href={`/moves/${result.moveId}` as never}
+                    className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide"
+                    style={{ background: "var(--color-state-conflict)", color: "#1a1207" }}
+                  >
+                    Resolve the conflicts →
+                  </Link>
+                )}
                 <Link href="/views" className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white" style={{ background: "var(--color-state-verified)" }}>
                   See the three audiences →
                 </Link>

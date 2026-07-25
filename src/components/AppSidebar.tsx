@@ -15,6 +15,7 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/dashboard", label: "Overview", glyph: "◇", live: true },
   { href: "/demo", label: "Live workflow", glyph: "⟐", live: true },
+  { href: "/moves", label: "Move queue", glyph: "☰", live: true },
   { href: "/story", label: "The Living Move", glyph: "▶", live: true },
   { href: "/theater", label: "Failure Theater", glyph: "⚡", live: true },
   { href: "/views", label: "Audiences", glyph: "◈", live: true },
