@@ -2,6 +2,7 @@
 
 import * as THREE from "three";
 import { MATERIAL } from "./palette";
+import { RoundedBox } from "./Geometry";
 
 /**
  * Furniture, at real dimensions.
@@ -27,21 +28,33 @@ const wood = (color: string, roughness = 0.5) => (
 export function DiningTable({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.74, 0]} castShadow receiveShadow>
-        <boxGeometry args={[2.4, 0.055, 1.0]} />
+      <RoundedBox args={[2.4, 0.055, 1.0]} radius={0.014} position={[0, 0.74, 0]} castShadow receiveShadow>
         {wood(MATERIAL.walnut, 0.42)}
-      </mesh>
+      </RoundedBox>
       {/* apron */}
-      <mesh position={[0, 0.69, 0]} castShadow>
-        <boxGeometry args={[2.2, 0.06, 0.86]} />
+      <RoundedBox args={[2.16, 0.06, 0.84]} radius={0.01} position={[0, 0.685, 0]} castShadow>
         {wood("#5c3f28", 0.6)}
-      </mesh>
-      {[-1.0, 1.0].map((x) => (
-        <mesh key={x} position={[x, 0.35, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.07, 0.7, 0.8]} />
-          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.55} envMapIntensity={1.2} />
-        </mesh>
+      </RoundedBox>
+      {/* Blade legs, inset and slimmer. They were 7cm slabs the full 80cm depth
+          of the table, which from across the room read as two solid black walls
+          under the top and hid the floor behind them — the single heaviest
+          object in the dining shot was the part you are not supposed to notice. */}
+      {[-0.92, 0.92].map((x) => (
+        <group key={x}>
+          <RoundedBox args={[0.045, 0.65, 0.52]} radius={0.012} position={[x, 0.33, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.55} envMapIntensity={1.2} />
+          </RoundedBox>
+          {/* foot, so the blade lands on something */}
+          <RoundedBox args={[0.06, 0.022, 0.62]} radius={0.008} position={[x, 0.012, 0]} castShadow>
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.55} />
+          </RoundedBox>
+        </group>
       ))}
+      {/* stretcher between them */}
+      <mesh position={[0, 0.2, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.018, 0.018, 1.84, 10]} />
+        <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.55} />
+      </mesh>
     </group>
   );
 }
@@ -56,20 +69,64 @@ export function Chair({
 }) {
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      <mesh position={[0, 0.45, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.44, 0.05, 0.42]} />
+      {/*
+        A chair is mostly edges, and every one of them was square.
+
+        The old version was a 5cm slab, a flat back panel and four identical
+        posts — the silhouette of a chair icon rather than a chair. What reads
+        at a glance is the taper: a seat is thicker at the front than the back,
+        a back rest is narrower at the shoulder than the seat, the rear legs
+        rake backward, and every edge is radiused. None of that costs geometry
+        worth counting, and without it six chairs around a table look like six
+        diagrams.
+      */}
+      <RoundedBox args={[0.46, 0.055, 0.44]} radius={0.02} position={[0, 0.45, 0.01]} castShadow receiveShadow>
         {wood(MATERIAL.walnut, 0.55)}
-      </mesh>
-      {/* back, slightly reclined */}
-      <mesh position={[0, 0.68, -0.19]} rotation={[-0.12, 0, 0]} castShadow>
-        <boxGeometry args={[0.42, 0.42, 0.045]} />
+      </RoundedBox>
+      {/* seat rail, so the seat is not floating on four sticks */}
+      <RoundedBox args={[0.42, 0.04, 0.4]} radius={0.012} position={[0, 0.415, 0.01]} castShadow>
+        {wood("#5c3f28", 0.62)}
+      </RoundedBox>
+
+      {/* back: two uprights and a shaped rest, reclined */}
+      {[-0.19, 0.19].map((x) => (
+        <mesh key={x} position={[x, 0.66, -0.185]} rotation={[-0.11, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.017, 0.019, 0.44, 8]} />
+          {wood(MATERIAL.walnut, 0.55)}
+        </mesh>
+      ))}
+      <RoundedBox
+        args={[0.42, 0.19, 0.042]}
+        radius={0.019}
+        position={[0, 0.83, -0.205]}
+        rotation={[-0.11, 0, 0]}
+        castShadow
+      >
+        {wood(MATERIAL.walnut, 0.5)}
+      </RoundedBox>
+      <RoundedBox
+        args={[0.4, 0.075, 0.036]}
+        radius={0.016}
+        position={[0, 0.63, -0.183]}
+        rotation={[-0.11, 0, 0]}
+        castShadow
+      >
         {wood(MATERIAL.walnut, 0.55)}
-      </mesh>
-      {/* Legs stand on y = 0 like every other piece here — they were centred at
-          0.22 with a 0.45 length, which put their feet 5mm underground. */}
-      {([[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]] as const).map(([x, z], i) => (
-        <mesh key={i} position={[x, 0.225, z]} castShadow>
-          <cylinderGeometry args={[0.018, 0.022, 0.45, 8]} />
+      </RoundedBox>
+
+      {/* Legs stand on y = 0 like every other piece here. The rear pair rakes
+          back a few degrees, which is both how a chair is built and the reason
+          it reads as one from any angle. */}
+      {(
+        [
+          [-0.19, -0.17, 0.05],
+          [0.19, -0.17, 0.05],
+          [-0.19, 0.18, -0.04],
+          [0.19, 0.18, -0.04],
+        ] as const
+      ).map(([x, z, tilt], i) => (
+        <mesh key={i} position={[x, 0.225, z]} rotation={[tilt, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.014, 0.021, 0.45, 8]} />
           <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.5} />
         </mesh>
       ))}
@@ -207,19 +264,56 @@ export function Planter({
         <cylinderGeometry args={[0.23, 0.23, 0.04, 20]} />
         <meshStandardMaterial color="#3b3128" roughness={1} />
       </mesh>
-      {/* fronds */}
-      {[0, 1, 2, 3, 4].map((i) => {
-        const a = (i / 5) * Math.PI * 2;
+      {/*
+        Foliage.
+
+        This was five 85cm slabs arranged in a fan, which at any distance read
+        as painted cardboard — the giveaway was that a houseplant had five
+        surfaces and a straight edge on every one. A plant's silhouette is made
+        of many small overlapping leaves at unrelated angles, so that is what
+        this is: eighteen leaves on arcing stems, each one a flattened sphere,
+        each on its own tilt. Same triangle budget as a chair, and it is the
+        difference between a plant and a prop.
+      */}
+      {Array.from({ length: 18 }, (_, i) => {
+        // Deterministic scatter — a seeded hash rather than random, so the
+        // plant is identical on every render and in every baked frame.
+        const h = Math.sin(i * 127.1) * 43758.5453;
+        const r1 = h - Math.floor(h);
+        const g = Math.sin(i * 311.7) * 24634.6345;
+        const r2 = g - Math.floor(g);
+
+        const a = (i / 18) * Math.PI * 2 * 2.3 + r1 * 0.5;
+        const lean = 0.35 + r1 * 0.55;
+        const height = 0.42 + r2 * 0.62;
+        const len = 0.16 + r2 * 0.13;
+
         return (
-          <mesh
-            key={i}
-            position={[Math.cos(a) * 0.16, 0.95 + (i % 2) * 0.22, Math.sin(a) * 0.16]}
-            rotation={[Math.cos(a) * 0.35, a, Math.sin(a) * 0.35]}
-            castShadow
-          >
-            <boxGeometry args={[0.05, 0.85, 0.3]} />
-            <meshStandardMaterial color={MATERIAL.foliage} roughness={0.9} />
-          </mesh>
+          <group key={i} rotation={[0, a, 0]}>
+            {/* stem, arcing outward */}
+            <mesh
+              position={[Math.sin(lean) * height * 0.42, 0.62 + height * 0.42, 0]}
+              rotation={[0, 0, -lean * 0.8]}
+              castShadow
+            >
+              <cylinderGeometry args={[0.006, 0.011, height, 6]} />
+              <meshStandardMaterial color="#5f7a52" roughness={0.9} />
+            </mesh>
+            {/* leaf */}
+            <mesh
+              position={[Math.sin(lean) * height * 0.86, 0.62 + height * 0.86, 0]}
+              rotation={[r1 * 0.9 - 0.45, 0, -lean - 0.25]}
+              scale={[len, 0.022, len * 0.52]}
+              castShadow
+            >
+              <sphereGeometry args={[1, 10, 7]} />
+              <meshStandardMaterial
+                color={i % 3 === 0 ? "#5c7350" : i % 3 === 1 ? MATERIAL.foliage : "#6f8a5f"}
+                roughness={0.82}
+                envMapIntensity={0.85}
+              />
+            </mesh>
+          </group>
         );
       })}
     </group>
@@ -269,5 +363,151 @@ export function Rug({
       <planeGeometry args={size} />
       <meshStandardMaterial color={color} roughness={0.98} />
     </mesh>
+  );
+}
+
+
+/**
+ * Three-seat sofa.
+ *
+ * The previous one was two boxes: a slab for the seat and a slab for the back.
+ * At that point no amount of light helps, because what the eye reads first in
+ * upholstery is not material or shading — it is the *articulation*. A real sofa
+ * is a frame, separate seat cushions with gaps between them, separate back
+ * cushions that sit slightly proud, arms with their own mass, and feet that
+ * lift the whole thing off the floor so light passes underneath. Every one of
+ * those is a silhouette cue, and a box has none of them.
+ *
+ * The gaps matter most. A continuous 3m beige surface reads as a wall; the same
+ * volume cut into three cushions with 2cm shadow lines between them reads as
+ * something you sit on.
+ */
+export function Sofa({
+  position,
+  rotation = 0,
+}: {
+  position: [number, number, number];
+  rotation?: number;
+}) {
+  const seatW = 0.78;
+  const linen = (tone: string) => (
+    <meshStandardMaterial color={tone} roughness={0.96} metalness={0} envMapIntensity={0.7} />
+  );
+
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {/* feet — the gap under a sofa is what stops it looking poured in place */}
+      {([[-1.12, -0.36], [1.12, -0.36], [-1.12, 0.36], [1.12, 0.36]] as const).map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.07, z]} castShadow>
+          <cylinderGeometry args={[0.028, 0.022, 0.14, 10]} />
+          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} />
+        </mesh>
+      ))}
+
+      {/* frame */}
+      <RoundedBox
+        args={[2.46, 0.2, 0.95]}
+        radius={0.03}
+        position={[0, 0.24, 0]}
+        castShadow
+        receiveShadow
+      >
+        {linen("#b9b1a3")}
+      </RoundedBox>
+
+      {/* seat cushions, with a shadow gap between each */}
+      {[-0.82, 0, 0.82].map((x) => (
+        <RoundedBox
+          key={x}
+          args={[seatW, 0.17, 0.86]}
+          radius={0.055}
+          position={[x, 0.42, 0.02]}
+          castShadow
+          receiveShadow
+        >
+          {linen(MATERIAL.linen)}
+        </RoundedBox>
+      ))}
+
+      {/* back cushions, reclined a few degrees the way a loaded back sits */}
+      {[-0.82, 0, 0.82].map((x) => (
+        <RoundedBox
+          key={x}
+          args={[seatW, 0.52, 0.2]}
+          radius={0.06}
+          position={[x, 0.72, -0.35]}
+          rotation={[-0.13, 0, 0]}
+          castShadow
+        >
+          {linen("#cbc3b5")}
+        </RoundedBox>
+      ))}
+
+      {/* back frame behind them, so the gaps do not read straight through */}
+      <RoundedBox args={[2.46, 0.46, 0.12]} radius={0.03} position={[0, 0.66, -0.45]} castShadow receiveShadow>
+        {linen("#aca493")}
+      </RoundedBox>
+
+      {/* arms */}
+      {[-1.17, 1.17].map((x) => (
+        <RoundedBox key={x} args={[0.22, 0.44, 0.95]} radius={0.08} position={[x, 0.5, 0]} castShadow receiveShadow>
+          {linen("#c2baac")}
+        </RoundedBox>
+      ))}
+
+      {/* a throw cushion, because a perfectly tidy sofa reads as a showroom */}
+      <RoundedBox
+        args={[0.4, 0.4, 0.13]}
+        radius={0.07}
+        position={[-0.72, 0.66, -0.2]}
+        rotation={[-0.22, 0.3, 0.12]}
+        castShadow
+      >
+        {linen("#8d9a8a")}
+      </RoundedBox>
+    </group>
+  );
+}
+
+/**
+ * Low sideboard on legs.
+ *
+ * Same problem as the sofa: it was a single walnut box. A carcass lifted on
+ * legs with recessed drawer fronts gives three separate horizontal lines and a
+ * shadow underneath, which is most of what makes a cabinet look like joinery
+ * rather than a crate.
+ */
+export function Sideboard({
+  position,
+  rotation = 0,
+}: {
+  position: [number, number, number];
+  rotation?: number;
+}) {
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {([[-0.86, -0.18], [0.86, -0.18], [-0.86, 0.18], [0.86, 0.18]] as const).map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.11, z]} rotation={[0, 0, x > 0 ? -0.06 : 0.06]} castShadow>
+          <cylinderGeometry args={[0.022, 0.017, 0.22, 10]} />
+          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.5} />
+        </mesh>
+      ))}
+      <RoundedBox args={[1.96, 0.46, 0.46]} radius={0.012} position={[0, 0.45, 0]} castShadow receiveShadow>
+        {wood(MATERIAL.walnut, 0.5)}
+      </RoundedBox>
+      {/* drawer fronts, proud of the carcass so each casts its own line */}
+      {[-0.49, 0.49].map((x) => (
+        <RoundedBox key={x} args={[0.92, 0.38, 0.02]} radius={0.008} position={[x, 0.45, 0.242]} castShadow>
+          {wood("#5f4229", 0.45)}
+        </RoundedBox>
+      ))}
+      {/* recessed finger pulls */}
+      {[-0.49, 0.49].map((x) => (
+        <mesh key={x} position={[x, 0.6, 0.253]}>
+          <boxGeometry args={[0.34, 0.018, 0.01]} />
+          <meshStandardMaterial color="#2b2620" roughness={0.6} />
+        </mesh>
+      ))}
+    </group>
   );
 }

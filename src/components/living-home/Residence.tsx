@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
-import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug } from "./Furniture";
+import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug, Sofa, Sideboard } from "./Furniture";
 import { ServiceFixtures } from "./ServiceFixtures";
 import { applyGIBake } from "./gi-apply";
 import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
@@ -578,25 +578,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         <planeGeometry args={[4.3, 4]} />
         <meshStandardMaterial color={MATERIAL.linen} roughness={0.98} />
       </mesh>
-      <group position={[-3.6, 0, -3.4]}>
-        <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
-          <boxGeometry args={[3.0, 0.4, 1.0]} />
-          <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
-        </mesh>
-        {/* 2.88 rather than 3.0: a back exactly as wide as the seat puts their
-            end faces on the same plane, and coplanar same-facing surfaces are
-            a depth-buffer tie. Insetting it is also how upholstery is built. */}
-        <mesh position={[0, 0.68, -0.42]} castShadow>
-          <boxGeometry args={[2.88, 0.58, 0.2]} />
-          <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
-        </mesh>
-      </group>
+      <Sofa position={[-3.6, FURNITURE_Y, -3.35]} />
       {/* walnut console with the router — internet's diegetic fixture */}
       <group position={[-0.6, 0, -3.9]}>
-        <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
-          <boxGeometry args={[2.0, 0.68, 0.5]} />
-          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.55} envMapIntensity={0.9} />
-        </mesh>
+        <Sideboard position={[0, FURNITURE_Y, 0]} />
         <mesh position={[0.55, 0.74, 0]} castShadow>
           <boxGeometry args={[0.26, 0.06, 0.18]} />
           <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.4} />
@@ -641,14 +626,44 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
       {/* ── KITCHEN — electricity, gas, water ────────────────── */}
       <group position={[5, 0, -2.2]}>
-        {/* island */}
-        <mesh position={[0, 0.46, 0]} castShadow receiveShadow>
-          <boxGeometry args={[3.4, 0.92, 1.15]} />
-          <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
+        {/*
+          Island.
+
+          It was one 3.4m walnut box, which is a plinth, not cabinetry. Real
+          joinery at this size is a run of doors with shadow gaps between them,
+          set back above a recessed toe kick so the whole thing appears to float
+          rather than sit in a puddle of its own colour. Those two lines — the
+          vertical gaps and the dark reveal at the floor — are what the eye uses
+          to read a kitchen, and neither costs meaningful geometry.
+        */}
+        {/* recessed toe kick */}
+        <mesh position={[0, 0.06, 0]} receiveShadow>
+          <boxGeometry args={[3.24, 0.12, 1.0]} />
+          <meshStandardMaterial color="#2e241b" roughness={0.8} />
         </mesh>
-        <mesh position={[0, 0.95, 0]} castShadow>
-          <boxGeometry args={[3.6, 0.07, 1.3]} />
-          <meshStandardMaterial {...stone} color="#efece6" metalness={0.18} envMapIntensity={1.6} />
+        {/* carcass */}
+        <mesh position={[0, 0.53, 0]} castShadow receiveShadow>
+          <boxGeometry args={[3.4, 0.82, 1.15]} />
+          <meshStandardMaterial {...walnut} color="#4a3320" envMapIntensity={0.8} />
+        </mesh>
+        {/* door fronts, proud of the carcass with a gap between each */}
+        {[-1.275, -0.425, 0.425, 1.275].map((x) => (
+          <mesh key={x} position={[x, 0.53, 0.585]} castShadow>
+            <boxGeometry args={[0.8, 0.78, 0.022]} />
+            <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
+          </mesh>
+        ))}
+        {/* slim finger pulls along the top of each door */}
+        {[-1.275, -0.425, 0.425, 1.275].map((x) => (
+          <mesh key={x} position={[x, 0.9, 0.598]}>
+            <boxGeometry args={[0.62, 0.012, 0.008]} />
+            <meshStandardMaterial color="#221c15" roughness={0.7} />
+          </mesh>
+        ))}
+        {/* worktop, overhanging the fronts */}
+        <mesh position={[0, 0.955, 0]} castShadow receiveShadow>
+          <boxGeometry args={[3.6, 0.06, 1.3]} />
+          <meshStandardMaterial {...stone} color="#efece6" metalness={0.18} roughness={0.22} envMapIntensity={1.6} />
         </mesh>
         {/* tap + water */}
         <mesh position={[-1.1, 1.22, 0]} castShadow>
