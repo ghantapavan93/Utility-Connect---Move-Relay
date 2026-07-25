@@ -6,6 +6,7 @@ import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
 import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug } from "./Furniture";
+import { ServiceFixtures } from "./ServiceFixtures";
 import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
 
 /**
@@ -279,6 +280,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <group ref={root}>
+      {/* The twelve services the house was not previously showing, as ordinary
+          objects rather than symbols. See ServiceFixtures.tsx. */}
+      <ServiceFixtures />
+
       {/* ── Ground and courtyard ─────────────────────────────── */}
       {/*
         The ground carries a texture for one reason: on the arrival shot it is

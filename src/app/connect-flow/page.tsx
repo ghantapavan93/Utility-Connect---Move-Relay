@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarketingHeader } from "@/components/MarketingHeader";
+import { SERVICE_CATALOGUE } from "@/lib/service-catalogue";
 
 /**
  * The enrollment experience — a premium reimagining of Utility Connect's own
@@ -15,10 +16,15 @@ import { MarketingHeader } from "@/components/MarketingHeader";
  * shows exactly what the engine decided. All data is synthetic.
  */
 
-const SERVICES = [
-  "Electric", "Internet", "Security", "Gas", "Water", "Cable",
-  "Satellite", "Insurance", "Home Warranty", "Solar", "Pest Control", "Mail Forwarding",
-];
+/*
+  The services offered here come from the catalogue, not from a list typed into
+  this file. The hardcoded version had drifted to twelve of the eighteen and had
+  renamed one of them ("Solar" for "Solar Energy") — which is the whole failure
+  mode this project argues about at the data layer, reproduced in the UI. A form
+  that silently stops offering six services is a form that loses six services
+  worth of intent, and nothing would have failed to tell us.
+*/
+const SERVICES = SERVICE_CATALOGUE.map((s) => s.label);
 
 interface IntakeResponse {
   status: string;

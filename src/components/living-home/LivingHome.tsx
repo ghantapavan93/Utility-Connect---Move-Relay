@@ -9,6 +9,7 @@ import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } f
 import * as THREE from "three";
 import { Residence, CHAPTER, lv } from "./Residence";
 import { SERVICE, LIGHT } from "./palette";
+import { roomServiceLine, type Room } from "@/lib/service-catalogue";
 
 /**
  * THE LIVING HOME
@@ -195,7 +196,16 @@ interface ChapterCopy {
   room: string;
   title: string;
   body: string;
+  /** The narrative beat for this chapter — what is happening to the record. */
   service?: string;
+  /**
+   * The room of the residence this chapter stands in, if it is one the service
+   * catalogue assigns services to. Kept separate from `service` on purpose: the
+   * accent line is the story, this is the list of real Utility Connect services
+   * connected in this room. Collapsing them would let a narrative rewrite
+   * silently drop a service from the catalogue.
+   */
+  catalogueRoom?: Room;
   accent?: string;
   label: "BUILT AND FUNCTIONING" | "INTERACTIVE CONCEPT" | "FUTURE HYPOTHESIS";
 }
@@ -204,6 +214,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.005, 0.075],
     room: "Arrival",
+    catalogueRoom: "arrival",
     title: "An address becomes a home only when everything begins working together.",
     body: "The keys are handed over. The electricity is unconfirmed, the internet inactive, the security unconfigured — and three different systems each believe something different about this move.",
     label: "BUILT AND FUNCTIONING",
@@ -211,6 +222,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.1, 0.185],
     room: "Garage · The handoff",
+    catalogueRoom: "garage",
     title: "One move can begin in several places at once",
     body: "An agent refers a client. A brokerage uploads a spreadsheet. The customer fills the form herself. Three sources, three versions, and no two agree on the move date.",
     service: "Partner API · CSV · Customer form",
@@ -220,6 +232,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.21, 0.31],
     room: "Foyer · The Move Record",
+    catalogueRoom: "foyer",
     title: "One move. Every source preserved. Every decision explainable.",
     body: "The conflicting records hang unresolved — amber, because a disagreement needs judgement, not an error message. A named concierge approves one canonical value, and only then does the record turn verified.",
     service: "Provenance · Human approval",
@@ -229,6 +242,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.335, 0.44],
     room: "Living room · Connectivity",
+    catalogueRoom: "living",
     title: "The router finds the line",
     body: "Internet and television are requested against the confirmed address. A small green blink on the console is the tell that a service actually arrived — not that a light was switched on.",
     service: "Internet · Television · Home phone",
@@ -238,6 +252,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.465, 0.57],
     room: "Kitchen · Essential utilities",
+    catalogueRoom: "kitchen",
     title: "The services nobody notices until they are missing",
     body: "Electricity reaches the pendants, water reaches the tap. The house stops being an architectural shell and becomes somewhere you can live.",
     service: "Electricity · Gas · Water",
@@ -247,6 +262,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.595, 0.67],
     room: "Utility room · Home systems",
+    catalogueRoom: "utility",
     title: "The last circuit is requested",
     body: "Laundry, home protection, warranty — the systems that run underneath a home. This is the request that goes out last, which is why it is the one the provider's silence will catch.",
     service: "Home warranty · Protection · Appliance readiness",
@@ -338,6 +354,23 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
             style={{ borderColor: c.accent, color: "rgba(255,255,255,0.8)" }}
           >
             {c.service}
+          </div>
+        )}
+        {/*
+          The services Utility Connect actually connects in this room, read from
+          the catalogue rather than typed into the caption. Set quieter than the
+          narrative line because it is reference, not story — but present in
+          every room, so the film covers all eighteen offered services instead
+          of the six that happened to look good on screen.
+        */}
+        {c.catalogueRoom && (
+          <div className="mt-3 border-t border-white/10 pt-2.5">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/40">
+              Connected here
+            </span>
+            <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+              {roomServiceLine(c.catalogueRoom)}
+            </p>
           </div>
         )}
       </div>
