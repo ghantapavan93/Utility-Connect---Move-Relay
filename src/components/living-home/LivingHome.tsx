@@ -64,8 +64,12 @@ const WALK: Station[] = [
   // Kitchen — the island, stools and pendants
   { at: 0.56, pos: [2.2, EYE, 0.8], look: [5.0, 1.0, -2.2], fov: 54 },
   { at: 0.62, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48 },
+  // Through the doorway — the camera lines up with the 1.15m opening at
+  // z ≈ −1.77 before crossing, so the transition frames the utility room
+  // through the door rather than walking into the pier beside it.
+  { at: 0.68, pos: [8.1, EYE, -1.77], look: [11.4, 1.3, -2.6], fov: 56 },
   // Utility — the machines, then in tight on the circuit panel
-  { at: 0.72, pos: [10.0, EYE, -0.4], look: [11.6, 1.1, -3.1], fov: 52 },
+  { at: 0.72, pos: [10.2, EYE, -1.9], look: [11.6, 1.15, -3.1], fov: 52 },
   { at: 0.82, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
   // Recovery — pull back down the length of the house
   { at: 0.9, pos: [10.5, 2.0, 3.0], look: [-1, 1.4, -2.4], fov: 62 },

@@ -352,7 +352,20 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
             roughness={0.9}
           />
         </mesh>
-        <pointLight ref={livingLight} position={[0, 1.6, 0]} color={LIGHT.practical} intensity={0} distance={9} decay={2} castShadow />
+        <pointLight
+          ref={livingLight}
+          position={[0, 1.6, 0]}
+          color={LIGHT.practical}
+          intensity={0}
+          distance={9}
+          decay={2}
+          castShadow
+          shadow-mapSize={[512, 512]}
+          shadow-normalBias={0.04}
+          shadow-radius={4}
+          shadow-camera-near={0.12}
+          shadow-camera-far={10}
+        />
       </group>
 
       {/* ── KITCHEN — electricity, gas, water ────────────────── */}
@@ -402,7 +415,31 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
             </mesh>
           </group>
         ))}
-        <pointLight ref={kitchenLight} position={[0, 2.0, 0]} color={LIGHT.practical} intensity={0} distance={10} decay={2} />
+        {/*
+          The pendants cast. Without this the island and stools are lit but
+          throw nothing, so the counter floats and the stools have no contact
+          with the floor — the same weightlessness the building had before it
+          got a ground shadow.
+
+          Point-light shadows render six cube faces, so the map stays small and
+          the range is clamped to the room. normalBias rather than bias:
+          on thin geometry like a 5cm counter slab, a flat bias detaches the
+          shadow from the object that casts it.
+        */}
+        <pointLight
+          ref={kitchenLight}
+          position={[0, 2.0, 0]}
+          color={LIGHT.practical}
+          intensity={0}
+          distance={10}
+          decay={2}
+          castShadow
+          shadow-mapSize={[512, 512]}
+          shadow-normalBias={0.04}
+          shadow-radius={4}
+          shadow-camera-near={0.15}
+          shadow-camera-far={11}
+        />
         {/* back run + tall units */}
         <mesh position={[0, 0.46, -3.2]} castShadow receiveShadow>
           <boxGeometry args={[5.4, 0.92, 0.65]} />
@@ -419,7 +456,22 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       </group>
 
       {/* ── UTILITY — the room the silence catches ───────────── */}
-      <Wall position={[9.2, 1.7, -2.6]} size={[0.3, 3.4, 6.8]} />
+      {/*
+        The dividing wall carries a real doorway. Without it the camera walked
+        from the kitchen into solid concrete and framed blank plaster for the
+        whole transition — a room the walk must pass through needs a way in.
+        Two piers and a header, with a 1.15m opening between them.
+      */}
+      <Wall position={[9.2, 1.7, -4.15]} size={[0.3, 3.4, 3.7]} />
+      <Wall position={[9.2, 1.7, -0.15]} size={[0.3, 3.4, 2.1]} />
+      <Wall position={[9.2, 2.95, -1.77]} size={[0.3, 0.9, 1.15]} />
+      {/* door lining, so the opening reads as an opening */}
+      {[-2.32, -1.22].map((z) => (
+        <mesh key={z} position={[9.2, 1.25, z]} castShadow receiveShadow>
+          <boxGeometry args={[0.36, 2.5, 0.08]} />
+          <meshStandardMaterial color="#f2efe9" roughness={0.5} envMapIntensity={1.1} />
+        </mesh>
+      ))}
       <group position={[11.6, 0, -3.2]}>
         {/* washer + dryer stack */}
         {[-0.75, 0.75].map((x) => (
@@ -448,7 +500,20 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
             emissiveIntensity={0}
           />
         </mesh>
-        <pointLight ref={utilityLight} position={[0, 1.9, 0.6]} color={LIGHT.practical} intensity={0} distance={7} decay={2} />
+        <pointLight
+          ref={utilityLight}
+          position={[0, 1.9, 0.6]}
+          color={LIGHT.practical}
+          intensity={0}
+          distance={7}
+          decay={2}
+          castShadow
+          shadow-mapSize={[512, 512]}
+          shadow-normalBias={0.04}
+          shadow-radius={4}
+          shadow-camera-near={0.15}
+          shadow-camera-far={8}
+        />
         {/* counter over the machines */}
         <mesh position={[0, 0.92, 0]} castShadow>
           <boxGeometry args={[2.4, 0.07, 0.78]} />
