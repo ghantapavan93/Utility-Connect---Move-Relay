@@ -216,7 +216,35 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   const routerLed = useRef<THREE.MeshStandardMaterial>(null);
   const livingLamp = useRef<THREE.MeshStandardMaterial>(null);
   const livingLight = useRef<THREE.PointLight>(null);
-  const kitchenPendant = useRef<THREE.MeshStandardMaterial>(null);
+  /**
+   * Shared by both pendants' lit surfaces and both bulbs.
+   *
+   * Same trap as the breaker rail: a ref binds only to the last mesh that
+   * claims it, so splitting one ref across four surfaces left three of them
+   * permanently dark and lit exactly one bulb. Four meshes that light together
+   * need one material, not one ref.
+   */
+  const pendantLit = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color("#fff3df"),
+        emissive: new THREE.Color(LIGHT.practical),
+        emissiveIntensity: 0,
+        roughness: 0.9,
+        side: THREE.BackSide,
+      }),
+    [],
+  );
+  const pendantBulb = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color("#fff6e6"),
+        emissive: new THREE.Color(LIGHT.practical),
+        emissiveIntensity: 0,
+        roughness: 0.5,
+      }),
+    [],
+  );
   const kitchenLight = useRef<THREE.PointLight>(null);
   const waterMat = useRef<THREE.MeshStandardMaterial>(null);
   /**
@@ -306,7 +334,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
     // Kitchen: electricity and water. The utility circuit is requested LAST,
     // which is why it is the one caught by the provider's silence.
-    if (kitchenPendant.current) kitchenPendant.current.emissiveIntensity = kitchen * 3.2;
+    pendantLit.emissiveIntensity = kitchen * 2.6;
+    // The bulb runs hotter than the shade it sits in, which is what gives the
+    // fitting a bright core instead of one even glow.
+    pendantBulb.emissiveIntensity = kitchen * 6.5;
     if (kitchenLight.current) kitchenLight.current.intensity = kitchen * 6;
     if (waterMat.current) waterMat.current.emissiveIntensity = kitchen * 1.6;
 
@@ -709,23 +740,52 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
             opacity={0.55}
           />
         </mesh>
-        {/* pendants */}
+        {/*
+          Pendants.
+
+          These were one cone, double-sided, with the emissive applied to the
+          whole thing — so the painted outside of the shade glowed exactly as
+          hard as the lit inside, and at any real intensity the entire fitting
+          clipped to a white blob that bloom then smeared across the counter.
+
+          A lamp is not a glowing object. It is an opaque shade lit from within:
+          the outside takes only room light, the inside is bright, and the bulb
+          is brighter still. Splitting it into those three surfaces is what lets
+          the intensity go up without the shade blowing out — and it puts a real
+          tonal gradient down the cone, which is most of what makes a pendant
+          read as a metal object rather than a light source.
+        */}
         {[-0.9, 0.9].map((x) => (
           <group key={x} position={[x, 0, 0]}>
             <mesh position={[0, 2.6, 0]}>
               <cylinderGeometry args={[0.011, 0.011, 1.3, 6]} />
               <meshStandardMaterial color={MATERIAL.charcoal} />
             </mesh>
-            <mesh position={[0, 1.92, 0]}>
-              <coneGeometry args={[0.24, 0.28, 20, 1, true]} />
+            {/* ceiling rose */}
+            <mesh position={[0, 3.24, 0]}>
+              <cylinderGeometry args={[0.05, 0.05, 0.03, 16]} />
+              <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.6} />
+            </mesh>
+            {/* outer shell — painted, never emissive */}
+            <mesh position={[0, 1.92, 0]} castShadow>
+              <coneGeometry args={[0.24, 0.28, 24, 1, true]} />
               <meshStandardMaterial
-                ref={x < 0 ? kitchenPendant : undefined}
-                color="#f5ead6"
-                emissive={LIGHT.practical}
-                emissiveIntensity={0}
-                side={THREE.DoubleSide}
-                roughness={0.88}
+                color="#efe6d6"
+                side={THREE.FrontSide}
+                roughness={0.42}
+                metalness={0.15}
+                envMapIntensity={1.2}
               />
+            </mesh>
+            {/* inner surface — this is the part that lights */}
+            <mesh position={[0, 1.921, 0]}>
+              <coneGeometry args={[0.236, 0.275, 24, 1, true]} />
+              <primitive object={pendantLit} attach="material" />
+            </mesh>
+            {/* the bulb, just inside the mouth */}
+            <mesh position={[0, 1.86, 0]}>
+              <sphereGeometry args={[0.052, 14, 10]} />
+              <primitive object={pendantBulb} attach="material" />
             </mesh>
           </group>
         ))}

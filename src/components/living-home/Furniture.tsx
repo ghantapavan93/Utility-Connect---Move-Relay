@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import * as THREE from "three";
 import { MATERIAL } from "./palette";
+import { artworkTexture } from "./materials";
 import { RoundedBox } from "./Geometry";
 
 /**
@@ -334,15 +336,57 @@ export function Artwork({
   h?: number;
   tone?: string;
 }) {
+  // Base tone in 0-255, so the canvas generator can shade around it.
+  const rgb = useMemo(() => {
+    const c = new THREE.Color(tone);
+    return [c.r * 255, c.g * 255, c.b * 255] as [number, number, number];
+  }, [tone]);
+  const canvas = useMemo(() => artworkTexture(w * 31 + h * 17, rgb), [w, h, rgb]);
+
   return (
     <group position={position} rotation={[0, rotation, 0]}>
-      <mesh castShadow>
-        <boxGeometry args={[w, h, 0.045]} />
-        <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} envMapIntensity={1.0} />
+      {/*
+        Framed work, in four layers rather than one.
+
+        It was a walnut box with a flat tinted plane on the front, and a flat
+        plane inside a frame reads as a paint swatch — the eye will not accept a
+        surface as a picture until something varies across it. A real frame is
+        also not a solid slab: it is four sides around a recess, so the mount
+        sits *behind* the frame face and the frame throws a small shadow onto
+        it. That shadow is what gives the whole thing depth from an angle, which
+        is the only way this is ever seen.
+      */}
+      {/* backing board */}
+      <mesh position={[0, 0, -0.012]} castShadow receiveShadow>
+        <boxGeometry args={[w, h, 0.018]} />
+        <meshStandardMaterial color="#5b4630" roughness={0.8} />
       </mesh>
-      <mesh position={[0, 0, 0.026]}>
-        <planeGeometry args={[w - 0.11, h - 0.11]} />
-        <meshStandardMaterial color={tone} roughness={0.92} />
+
+      {/* frame sides, leaving the centre open so the mount is recessed */}
+      {(
+        [
+          [0, h / 2 - 0.028, w, 0.056],
+          [0, -h / 2 + 0.028, w, 0.056],
+          [-w / 2 + 0.028, 0, 0.056, h - 0.112],
+          [w / 2 - 0.028, 0, 0.056, h - 0.112],
+        ] as const
+      ).map(([px, py, bw, bh], i) => (
+        <mesh key={i} position={[px, py, 0.012]} castShadow receiveShadow>
+          <boxGeometry args={[bw, bh, 0.042]} />
+          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.45} envMapIntensity={1.0} />
+        </mesh>
+      ))}
+
+      {/* mount board, set back inside the frame */}
+      <mesh position={[0, 0, 0.002]} receiveShadow>
+        <planeGeometry args={[w - 0.056, h - 0.056]} />
+        <meshStandardMaterial color="#efe9dc" roughness={0.95} />
+      </mesh>
+
+      {/* the work itself, inside the mount */}
+      <mesh position={[0, 0, 0.005]}>
+        <planeGeometry args={[w - 0.2, h - 0.24]} />
+        <meshStandardMaterial map={canvas} roughness={0.88} envMapIntensity={0.6} />
       </mesh>
     </group>
   );

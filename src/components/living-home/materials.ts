@@ -300,3 +300,66 @@ function applyRepeat(
   };
   return { map: clone(m.map), normalMap: clone(m.normalMap), roughnessMap: clone(m.roughnessMap) };
 }
+
+
+/**
+ * A canvas for the framed work on the walls.
+ *
+ * The alternative was a flat tinted rectangle, which is what was there, and a
+ * flat rectangle inside a frame reads as a swatch rather than a picture — the
+ * eye needs some internal variation before it will accept a surface as an
+ * image.
+ *
+ * Deliberately restrained: a soft horizon field in the building's own material
+ * tones, with a little canvas tooth over it. The design system bans decoration,
+ * and a loud abstract on the wall of a project about provenance would be
+ * exactly that. This is the painting a room like this actually has.
+ */
+export function artworkTexture(seed: number, base: [number, number, number]): THREE.CanvasTexture {
+  const S = 256;
+  const c = document.createElement("canvas");
+  c.width = c.height = S;
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(S, S);
+
+  // Deterministic per artwork, so a given frame always holds the same picture.
+  const rnd = (x: number, y: number) => {
+    const v = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453;
+    return v - Math.floor(v);
+  };
+
+  // The horizon sits off-centre, because a band across the middle reads as a
+  // flag rather than a landscape.
+  const horizon = 0.56 + (rnd(seed, 1) - 0.5) * 0.16;
+
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const u = x / S;
+      const v = y / S;
+
+      // Soft vertical gradient either side of the horizon, plus a slow warp so
+      // the band is not perfectly straight.
+      const warp = fbm(u * 2.2, seed * 3.1, 3) * 0.06 - 0.03;
+      const d = v - (horizon + warp);
+      const above = d < 0;
+      const t = Math.min(1, Math.abs(d) * (above ? 2.6 : 3.4));
+
+      // Two fields drawn from the base tone: lighter above, deeper below.
+      const lift = above ? 1.18 - t * 0.3 : 0.72 + t * 0.16;
+      // Canvas tooth.
+      const tooth = 0.97 + fbm(u * 90, v * 90, 2) * 0.06;
+
+      const i = (y * S + x) * 4;
+      img.data[i] = Math.min(255, base[0] * lift * tooth);
+      img.data[i + 1] = Math.min(255, base[1] * lift * tooth);
+      img.data[i + 2] = Math.min(255, base[2] * lift * tooth);
+      img.data[i + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
