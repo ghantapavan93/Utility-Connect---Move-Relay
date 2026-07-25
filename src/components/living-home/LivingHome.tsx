@@ -40,7 +40,7 @@ interface Station {
  * glazing on the right so the camera always has depth to look through.
  *
  * Every station is aimed at a SUBJECT that exists at those coordinates — the
- * referral key at (−17, 1.35, 2.2), the Move Record core at (−9, 2.1, 1.4),
+ * referral key at (−18.35, 1.62, 3.15), the Move Record core at (−9, 2.1, 1.4),
  * the router LED at (−0.05, 0.78, −3.85), the island at (5, 0.95, −2.2), the
  * circuit panel at (11.6, 1.28, −3.5). An earlier pass aimed at empty space
  * between rooms and framed blank plaster; a station with no subject is a
@@ -54,9 +54,12 @@ const WALK: Station[] = [
   // the cantilever read as something you walk under.
   { at: 0.0, pos: [-30, 2.6, 17.5], look: [-8, 2.1, 0.5], fov: 52 },
   { at: 0.08, pos: [-22.5, 2.3, 12.5], look: [-11.5, 2.0, 0], fov: 50 },
-  // Garage — down to eye level, framing the referral key on the boxes
-  { at: 0.15, pos: [-17.2, EYE, 8.2], look: [-17, 1.35, 2.2], fov: 55 },
-  { at: 0.2, pos: [-17.1, EYE, 4.6], look: [-17, 1.35, 2.2], fov: 46 },
+  // Garage — down to eye level, framing the referral key on the boxes. The
+  // camera used to look straight down the bay at x ≈ −17 while the whole stack
+  // sat at −17.5 to −19.7, so the subject of the chapter was off-frame left and
+  // the shot was a blank wall with a ring floating in front of it.
+  { at: 0.15, pos: [-15.9, 1.66, 7.6], look: [-18.3, 1.15, 2.8], fov: 56 },
+  { at: 0.2, pos: [-16.6, EYE, 5.5], look: [-18.4, 1.1, 2.7], fov: 50 },
   // Foyer — the Move Digital Twin, held in the double-height entry.
   // The aim sits just below eye height even though the core hangs above it:
   // aiming *at* the core pitched the lens up and gave away half the frame to

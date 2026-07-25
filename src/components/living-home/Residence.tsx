@@ -378,17 +378,35 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       <Wall position={[-13.4, 1.7, -2.6]} size={[0.3, 3.4, 6.8]} />
       {/* open garage door header */}
       <Wall position={[-17, 3.05, 5.8]} size={[7.4, 0.7, 0.3]} />
-      {/* moving boxes */}
-      {([[-18.4, 0.4, 3.2, 0.35], [-17.4, 0.35, 2.4, 0.2], [-19.2, 0.3, 1.6, -0.4]] as const).map(
-        ([x, y, z, r], i) => (
-          <mesh key={i} position={[x, y, z]} rotation={[0, r, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.8, 0.7, 0.7]} />
-            <meshStandardMaterial color="#c2a179" roughness={0.95} />
-          </mesh>
-        ),
-      )}
-      {/* the referral key — the agent's handoff, made physical */}
-      <mesh position={[-17, 1.35, 2.2]}>
+      {/*
+        Moving boxes. Three identical cartons in an otherwise empty concrete bay
+        read as three primitives; a real moving day is a stack of mismatched
+        sizes, some closed, some open, leaning against each other. The variation
+        is what makes the room look inhabited on the morning the keys change
+        hands — which is the entire premise of this chapter.
+      */}
+      {(
+        [
+          [-18.4, 0.4, 3.2, 0.35, 0.82, 0.78],
+          [-17.5, 0.34, 2.5, 0.2, 0.68, 0.66],
+          [-19.25, 0.31, 1.7, -0.4, 0.74, 0.6],
+          [-18.35, 1.09, 3.15, 0.12, 0.66, 0.56],
+          [-19.3, 0.86, 1.62, -0.22, 0.6, 0.5],
+          [-17.15, 0.28, 1.35, 0.62, 0.56, 0.54],
+          [-19.7, 0.36, 3.5, -0.15, 0.7, 0.7],
+        ] as const
+      ).map(([x, y, z, r, w, h], i) => (
+        <mesh key={i} position={[x, y, z]} rotation={[0, r, 0]} castShadow receiveShadow>
+          <boxGeometry args={[w, h, w * 0.86]} />
+          {/* Alternating card tones — one carton colour across a whole stack
+              is the tell that they came out of a loop. */}
+          <meshStandardMaterial color={i % 3 === 0 ? "#c2a179" : i % 3 === 1 ? "#b8946c" : "#cbab84"} roughness={0.95} />
+        </mesh>
+      ))}
+      {/* the referral key — the agent's handoff, made physical. It sits over
+          the stack rather than out on the empty wall, so the shot that frames
+          the boxes frames the key with them. */}
+      <mesh position={[-18.35, 1.62, 3.15]}>
         <torusGeometry args={[0.17, 0.045, 10, 24]} />
         <meshStandardMaterial
           ref={garageKey}
