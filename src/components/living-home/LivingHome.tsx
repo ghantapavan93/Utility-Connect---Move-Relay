@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Lightformer, ContactShadows } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
-import { KernelSize } from "postprocessing";
+import { EffectComposer, Bloom, Vignette, SSAO } from "@react-three/postprocessing";
+import { KernelSize, BlendFunction } from "postprocessing";
 import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { Residence, CHAPTER, lv } from "./Residence";
@@ -389,7 +389,34 @@ export function LivingHome() {
           <ContactShadows position={[0, 0.05, 0]} scale={54} resolution={1024} blur={2.5} opacity={0.55} far={8} color="#0d1620" frames={1} />
           <Rig progress={scrollYProgress} />
 
-          <EffectComposer multisampling={0}>
+          <EffectComposer multisampling={0} enableNormalPass>
+            {/*
+              Ambient occlusion — the closest a browser gets to baked global
+              illumination without an offline bake.
+
+              What reads as "baked GI" in an architectural render is mostly one
+              thing: contact darkening. Light does not reach the inside of a
+              corner, the gap under a counter, or the seam where a stool meets
+              the floor. Real-time lights cannot express that — they light
+              every exposed surface equally — which is precisely why earlier
+              passes looked flat no matter how the lights were tuned.
+
+              SSAO samples the depth and normal buffers to darken those
+              occluded creases each frame. Computed rather than pre-baked, so
+              it costs GPU time instead of a Blender pipeline, but it is the
+              same visual cue.
+            */}
+            <SSAO
+              blendFunction={BlendFunction.MULTIPLY}
+              samples={24}
+              radius={0.14}
+              intensity={26}
+              luminanceInfluence={0.55}
+              worldDistanceThreshold={12}
+              worldDistanceFalloff={2}
+              worldProximityThreshold={2}
+              worldProximityFalloff={1}
+            />
             <Bloom intensity={0.85} luminanceThreshold={0.55} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
             <Vignette eskil={false} offset={0.22} darkness={0.72} />
           </EffectComposer>

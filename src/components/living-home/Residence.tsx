@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
 import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug } from "./Furniture";
+import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
 
 /**
  * The residence.
@@ -59,10 +60,14 @@ function Wall({
   size: [number, number, number];
   color?: string;
 }) {
+  // Board-formed concrete: the mottling and faint board lines are a real
+  // normal map, so a grazing light rakes across the surface instead of
+  // landing on it flat.
+  const maps = useMemo(() => concreteMaps([Math.max(1, size[0] / 4), Math.max(1, size[1] / 3)]), [size]);
   return (
     <mesh position={position} castShadow receiveShadow>
       <boxGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.85} metalness={0.02} envMapIntensity={0.8} />
+      <meshStandardMaterial {...maps} color={color} metalness={0.02} envMapIntensity={0.85} />
     </mesh>
   );
 }
@@ -71,15 +76,17 @@ function Floor({
   position,
   size,
   color,
+  maps,
 }: {
   position: [number, number, number];
   size: [number, number];
   color: string;
+  maps: { map: THREE.Texture; normalMap: THREE.Texture; roughnessMap: THREE.Texture };
 }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={position} receiveShadow>
       <planeGeometry args={size} />
-      <meshStandardMaterial color={color} roughness={0.55} metalness={0.04} envMapIntensity={0.9} />
+      <meshStandardMaterial {...maps} color={color} metalness={0.04} envMapIntensity={0.95} />
     </mesh>
   );
 }
@@ -124,6 +131,13 @@ function Glazing({ x, z, width }: { x: number; z: number; width: number }) {
 
 export function Residence({ progress }: { progress: MotionValue<number> }) {
   const root = useRef<THREE.Group>(null);
+
+  // Real PBR map sets, generated procedurally and shared across surfaces.
+  const oak = useMemo(() => oakMaps([4, 4]), []);
+  const limestone = useMemo(() => limestoneMaps([10, 4]), []);
+  const walnut = useMemo(() => walnutMaps([2, 2]), []);
+  const stone = useMemo(() => stoneMaps([2, 1]), []);
+  const linen = useMemo(() => linenMaps([3, 3]), []);
 
   // Service fixtures, each owned by its room.
   const garageKey = useRef<THREE.MeshStandardMaterial>(null);
@@ -249,9 +263,9 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       ))}
 
       {/* ── Slab, roof plane, back wall — the long horizontal gesture ── */}
-      <Floor position={[-1, 0.02, 0]} size={[40, 12]} color={MATERIAL.limestone} />
+      <Floor position={[-1, 0.02, 0]} size={[40, 12]} color={MATERIAL.limestone} maps={limestone} />
       {/* oak in the living volume */}
-      <Floor position={[-2, 0.03, -1]} size={[9, 9]} color={MATERIAL.oak} />
+      <Floor position={[-2, 0.03, -1]} size={[9, 9]} color={MATERIAL.oak} maps={oak} />
       {/* roof plane, cantilevered */}
       <mesh position={[-1, 3.42, 1]} castShadow>
         <boxGeometry args={[42, 0.35, 15]} />
@@ -313,11 +327,11 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       <group position={[-3.6, 0, -3.4]}>
         <mesh position={[0, 0.32, 0]} castShadow receiveShadow>
           <boxGeometry args={[3.0, 0.4, 1.0]} />
-          <meshStandardMaterial color={MATERIAL.linen} roughness={0.95} envMapIntensity={0.7} />
+          <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
         </mesh>
         <mesh position={[0, 0.68, -0.42]} castShadow>
           <boxGeometry args={[3.0, 0.58, 0.2]} />
-          <meshStandardMaterial color={MATERIAL.linen} roughness={0.95} />
+          <meshStandardMaterial {...linen} color={MATERIAL.linen} envMapIntensity={0.75} />
         </mesh>
       </group>
       {/* walnut console with the router — internet's diegetic fixture */}
@@ -373,11 +387,11 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         {/* island */}
         <mesh position={[0, 0.46, 0]} castShadow receiveShadow>
           <boxGeometry args={[3.4, 0.92, 1.15]} />
-          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} envMapIntensity={0.9} />
+          <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
         </mesh>
         <mesh position={[0, 0.95, 0]} castShadow>
           <boxGeometry args={[3.6, 0.07, 1.3]} />
-          <meshStandardMaterial color="#efece6" roughness={0.18} metalness={0.2} envMapIntensity={1.5} />
+          <meshStandardMaterial {...stone} color="#efece6" metalness={0.18} envMapIntensity={1.6} />
         </mesh>
         {/* tap + water */}
         <mesh position={[-1.1, 1.22, 0]} castShadow>
@@ -443,11 +457,11 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         {/* back run + tall units */}
         <mesh position={[0, 0.46, -3.2]} castShadow receiveShadow>
           <boxGeometry args={[5.4, 0.92, 0.65]} />
-          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} />
+          <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
         </mesh>
         <mesh position={[0, 0.95, -3.2]}>
           <boxGeometry args={[5.5, 0.07, 0.72]} />
-          <meshStandardMaterial color="#efece6" roughness={0.18} metalness={0.2} envMapIntensity={1.5} />
+          <meshStandardMaterial {...stone} color="#efece6" metalness={0.18} envMapIntensity={1.6} />
         </mesh>
         <mesh position={[3.1, 1.15, -3.2]} castShadow>
           <boxGeometry args={[0.9, 2.3, 0.75]} />
@@ -517,7 +531,7 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         {/* counter over the machines */}
         <mesh position={[0, 0.92, 0]} castShadow>
           <boxGeometry args={[2.4, 0.07, 0.78]} />
-          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} />
+          <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
         </mesh>
       </group>
 
@@ -538,7 +552,7 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         {Array.from({ length: 9 }, (_, i) => (
           <mesh key={i} position={[0, 0.19 + i * 0.19, -i * 0.29]} castShadow receiveShadow>
             <boxGeometry args={[1.5, 0.1, 0.3]} />
-            <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} envMapIntensity={0.9} />
+            <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
           </mesh>
         ))}
       </group>
