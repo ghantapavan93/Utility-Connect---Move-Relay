@@ -47,15 +47,23 @@ interface Station {
  * missing shot, not a transition.
  */
 const WALK: Station[] = [
-  // Arrival — the whole residence from the drive, above the planting line
-  { at: 0.0, pos: [-34, 7.5, 30], look: [-3, 2.4, -1], fov: 46 },
-  { at: 0.08, pos: [-27, 5.2, 19], look: [-11, 2.2, 0], fov: 50 },
+  // Arrival — the residence from the drive. Shot low and close rather than
+  // high and wide: from 7.5m the house flattened into a strip with half the
+  // frame given to empty sky, which is the one composition luxury-property
+  // photography never uses. Standing height and a three-quarter approach lets
+  // the cantilever read as something you walk under.
+  { at: 0.0, pos: [-30, 2.6, 17.5], look: [-8, 2.1, 0.5], fov: 52 },
+  { at: 0.08, pos: [-22.5, 2.3, 12.5], look: [-11.5, 2.0, 0], fov: 50 },
   // Garage — down to eye level, framing the referral key on the boxes
   { at: 0.15, pos: [-17.2, EYE, 8.2], look: [-17, 1.35, 2.2], fov: 55 },
   { at: 0.2, pos: [-17.1, EYE, 4.6], look: [-17, 1.35, 2.2], fov: 46 },
-  // Foyer — the Move Digital Twin, held in the double-height entry
-  { at: 0.27, pos: [-12.4, EYE, 4.4], look: [-9, 2.1, 1.4], fov: 52 },
-  { at: 0.32, pos: [-10.2, 1.75, 3.6], look: [-9, 2.1, 1.4], fov: 44 },
+  // Foyer — the Move Digital Twin, held in the double-height entry.
+  // The aim sits just below eye height even though the core hangs above it:
+  // aiming *at* the core pitched the lens up and gave away half the frame to
+  // blank ceiling. Framing the room and letting the core enter the upper third
+  // is how an interior photographer shoots a pendant — you never point at it.
+  { at: 0.27, pos: [-13.6, EYE, 5.8], look: [-9.2, 1.5, 0.4], fov: 56 },
+  { at: 0.32, pos: [-11.8, 1.66, 4.3], look: [-8.8, 1.52, 0.2], fov: 50 },
   // Living — across the seating group to the router on the console
   { at: 0.4, pos: [-7.4, EYE, 1.4], look: [-3.4, 1.1, -2.6], fov: 58 },
   { at: 0.44, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50 },
@@ -71,8 +79,10 @@ const WALK: Station[] = [
   // Utility — the machines, then in tight on the circuit panel
   { at: 0.72, pos: [10.2, EYE, -1.9], look: [11.6, 1.15, -3.1], fov: 52 },
   { at: 0.82, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
-  // Recovery — pull back down the length of the house
-  { at: 0.9, pos: [10.5, 2.0, 3.0], look: [-1, 1.4, -2.4], fov: 62 },
+  // Recovery — pull back down the length of the house. Held in the open
+  // circulation zone rather than the utility threshold: the earlier position
+  // put the doorway pier straight down the middle of the shot.
+  { at: 0.9, pos: [8.6, 1.86, 2.9], look: [-2.4, 1.3, -1.9], fov: 58 },
   // Continuum — rise and look back over the whole home
   { at: 1.0, pos: [-1, 17, 32], look: [-1, 1.0, -2], fov: 46 },
 ];
@@ -135,27 +145,29 @@ function Rig({ progress }: { progress: MotionValue<number> }) {
 function KeyLight({ progress }: { progress: MotionValue<number> }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const amb = useRef<THREE.AmbientLight>(null);
-  const dusk = new THREE.Color(LIGHT.dusk);
+  const dusk = new THREE.Color(LIGHT.daylight);
   const warm = new THREE.Color(LIGHT.practical);
 
   useFrame(() => {
     const p = progress.get();
     const alive = lv(p, [CHAPTER.foyer[0], CHAPTER.kitchen[1]] as const);
+    // Daylight holds steady. Only the warmth shifts as the practicals join it,
+    // so the room never dims — the services add light, they do not replace it.
     if (light.current) {
-      light.current.intensity = 1.5 - alive * 0.55;
-      light.current.color.lerpColors(dusk, warm, alive * 0.35);
+      light.current.intensity = 1.35;
+      light.current.color.lerpColors(dusk, warm, alive * 0.28);
     }
-    if (amb.current) amb.current.intensity = 0.42 + alive * 0.16;
+    if (amb.current) amb.current.intensity = 0.42 + alive * 0.06;
   });
 
   return (
     <>
-      <ambientLight ref={amb} intensity={0.42} color={LIGHT.dusk} />
+      <ambientLight ref={amb} intensity={0.42} color={LIGHT.daylight} />
       <directionalLight
         ref={light}
         position={[26, 22, 18]}
-        intensity={1.5}
-        color={LIGHT.dusk}
+        intensity={1.35}
+        color={LIGHT.daylight}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -166,7 +178,7 @@ function KeyLight({ progress }: { progress: MotionValue<number> }) {
         shadow-camera-bottom={-24}
         shadow-camera-far={90}
       />
-      <directionalLight position={[-24, 12, -18]} intensity={0.4} color="#7fa0c8" />
+      <directionalLight position={[-24, 14, -18]} intensity={0.35} color="#cfe0f5" />
     </>
   );
 }
@@ -290,9 +302,18 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
   return (
     <motion.div
       style={{ opacity, y }}
-      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-start px-6 pb-16 sm:px-16"
+      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-start px-6 pb-12 sm:px-14"
     >
-      <div className="max-w-lg">
+      {/*
+        The copy carries its own scrim. Once the interior is daylit, white text
+        over a white wall is unreadable — and a caption that cannot be read is
+        not a caption. A dark, softly blurred plate keeps the type legible over
+        any part of the room without dimming the room itself.
+      */}
+      <div
+        className="max-w-md rounded-xl px-5 py-4 backdrop-blur-[3px]"
+        style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.72), rgba(10,14,20,0.92))" }}
+      >
         <div className="flex items-center gap-2.5">
           <span
             className="rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
@@ -304,10 +325,10 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
             {c.room}
           </span>
         </div>
-        <h2 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-white sm:text-[2.1rem]">
+        <h2 className="mt-2.5 text-xl font-semibold leading-[1.18] tracking-tight text-white sm:text-[1.6rem]">
           {c.title}
         </h2>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70 sm:text-base">{c.body}</p>
+        <p className="mt-2.5 text-[13px] leading-relaxed text-white/70 sm:text-sm">{c.body}</p>
         {c.service && (
           <div
             className="mt-4 inline-flex items-center gap-2 border-l-2 pl-3 text-xs font-medium tracking-wide"
@@ -364,12 +385,12 @@ export function LivingHome() {
           gl={{
             antialias: true,
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.15,
+            toneMappingExposure: 0.78,
           }}
           style={{ position: "absolute", inset: 0 }}
         >
-          <color attach="background" args={["#151d26"]} />
-          <fog attach="fog" args={["#151d26", 40, 130]} />
+          <color attach="background" args={["#c3d2e2"]} />
+          <fog attach="fog" args={["#cfdae7", 55, 170]} />
 
           {/*
             A dusk environment. Cool sky above, warm bounce at floor level, and
@@ -377,16 +398,33 @@ export function LivingHome() {
             in the house has something true to sample. Baked in-engine; no HDRI
             download, works offline.
           */}
-          <Environment resolution={160} frames={1}>
-            <Lightformer intensity={0.7} color="#9db8dc" position={[0, 18, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[46, 46, 1]} />
-            <Lightformer intensity={0.5} color="#ffd9a8" position={[0, 1.6, 16]} scale={[30, 5, 1]} />
-            <Lightformer intensity={0.32} color="#7fa0c8" position={[-28, 8, -14]} scale={[22, 12, 1]} />
-            <Lightformer intensity={0.22} color="#6d7a68" position={[0, -4, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[46, 46, 1]} />
+          {/*
+            A bright daylight environment.
+
+            Image-based lighting is what makes architectural visualisation read
+            as photographed rather than rendered — every surface samples a real
+            sky, a real ground bounce and real fill. The previous dusk rig was
+            the reason the interior stayed muddy no matter what else changed:
+            there simply was not enough light in the room to reveal a material.
+
+            The narrative still works, and works better: the architecture is
+            beautifully daylit throughout, and the SERVICES are what switch on.
+            A premium home is not a dark home.
+          */}
+          <Environment resolution={256} frames={1}>
+            {/* sky dome */}
+            <Lightformer intensity={1.3} color="#eaf2ff" position={[0, 20, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[60, 60, 1]} />
+            {/* sun card through the courtyard glazing */}
+            <Lightformer intensity={2.2} color="#fff4e2" position={[6, 9, 22]} scale={[26, 14, 1]} />
+            {/* cool sky fill from behind */}
+            <Lightformer intensity={0.7} color="#cfe0f5" position={[-26, 10, -18]} scale={[26, 14, 1]} />
+            {/* warm ground bounce — the light that fills the underside of things */}
+            <Lightformer intensity={0.45} color="#d8cbb4" position={[0, -3, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[60, 60, 1]} />
           </Environment>
 
           <KeyLight progress={scrollYProgress} />
           <Residence progress={scrollYProgress} />
-          <ContactShadows position={[0, 0.05, 0]} scale={54} resolution={1024} blur={2.5} opacity={0.55} far={8} color="#0d1620" frames={1} />
+          <ContactShadows position={[0, 0.05, 0]} scale={54} resolution={1024} blur={2.5} opacity={0.32} far={8} color="#5a6470" frames={1} />
           <Rig progress={scrollYProgress} />
 
           <EffectComposer multisampling={0} enableNormalPass>
@@ -408,17 +446,17 @@ export function LivingHome() {
             */}
             <SSAO
               blendFunction={BlendFunction.MULTIPLY}
-              samples={24}
-              radius={0.14}
-              intensity={26}
-              luminanceInfluence={0.55}
+              samples={16}
+              radius={0.06}
+              intensity={7}
+              luminanceInfluence={0.85}
               worldDistanceThreshold={12}
               worldDistanceFalloff={2}
               worldProximityThreshold={2}
               worldProximityFalloff={1}
             />
-            <Bloom intensity={0.85} luminanceThreshold={0.55} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
-            <Vignette eskil={false} offset={0.22} darkness={0.72} />
+            <Bloom intensity={0.5} luminanceThreshold={0.85} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
+            <Vignette eskil={false} offset={0.32} darkness={0.42} />
           </EffectComposer>
         </Canvas>
 

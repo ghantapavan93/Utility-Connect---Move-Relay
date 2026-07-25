@@ -138,6 +138,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   const walnut = useMemo(() => walnutMaps([2, 2]), []);
   const stone = useMemo(() => stoneMaps([2, 1]), []);
   const linen = useMemo(() => linenMaps([3, 3]), []);
+  // Coarse tiling: the ceiling is one 42×15m slab, so the plaster grain has to
+  // repeat at architectural scale or it turns into visible noise.
+  const ceilingMaps = useMemo(() => concreteMaps([14, 5]), []);
+  const groundMaps = useMemo(() => limestoneMaps([26, 18]), []);
 
   // Service fixtures, each owned by its room.
   const garageKey = useRef<THREE.MeshStandardMaterial>(null);
@@ -239,38 +243,121 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   return (
     <group ref={root}>
       {/* ── Ground and courtyard ─────────────────────────────── */}
+      {/*
+        The ground carries a texture for one reason: on the arrival shot it is
+        a third of the frame, and a single flat colour that large announces the
+        render before the house gets a chance to speak. The limestone maps are
+        reused at a coarse tiling and tinted to planting green, so the surface
+        breaks up tonally the way mown ground does without needing its own map.
+      */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[140, 90]} />
-        <meshStandardMaterial color="#8f9689" roughness={0.95} envMapIntensity={0.5} />
+        <meshStandardMaterial {...groundMaps} color="#93a083" roughness={0.97} envMapIntensity={0.5} />
+      </mesh>
+      {/* A paved apron under the cantilever, so the house meets the site on a
+          hard edge rather than floating on lawn. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-4, 0.0, 7.4]} receiveShadow>
+        <planeGeometry args={[46, 5.6]} />
+        <meshStandardMaterial {...groundMaps} color={MATERIAL.limestone} roughness={0.72} envMapIntensity={0.7} />
       </mesh>
       {/* reflecting pool along the courtyard side */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-2, 0.01, 9.5]} receiveShadow>
         <planeGeometry args={[26, 4.5]} />
         <meshPhysicalMaterial color="#3f5c6b" roughness={0.05} metalness={0.35} envMapIntensity={1.6} />
       </mesh>
-      {/* planting */}
-      {[-19, -13, 8, 14, 19].map((x) => (
-        <group key={x} position={[x, 0, 12]}>
-          <mesh position={[0, 0.9, 0]} castShadow>
-            <cylinderGeometry args={[0.09, 0.12, 1.8, 8]} />
-            <meshStandardMaterial color={MATERIAL.walnut} roughness={0.9} />
+      {/*
+        Treeline behind the house.
+
+        The arrival shot was giving 40% of its frame to flat sky, and the fix is
+        not a longer lens — a 40m-long house cannot fill a frame vertically and
+        still read as long. What removes empty sky in real property photography
+        is that there is always something behind the building. This is a mass,
+        not a set of trees: desaturated and cool, far enough back that the fog
+        takes it, so it sits behind the residence instead of competing with it.
+      */}
+      {Array.from({ length: 26 }, (_, i) => {
+        const x = -46 + i * 3.7;
+        // Deterministic jitter — a perfectly even row reads as a fence.
+        const j = Math.sin(i * 12.9898) * 43758.5453;
+        const r = j - Math.floor(j);
+        return { x, z: -24 - r * 9, h: 5.4 + r * 4.6, w: 2.2 + r * 1.5, i };
+      }).map((t) => (
+        <group key={t.i} position={[t.x, 0, t.z]}>
+          <mesh position={[0, t.h * 0.34, 0]}>
+            <cylinderGeometry args={[0.16, 0.24, t.h * 0.68, 6]} />
+            <meshStandardMaterial color="#5b5344" roughness={0.95} />
           </mesh>
-          <mesh position={[0, 2.2, 0]} castShadow>
-            <icosahedronGeometry args={[1.1, 1]} />
-            <meshStandardMaterial color={MATERIAL.foliage} roughness={0.95} flatShading />
+          <mesh position={[0, t.h * 0.78, 0]}>
+            <icosahedronGeometry args={[t.w, 1]} />
+            <meshStandardMaterial color="#6d7d63" roughness={1} envMapIntensity={0.35} />
           </mesh>
         </group>
       ))}
+
+      {/*
+        Courtyard planting. These sit within a few metres of the arrival camera,
+        which is why they get three canopy masses at a higher subdivision and no
+        flat shading: a single flat-shaded icosahedron is readable as foliage at
+        forty metres and unmistakably a polyhedron at five. Overlapping lobes of
+        slightly different greens is what gives a canopy its silhouette.
+      */}
+      {[-19, -13, 8, 14, 19].map((x, i) => {
+        const j = Math.sin(i * 78.233) * 43758.5453;
+        const r = j - Math.floor(j);
+        return (
+          <group key={x} position={[x, 0, 12]} rotation={[0, r * Math.PI, 0]}>
+            <mesh position={[0, 1.0, 0]} castShadow>
+              <cylinderGeometry args={[0.08, 0.13, 2.0, 10]} />
+              <meshStandardMaterial color={MATERIAL.walnut} roughness={0.9} />
+            </mesh>
+            {(
+              [
+                [0, 2.35, 0, 1.05, "#6f8560"],
+                [0.52, 2.05, 0.3, 0.72, "#7d9068"],
+                [-0.45, 2.6, -0.28, 0.62, "#627a56"],
+              ] as const
+            ).map(([px, py, pz, rad, tone], k) => (
+              <mesh key={k} position={[px, py + r * 0.2, pz]} castShadow>
+                <icosahedronGeometry args={[rad * (0.9 + r * 0.25), 3]} />
+                <meshStandardMaterial color={tone} roughness={0.98} envMapIntensity={0.5} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
 
       {/* ── Slab, roof plane, back wall — the long horizontal gesture ── */}
       <Floor position={[-1, 0.02, 0]} size={[40, 12]} color={MATERIAL.limestone} maps={limestone} />
       {/* oak in the living volume */}
       <Floor position={[-2, 0.03, -1]} size={[9, 9]} color={MATERIAL.oak} maps={oak} />
       {/* roof plane, cantilevered */}
-      <mesh position={[-1, 3.42, 1]} castShadow>
+      <mesh position={[-1, 3.42, 1]} castShadow receiveShadow>
         <boxGeometry args={[42, 0.35, 15]} />
-        <meshStandardMaterial color={MATERIAL.concreteShadow} roughness={0.9} envMapIntensity={0.7} />
+        <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.92} envMapIntensity={0.7} />
       </mesh>
+      {/*
+        Exposed walnut joists at 1.6m centres.
+
+        An interior's ceiling is roughly a quarter of every frame shot at eye
+        height, and a single untextured plane up there reads as an unfinished
+        render however good the floor is. Structure fixes it three ways at once:
+        it gives the plane a scale reference, it casts the long parallel shadows
+        that tell the eye the light has a direction, and it carries the horizon
+        line down the length of the house so the rooms feel connected.
+      */}
+      {Array.from({ length: 19 }, (_, i) => -19.2 + i * 1.94).map((x) => (
+        <mesh key={x} position={[x, 3.18, 0.4]} castShadow receiveShadow>
+          <boxGeometry args={[0.13, 0.2, 11.6]} />
+          {/*
+            Pale oak and no texture map. Walnut turned the ceiling into a dark
+            grid that fought the room for attention, and a map tiled for a 2m
+            panel moirés badly when stretched down an 11m joist. At this
+            distance the grain is below a pixel anyway — the joist's job here is
+            rhythm and shadow, not material detail.
+          */}
+          <meshStandardMaterial color="#c8ae86" roughness={0.7} envMapIntensity={0.9} />
+        </mesh>
+      ))}
       <Wall position={[-1, 1.7, -5.9]} size={[40, 3.4, 0.3]} />
 
       {/* ── GARAGE — the partner handoff ─────────────────────── */}

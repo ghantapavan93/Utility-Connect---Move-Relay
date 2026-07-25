@@ -189,13 +189,13 @@ export function oakMaps(repeat: [number, number] = [6, 6]) {
 export function walnutMaps(repeat: [number, number] = [2, 2]) {
   const m = cached("walnut", () =>
     generateMaps(
-      (x, y) => fbm(x * 3 + fbm(x * 2, y * 2, 2) * 1.5, y * 55, 4) * 0.8 + 0.2,
+      (x, y) => fbm(x * 2.2 + fbm(x * 1.6, y * 1.6, 2) * 1.2, y * 14, 4) * 0.8 + 0.2,
       (_x, _y, h) => {
         const t = 0.6 + h * 0.65;
         return [Math.min(255, 107 * t), Math.min(255, 74 * t), Math.min(255, 47 * t)];
       },
       (h) => 0.34 + (1 - h) * 0.26,
-      2.2,
+      1.1,
     ),
   );
   return applyRepeat(m, repeat);
@@ -226,16 +226,16 @@ export function stoneMaps(repeat: [number, number] = [2, 1]) {
   const m = cached("stone", () =>
     generateMaps(
       (x, y) => {
-        const speck = smoothNoise(x * 220, y * 220);
+        const speck = smoothNoise(x * 90, y * 90);
         const vein = fbm(x * 2.2 + fbm(x * 4, y * 4, 3) * 2.4, y * 2.2, 3);
-        return speck * 0.35 + vein * 0.5 + 0.3;
+        return speck * 0.16 + vein * 0.62 + 0.3;
       },
       (_x, _y, h) => {
         const t = 0.92 + h * 0.16;
         return [Math.min(255, 239 * t), Math.min(255, 236 * t), Math.min(255, 230 * t)];
       },
       (h) => 0.14 + h * 0.12,
-      0.9,
+      0.45,
     ),
   );
   return applyRepeat(m, repeat);
