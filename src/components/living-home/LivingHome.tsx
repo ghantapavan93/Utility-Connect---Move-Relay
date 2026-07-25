@@ -68,27 +68,41 @@ const WALK: Station[] = [
   // is how an interior photographer shoots a pendant — you never point at it.
   { at: 0.27, pos: [-13.6, EYE, 5.8], look: [-9.2, 1.5, 0.4], fov: 56 },
   { at: 0.32, pos: [-11.8, 1.66, 4.3], look: [-8.8, 1.52, 0.2], fov: 50 },
+  // Entry · security — turn back toward the front door, where the sensor is.
+  // This beat used to play while the camera stood in the utility room eleven
+  // metres away, so a caption about the entry sensor ran over a washing
+  // machine. Turning at the threshold keeps the "never cut between rooms" rule
+  // while still putting the subject in frame.
+  { at: 0.335, pos: [-8.3, 1.66, 3.3], look: [-6.5, 2.02, 5.5], fov: 46 },
+  { at: 0.37, pos: [-7.35, 1.86, 4.5], look: [-6.38, 2.11, 5.62], fov: 34 },
   // Living — across the seating group to the router on the console
-  { at: 0.4, pos: [-7.4, EYE, 1.4], look: [-3.4, 1.1, -2.6], fov: 58 },
-  { at: 0.44, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50 },
+  { at: 0.42, pos: [-7.4, EYE, 1.5], look: [-3.4, 1.1, -2.6], fov: 58 },
+  { at: 0.46, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50 },
   // Dining — the room between, so the mid-house move has a subject
-  { at: 0.5, pos: [-1.6, EYE, 0.6], look: [1.4, 0.9, -2.6], fov: 55 },
+  { at: 0.52, pos: [-1.6, EYE, 0.6], look: [1.4, 0.9, -2.6], fov: 55 },
   // Kitchen — the island, stools and pendants
-  { at: 0.56, pos: [2.2, EYE, 0.8], look: [5.0, 1.0, -2.2], fov: 54 },
-  { at: 0.62, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48 },
+  { at: 0.55, pos: [2.2, EYE, 0.8], look: [5.0, 1.0, -2.2], fov: 54 },
+  { at: 0.6, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48 },
   // Through the doorway — the camera lines up with the 1.15m opening at
   // z ≈ −1.77 before crossing, so the transition frames the utility room
   // through the door rather than walking into the pier beside it.
-  { at: 0.68, pos: [8.1, EYE, -1.77], look: [11.4, 1.3, -2.6], fov: 56 },
-  // Utility — the machines, then in tight on the circuit panel
-  { at: 0.72, pos: [10.2, EYE, -1.9], look: [11.6, 1.15, -3.1], fov: 52 },
-  { at: 0.82, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
+  { at: 0.635, pos: [8.1, EYE, -1.77], look: [11.4, 1.3, -2.6], fov: 56 },
+  // Utility — the machines and the shelf, then in tight on the circuit panel
+  { at: 0.67, pos: [10.2, EYE, -1.9], look: [11.9, 1.2, -3.4], fov: 52 },
+  { at: 0.78, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
   // Recovery — pull back down the length of the house. Held in the open
   // circulation zone rather than the utility threshold: the earlier position
   // put the doorway pier straight down the middle of the shot.
-  { at: 0.9, pos: [8.6, 1.86, 2.9], look: [-2.4, 1.3, -1.9], fov: 58 },
-  // Continuum — rise and look back over the whole home
-  { at: 1.0, pos: [-1, 17, 32], look: [-1, 1.0, -2], fov: 46 },
+  { at: 0.88, pos: [8.6, 1.86, 2.9], look: [-2.4, 1.3, -1.9], fov: 58 },
+  // Continuum — the closing image.
+  //
+  // This was shot from 17m up, which on a single-storey house with a solid roof
+  // frames exactly one thing: the roof. The last frame of the film was a blank
+  // white plane. A closing hero is taken from the ground, far enough back to
+  // read the whole length, low enough to see the lit interior through the
+  // glazing — the warm-inside-against-cool-outside contrast that is the entire
+  // emotional payload of the reference work.
+  { at: 1.0, pos: [-24, 4.4, 27], look: [-6, 2.0, 1.0], fov: 54 },
 ];
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -212,7 +226,7 @@ interface ChapterCopy {
 
 const CHAPTERS: ChapterCopy[] = [
   {
-    range: [0.005, 0.075],
+    range: [0.005, 0.072],
     room: "Arrival",
     catalogueRoom: "arrival",
     title: "An address becomes a home only when everything begins working together.",
@@ -220,7 +234,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.1, 0.185],
+    range: [0.098, 0.178],
     room: "Garage · The handoff",
     catalogueRoom: "garage",
     title: "One move can begin in several places at once",
@@ -230,7 +244,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.21, 0.31],
+    range: [0.2, 0.278],
     room: "Foyer · The Move Record",
     catalogueRoom: "foyer",
     title: "One move. Every source preserved. Every decision explainable.",
@@ -240,7 +254,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.335, 0.44],
+    range: [0.385, 0.458],
     room: "Living room · Connectivity",
     catalogueRoom: "living",
     title: "The router finds the line",
@@ -250,7 +264,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.465, 0.57],
+    range: [0.482, 0.568],
     room: "Kitchen · Essential utilities",
     catalogueRoom: "kitchen",
     title: "The services nobody notices until they are missing",
@@ -260,7 +274,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.595, 0.67],
+    range: [0.592, 0.688],
     room: "Utility room · Home systems",
     catalogueRoom: "utility",
     title: "The last circuit is requested",
@@ -270,7 +284,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "INTERACTIVE CONCEPT",
   },
   {
-    range: [0.69, 0.755],
+    range: [0.298, 0.362],
     room: "Entry · Security",
     title: "Protection is a decision, not a default",
     body: "Security interest is conditional and price-sensitive. The system records that as a conditional interest rather than an order — AI may explain the options, it may not enrol anyone.",
@@ -279,7 +293,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.775, 0.865],
+    range: [0.712, 0.818],
     room: "The silence",
     title: "The provider created the order. The response never arrived.",
     body: "The utility circuit stalls half-lit. Not red, not failed — UNKNOWN. A blind retry here would enrol this household twice at a real utility, so the system refuses and schedules reconciliation instead.",
@@ -288,7 +302,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.878, 0.935],
+    range: [0.842, 0.908],
     room: "Recovery",
     title: "Ask the provider. Finish the light.",
     body: "Reconciliation finds the order that existed all along. The stalled circuit completes and the entry sensor settles verified. One order. Never two. Every transition in the audit trail.",
@@ -297,7 +311,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.945, 1.0],
+    range: [0.928, 1.0],
     room: "The Continuum",
     title: "Utility Connect can connect more than the move",
     body: "Installation checks, renewal windows, seasonal maintenance, a trusted vendor, a referral, the next move. The same verified record carries the whole relationship — with consent, and with attribution intact.",

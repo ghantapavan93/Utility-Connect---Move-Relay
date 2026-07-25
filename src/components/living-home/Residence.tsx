@@ -32,17 +32,28 @@ import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps 
 // Chapter timing — one scalar drives the whole house
 // ---------------------------------------------------------------------------
 
+/*
+  Chapter timing.
+
+  The security beat used to run from 0.68 to 0.76, by which point the camera was
+  eleven metres away in the utility room — so a caption about the entry sensor
+  played over a shot of a washing machine. The entry sensor is at the front
+  door, where an entry sensor belongs, so the beat moved to just after the foyer
+  instead of the fixture moving to suit the schedule. Utility likewise now
+  starts once the camera is actually through the utility doorway rather than
+  while it is still at the kitchen island.
+*/
 export const CHAPTER = {
-  arrival: [0.0, 0.09],
-  garage: [0.09, 0.2],
-  foyer: [0.2, 0.32],
-  living: [0.32, 0.45],
-  kitchen: [0.45, 0.58],
-  utility: [0.58, 0.68],
-  security: [0.68, 0.76],
-  silence: [0.76, 0.87],
-  recovery: [0.87, 0.94],
-  continuum: [0.94, 1.0],
+  arrival: [0.0, 0.085],
+  garage: [0.085, 0.19],
+  foyer: [0.19, 0.29],
+  security: [0.29, 0.37],
+  living: [0.37, 0.47],
+  kitchen: [0.47, 0.58],
+  utility: [0.58, 0.7],
+  silence: [0.7, 0.83],
+  recovery: [0.83, 0.92],
+  continuum: [0.92, 1.0],
 } as const;
 
 export const lv = (p: number, [a, b]: readonly [number, number]) =>
@@ -750,8 +761,13 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           <boxGeometry args={[0.16, 0.22, 0.07]} />
           <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} />
         </mesh>
-        <mesh position={[0, 0, 0.045]}>
-          <sphereGeometry args={[0.022, 10, 10]} />
+        {/* The indicator faces into the house, not out at the street. It was
+            on the +z face, which is the side nobody standing in their own
+            hallway can see — so the one shot of the security fixture was a shot
+            of the back of it. A real entry sensor shows you its status as you
+            come in. */}
+        <mesh position={[0, 0, -0.045]}>
+          <sphereGeometry args={[0.03, 12, 12]} />
           <meshStandardMaterial ref={securityMat} color={SERVICE.security} emissive={SERVICE.security} emissiveIntensity={0} />
         </mesh>
       </group>
@@ -767,7 +783,7 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       </group>
       {/* solar array on the roof plane */}
       {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[12.4 + i * 2.3, 3.63, -1.6]} rotation={[-0.16, 0, 0]} castShadow>
+        <mesh key={i} position={[-13.6 + i * 2.3, 3.63, -1.9]} rotation={[-0.16, 0, 0]} castShadow>
           <boxGeometry args={[2.0, 0.06, 3.0]} />
           <meshStandardMaterial
             ref={i === 1 ? solarMat : undefined}
