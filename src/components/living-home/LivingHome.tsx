@@ -38,30 +38,39 @@ interface Station {
 /**
  * The walk. Left to right along the house, at eye height, with the courtyard
  * glazing on the right so the camera always has depth to look through.
+ *
+ * Every station is aimed at a SUBJECT that exists at those coordinates — the
+ * referral key at (−17, 1.35, 2.2), the Move Record core at (−9, 2.1, 1.4),
+ * the router LED at (−0.05, 0.78, −3.85), the island at (5, 0.95, −2.2), the
+ * circuit panel at (11.6, 1.28, −3.5). An earlier pass aimed at empty space
+ * between rooms and framed blank plaster; a station with no subject is a
+ * missing shot, not a transition.
  */
 const WALK: Station[] = [
-  // Arrival — the whole residence from the drive, dusk
-  { at: 0.0, pos: [-30, 4.2, 22], look: [-6, 2.0, 0], fov: 52 },
-  { at: 0.08, pos: [-24, 2.4, 13], look: [-15, 1.8, 2], fov: 55 },
-  // Garage — the partner handoff
-  { at: 0.16, pos: [-17.4, EYE, 7.6], look: [-17, 1.4, 0.5], fov: 58 },
-  { at: 0.2, pos: [-17.2, EYE, 3.6], look: [-16.6, 1.35, 1.2], fov: 60 },
-  // Foyer — the Move Digital Twin
-  { at: 0.28, pos: [-11.6, EYE, 3.4], look: [-9, 2.05, 1.4], fov: 60 },
-  { at: 0.34, pos: [-8.4, EYE, 3.2], look: [-6, 1.9, -1.5], fov: 62 },
-  // Living — internet
-  { at: 0.42, pos: [-4.6, EYE, 1.6], look: [-1.4, 1.2, -3.6], fov: 60 },
-  { at: 0.48, pos: [-1.8, EYE, 0.4], look: [1.4, 1.3, -2.6], fov: 58 },
-  // Kitchen — electricity, gas, water
-  { at: 0.56, pos: [3.0, EYE, 1.0], look: [5.2, 1.15, -2.4], fov: 56 },
-  { at: 0.62, pos: [5.6, EYE, 0.2], look: [7.6, 1.3, -3.0], fov: 56 },
-  // Utility — the room the silence catches
-  { at: 0.72, pos: [10.4, EYE, 0.6], look: [11.6, 1.3, -3.0], fov: 55 },
-  { at: 0.82, pos: [11.4, EYE, -0.6], look: [11.6, 1.28, -3.4], fov: 48 },
-  // Recovery — pull back through the house along the glazing
-  { at: 0.9, pos: [9.0, 1.9, 3.4], look: [0, 1.6, -2], fov: 62 },
-  // Continuum — rise and look back at the whole home
-  { at: 1.0, pos: [-2, 13, 26], look: [-1, 1.2, -1], fov: 50 },
+  // Arrival — the whole residence from the drive, above the planting line
+  { at: 0.0, pos: [-34, 7.5, 30], look: [-3, 2.4, -1], fov: 46 },
+  { at: 0.08, pos: [-27, 5.2, 19], look: [-11, 2.2, 0], fov: 50 },
+  // Garage — down to eye level, framing the referral key on the boxes
+  { at: 0.15, pos: [-17.2, EYE, 8.2], look: [-17, 1.35, 2.2], fov: 55 },
+  { at: 0.2, pos: [-17.1, EYE, 4.6], look: [-17, 1.35, 2.2], fov: 46 },
+  // Foyer — the Move Digital Twin, held in the double-height entry
+  { at: 0.27, pos: [-12.4, EYE, 4.4], look: [-9, 2.1, 1.4], fov: 52 },
+  { at: 0.32, pos: [-10.2, 1.75, 3.6], look: [-9, 2.1, 1.4], fov: 44 },
+  // Living — across the seating group to the router on the console
+  { at: 0.4, pos: [-7.4, EYE, 1.4], look: [-3.4, 1.1, -2.6], fov: 58 },
+  { at: 0.44, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50 },
+  // Dining — the room between, so the mid-house move has a subject
+  { at: 0.5, pos: [-1.6, EYE, 0.6], look: [1.4, 0.9, -2.6], fov: 55 },
+  // Kitchen — the island, stools and pendants
+  { at: 0.56, pos: [2.2, EYE, 0.8], look: [5.0, 1.0, -2.2], fov: 54 },
+  { at: 0.62, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48 },
+  // Utility — the machines, then in tight on the circuit panel
+  { at: 0.72, pos: [10.0, EYE, -0.4], look: [11.6, 1.1, -3.1], fov: 52 },
+  { at: 0.82, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
+  // Recovery — pull back down the length of the house
+  { at: 0.9, pos: [10.5, 2.0, 3.0], look: [-1, 1.4, -2.4], fov: 62 },
+  // Continuum — rise and look back over the whole home
+  { at: 1.0, pos: [-1, 17, 32], look: [-1, 1.0, -2], fov: 46 },
 ];
 
 const smooth = (t: number) => t * t * (3 - 2 * t);

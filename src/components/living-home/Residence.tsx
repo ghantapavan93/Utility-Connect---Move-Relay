@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
+import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug } from "./Furniture";
 
 /**
  * The residence.
@@ -491,6 +492,44 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           />
         </mesh>
       ))}
+
+      {/* ── Furnishing ───────────────────────────────────────
+          Real dimensions throughout (see Furniture.tsx). These are also what
+          give each chapter a subject — several camera stations were framing
+          blank plaster because the rooms had walls but nothing in them. */}
+
+      {/* Foyer: a runner, a planter, and art to look at on approach */}
+      <Rug position={[-9, 0.04, 3.2]} size={[2.2, 5.5]} color="#cdc4b6" />
+      <Planter position={[-11.4, 0, 0.6]} scale={1.1} />
+      <Artwork position={[-9, 1.75, -5.7]} w={1.5} h={1.05} tone="#7f8f93" />
+
+      {/* Living: coffee table on the rug, shelving on the back wall, planting */}
+      <CoffeeTable position={[-3.4, 0, -1.9]} />
+      <Shelving position={[-7.6, 0, -5.5]} />
+      {/* Against the wall, not in the walking line — a planter parked in the
+          circulation path becomes a green wall across every mid-house shot. */}
+      <Planter position={[-0.5, 0, -5.1]} scale={0.9} />
+      <Artwork position={[-4.6, 1.85, -5.72]} w={1.1} h={1.4} tone="#8a7f6c" />
+
+      {/* Dining — the room between living and kitchen. Its absence was the
+          dead zone the mid-house camera kept pointing into. */}
+      <Rug position={[1.4, 0.04, -2.6]} size={[3.4, 2.6]} color="#c4bcae" />
+      <DiningTable position={[1.4, 0, -2.6]} />
+      <Chair position={[0.55, 0, -1.85]} rotation={Math.PI} />
+      <Chair position={[1.4, 0, -1.85]} rotation={Math.PI} />
+      <Chair position={[2.25, 0, -1.85]} rotation={Math.PI} />
+      <Chair position={[0.55, 0, -3.35]} />
+      <Chair position={[1.4, 0, -3.35]} />
+      <Chair position={[2.25, 0, -3.35]} />
+
+      {/* Kitchen: stools at the island */}
+      <Stool position={[4.1, 0, -1.35]} />
+      <Stool position={[5.0, 0, -1.35]} />
+      <Stool position={[5.9, 0, -1.35]} />
+
+      {/* Utility: a planter softens the hardest-working room, set back
+          against the dividing wall so it never crosses the walk */}
+      <Planter position={[9.6, 0, -4.6]} scale={0.8} />
 
       {/* ── Courtyard glazing — the long sightline ───────────── */}
       <Glazing x={-2} z={5.9} width={16} />
