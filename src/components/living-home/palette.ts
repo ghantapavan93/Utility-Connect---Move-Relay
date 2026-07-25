@@ -16,7 +16,7 @@ export const MATERIAL = {
   concrete: "#e6e2db",
   concreteShadow: "#cfc9bf",
   /** Limestone floor in circulation spaces. */
-  limestone: "#ddd6ca",
+  limestone: "#c9c0b1",
   /** Warm oak — floors in living spaces. */
   oak: "#b08b5c",
   /** Walnut — cabinetry, stair treads, furniture. */

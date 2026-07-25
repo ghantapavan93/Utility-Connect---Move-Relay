@@ -267,16 +267,16 @@ export function limestoneMaps(repeat: [number, number] = [8, 4]) {
     generateMaps(
       (x, y) => {
         const drift = fbm(x * 3, y * 3, 4);
-        const jx = Math.abs(x * 3 - Math.round(x * 3)) < 0.008 ? 0.4 : 1;
-        const jy = Math.abs(y * 3 - Math.round(y * 3)) < 0.008 ? 0.4 : 1;
-        return drift * 0.45 * jx * jy + 0.45;
+        const jx = Math.abs(x * 3 - Math.round(x * 3)) < 0.011 ? 0.18 : 1;
+        const jy = Math.abs(y * 3 - Math.round(y * 3)) < 0.011 ? 0.18 : 1;
+        return drift * 0.72 * jx * jy + 0.3;
       },
       (_x, _y, h) => {
-        const t = 0.9 + h * 0.2;
+        const t = 0.74 + h * 0.42;
         return [Math.min(255, 221 * t), Math.min(255, 214 * t), Math.min(255, 202 * t)];
       },
-      (h) => 0.46 + h * 0.16,
-      1.3,
+      (h) => 0.42 + h * 0.22,
+      1.9,
     ),
   );
   return applyRepeat(m, repeat);

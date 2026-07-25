@@ -511,3 +511,88 @@ export function Sideboard({
     </group>
   );
 }
+
+
+/** Upholstered ottoman — the thing that stops a seating group being one object. */
+export function Ottoman({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {([[-0.28, -0.2], [0.28, -0.2], [-0.28, 0.2], [0.28, 0.2]] as const).map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.05, z]} castShadow>
+          <cylinderGeometry args={[0.02, 0.016, 0.1, 8]} />
+          <meshStandardMaterial color={MATERIAL.walnut} roughness={0.5} />
+        </mesh>
+      ))}
+      <RoundedBox args={[0.74, 0.28, 0.56]} radius={0.07} position={[0, 0.24, 0]} castShadow receiveShadow>
+        <meshStandardMaterial color="#b3ab9c" roughness={0.96} envMapIntensity={0.7} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+/** Slim floor lamp — a vertical in a room that is otherwise all horizontals. */
+export function FloorLamp({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.012, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.16, 0.17, 0.024, 20]} />
+        <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.78, 0]} castShadow>
+        <cylinderGeometry args={[0.011, 0.014, 1.54, 10]} />
+        <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.35} metalness={0.7} />
+      </mesh>
+      {/* linen drum, open at the bottom so it reads as a shade not a cylinder */}
+      <mesh position={[0, 1.62, 0]} castShadow>
+        <cylinderGeometry args={[0.17, 0.2, 0.26, 22, 1, true]} />
+        <meshStandardMaterial color="#e6dfd2" roughness={0.95} side={THREE.DoubleSide} envMapIntensity={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Woven basket — soft mass at floor level, which is what a bare corner lacks. */
+export function Basket({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.21, 0.17, 0.4, 18]} />
+        <meshStandardMaterial color="#bda57e" roughness={0.95} envMapIntensity={0.7} />
+      </mesh>
+      {/* rolled rim */}
+      <mesh position={[0, 0.4, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <torusGeometry args={[0.21, 0.022, 8, 20]} />
+        <meshStandardMaterial color="#a98f68" roughness={0.92} />
+      </mesh>
+      {/* a folded throw spilling over the edge */}
+      <RoundedBox args={[0.3, 0.12, 0.26]} radius={0.05} position={[0.04, 0.44, 0.02]} rotation={[0.1, 0.4, 0.06]} castShadow>
+        <meshStandardMaterial color="#8d9a8a" roughness={0.97} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+/** Side table — a small horizontal beside a sofa arm. */
+export function SideTable({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.012, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.17, 0.18, 0.024, 18]} />
+        <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.6} />
+      </mesh>
+      <mesh position={[0, 0.25, 0]} castShadow>
+        <cylinderGeometry args={[0.016, 0.02, 0.48, 10]} />
+        <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.35} metalness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.24, 0.24, 0.035, 24]} />
+        {wood(MATERIAL.walnut, 0.45)}
+      </mesh>
+      {/* a mug, because an empty side table is still an empty surface */}
+      <mesh position={[0.06, 0.56, 0.03]} castShadow>
+        <cylinderGeometry args={[0.042, 0.036, 0.09, 14]} />
+        <meshStandardMaterial color="#cfc9bf" roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+    </group>
+  );
+}
