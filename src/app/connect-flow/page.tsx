@@ -7,12 +7,12 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 
 /**
  * The enrollment experience — a premium reimagining of Utility Connect's own
- * /connect intake. Their form collects an address, services, and contact details
- * under specific TCPA consent wording. This keeps that exact shape and consent
- * language, and adds a stepped, animated flow.
- *
- * It does not submit anywhere. The final step hands the customer to the live
- * demo, where the same fields become a real Move Record. All data is synthetic.
+ * /connect intake, preserving their TCPA consent wording — and, unlike a
+ * mockup, it SUBMITS. The final step posts to /api/v1/referrals, where the
+ * payload walks the real gauntlet: contract validation (quarantine on
+ * failure), idempotency, exact-duplicate collapse, cross-move deduplication,
+ * provenance persistence, and a customer-timeline event. The result panel
+ * shows exactly what the engine decided. All data is synthetic.
  */
 
 const SERVICES = [
@@ -20,16 +20,68 @@ const SERVICES = [
   "Satellite", "Insurance", "Home Warranty", "Solar", "Pest Control", "Mail Forwarding",
 ];
 
+interface IntakeResponse {
+  status: string;
+  reference?: string;
+  duplicate?: { ofReference: string; score: number; verdict: string } | null;
+  conflictFields?: string[];
+  issues?: Array<{ path: string; message: string }>;
+  message: string;
+}
+
 export default function ConnectFlow() {
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set(["Electric", "Internet"]));
+  const [address, setAddress] = useState("1420 Windhaven Pkwy, Plano, TX 75093");
+  const [date, setDate] = useState("2026-08-16");
+  const [name, setName] = useState("Maya Patel");
+  const [email, setEmail] = useState("maya.patel@example.com");
+  const [phone, setPhone] = useState("469-555-0142");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<IntakeResponse | null>(null);
 
   const toggle = (s: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
       return next;
     });
+
+  const submit = async () => {
+    setSubmitting(true);
+    const [first, ...rest] = name.trim().split(/\s+/);
+    const payload = {
+      customer: {
+        first_name: first || "Customer",
+        last_name: rest.join(" ") || "Household",
+        email,
+        phone,
+      },
+      move: { date, to_address: address },
+      services: [...selected].map((s) => s.toLowerCase()),
+      consent: {
+        granted: true,
+        channels: ["phone", "sms", "email"],
+        purposes: ["customer_care", "connection_status", "account_information", "appointment_details"],
+        text_version: "uc-2026-07",
+      },
+    };
+    try {
+      const res = await fetch("/api/v1/referrals", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel: "customer_form", payload }),
+      });
+      setResult(await res.json());
+      setStep(3);
+    } catch {
+      setResult({ status: "error", message: "Network error — is the dev server running?" });
+      setStep(3);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="theme-light" style={{ background: "var(--color-ground-0)", minHeight: "100dvh" }}>
@@ -37,7 +89,7 @@ export default function ConnectFlow() {
       <main className="mx-auto max-w-3xl px-6 py-20">
         {/* progress */}
         <div className="mb-8 flex items-center gap-2">
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-1 flex-1 rounded-full transition-colors" style={{ background: i <= step ? "var(--color-state-verified)" : "var(--color-ground-3)" }} />
           ))}
         </div>
@@ -46,12 +98,12 @@ export default function ConnectFlow() {
           {step === 0 && (
             <Step key="addr" title="Where are you moving?">
               <label className="mb-4 block">
-                <span className="mb-1.5 block text-sm font-medium">New address</span>
-                <input defaultValue="1420 Windhaven Pkwy, Plano, TX 75093" className="w-full rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
+                <span className="mb-1.5 block text-sm font-medium" style={{ color: "var(--color-text-hi)" }}>New address</span>
+                <input value={address} onChange={(e) => setAddress(e.target.value)} className="w-full rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }} />
               </label>
               <label className="mb-6 block">
-                <span className="mb-1.5 block text-sm font-medium">Move date</span>
-                <input defaultValue="2026-08-16" className="w-full rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
+                <span className="mb-1.5 block text-sm font-medium" style={{ color: "var(--color-text-hi)" }}>Move date</span>
+                <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="YYYY-MM-DD" className="w-full rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }} />
               </label>
               <Next onClick={() => setStep(1)}>Choose services</Next>
             </Step>
@@ -88,10 +140,9 @@ export default function ConnectFlow() {
           {step === 2 && (
             <Step key="contact" title="How should your concierge reach you?">
               <div className="mb-4 grid gap-4 sm:grid-cols-2">
-                <input placeholder="Full name" defaultValue="Maya Patel" className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
-                <input placeholder="Email" defaultValue="maya.patel@example.com" className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
-                <input placeholder="Phone" defaultValue="469-555-0142" className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
-                <input placeholder="State" defaultValue="TX" className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)" }} />
+                <input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }} />
+                <input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }} />
+                <input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="rounded-lg border bg-transparent px-4 py-3 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-hi)" }} />
               </div>
 
               {/* Their exact consent wording, preserved. */}
@@ -104,17 +155,74 @@ export default function ConnectFlow() {
 
               <div className="flex gap-3">
                 <Back onClick={() => setStep(1)} />
-                <Link href="/demo" className="flex-1 rounded-full px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide" style={{ background: "var(--color-state-verified)", color: "white" }}>
-                  See this become a verified move →
+                <button
+                  onClick={submit}
+                  disabled={submitting}
+                  className="flex-1 rounded-full px-6 py-3 text-center text-sm font-semibold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+                  style={{ background: "var(--color-state-verified)" }}
+                >
+                  {submitting ? "Submitting…" : "Submit my move — for real"}
+                </button>
+              </div>
+            </Step>
+          )}
+
+          {step === 3 && result && (
+            <Step key="result" title={result.status === "quarantined" ? "The contract caught it" : "The engine answered"}>
+              <div
+                className="rounded-2xl border p-6"
+                style={{
+                  borderColor:
+                    result.status === "created" ? "var(--color-state-verified)"
+                    : result.status === "attached" ? "var(--color-state-conflict)"
+                    : "var(--color-ground-3)",
+                  background: "var(--color-ground-1)",
+                }}
+              >
+                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+                  {result.status}
+                  {result.reference && <> · {result.reference}</>}
+                </div>
+                <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--color-text-hi)" }}>
+                  {result.message}
+                </p>
+
+                {result.duplicate && (
+                  <p className="mt-3 rounded-lg border p-3 text-xs" style={{ borderColor: "var(--color-state-conflict)", color: "var(--color-text-mid)" }}>
+                    Matched {result.duplicate.ofReference} — score {result.duplicate.score}, {result.duplicate.verdict}.
+                    {result.conflictFields && result.conflictFields.length > 0 && (
+                      <> Fields awaiting a human decision: <b>{result.conflictFields.join(", ")}</b>.</>
+                    )}
+                  </p>
+                )}
+
+                {result.issues && (
+                  <ul className="mt-3 space-y-1 text-xs" style={{ color: "var(--color-text-mid)" }}>
+                    {result.issues.map((i, k) => (
+                      <li key={k}>
+                        <span className="font-mono">{i.path}</span> — {i.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/views" className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white" style={{ background: "var(--color-state-verified)" }}>
+                  See the three audiences →
                 </Link>
+                <button onClick={() => { setResult(null); setStep(0); }} className="rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}>
+                  Submit another
+                </button>
               </div>
             </Step>
           )}
         </AnimatePresence>
 
         <p className="mt-8 text-center text-xs" style={{ color: "var(--color-text-lo)" }}>
-          Demonstration only — nothing is submitted. These same fields become a real Move
-          Record in the live demo. All data is synthetic.
+          This form submits to the live engine: contract validation, quarantine,
+          deduplication against existing moves, idempotency, and provenance — all real.
+          All data is synthetic; nothing goes to any external service.
         </p>
       </main>
     </div>
@@ -129,7 +237,7 @@ function Step({ title, children }: { title: string; children: React.ReactNode })
       exit={{ opacity: 0, x: -24 }}
       transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
     >
-      <h1 className="mb-6 text-2xl font-bold tracking-tight">{title}</h1>
+      <h1 className="mb-6 text-2xl font-bold tracking-tight" style={{ color: "var(--color-text-hi)" }}>{title}</h1>
       {children}
     </motion.div>
   );
@@ -137,7 +245,7 @@ function Step({ title, children }: { title: string; children: React.ReactNode })
 
 function Next({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className="flex-1 rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)", color: "white" }}>
+    <button onClick={onClick} className="flex-1 rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>
       {children}
     </button>
   );

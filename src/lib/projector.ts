@@ -55,6 +55,16 @@ async function projectEvent(event: OutboxEvent): Promise<void> {
   if (!moveId) return;
 
   switch (event.event_type) {
+    case "referral.received": {
+      await addEntry(
+        event,
+        moveId,
+        "We received your move request",
+        "A move specialist will review your details shortly.",
+        "info",
+      );
+      return;
+    }
     case "move.canonical.approved": {
       await addEntry(
         event,

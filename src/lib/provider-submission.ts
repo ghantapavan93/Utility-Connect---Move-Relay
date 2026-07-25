@@ -59,10 +59,31 @@ export function operationKey(serviceRequestId: string): string {
   return `provider_submit:${serviceRequestId}`;
 }
 
+/**
+ * Canonical fingerprint of a payload: key order never matters, nested content
+ * always does.
+ *
+ * The first implementation passed `Object.keys(payload).sort()` as a
+ * JSON.stringify replacer — which FILTERS keys at every depth, so nested
+ * objects serialized as {} and two payloads differing only in a nested field
+ * (a changed move date!) produced identical fingerprints. Caught by the intake
+ * idempotency test; recorded as Build Ledger entry 10. Canonicalize
+ * recursively instead.
+ */
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v !== null && typeof v === "object") {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v as Record<string, unknown>).sort()) {
+      out[k] = canonical((v as Record<string, unknown>)[k]);
+    }
+    return out;
+  }
+  return v;
+}
+
 export function fingerprint(payload: Record<string, unknown>): string {
-  return createHash("sha256")
-    .update(JSON.stringify(payload, Object.keys(payload).sort()))
-    .digest("hex");
+  return createHash("sha256").update(JSON.stringify(canonical(payload))).digest("hex");
 }
 
 /**

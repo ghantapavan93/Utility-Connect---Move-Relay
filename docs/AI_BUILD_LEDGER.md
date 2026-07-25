@@ -227,6 +227,34 @@ itself the first week it existed.
 
 ---
 
+## 10 · The fingerprint that ignored nested fields
+
+**Component** `provider-submission.ts` — `fingerprint()`
+
+**What happened.** The payload fingerprint used
+`JSON.stringify(payload, Object.keys(payload).sort())` — a common idiom that
+*looks* like "stable key order". But a replacer **array** filters keys at every
+depth: nested objects serialized as `{}`, so two payloads differing only in a
+nested field — a changed **move date** — produced *identical* fingerprints.
+Provider request fingerprints and intake idempotency both quietly inherited
+the weakness.
+
+**How it was caught.** The intake idempotency test: reusing an
+`Idempotency-Key` with a *different* nested payload was supposed to return 409
+`key_conflict` — it returned `replayed`, because the fingerprints matched.
+
+**Correction.** Recursive canonicalization — sort keys at every level, hash the
+result. The 409 path now trips exactly when the body actually differs.
+
+**The lesson.** The bug survived 119 green tests because every earlier test
+varied top-level structure. It fell the moment a test exercised the exact
+semantic the function claimed. Guarantees are only as strong as the test that
+attacks them — which is why intake got a gauntlet, not a smoke test.
+
+**Test.** `intake.test.ts` — "refuses a reused key with a different payload."
+
+---
+
 ## What this ledger is really claiming
 
 Not that the AI was wrong and a human was right. That the two together produced
