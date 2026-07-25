@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Line } from "@react-three/drei";
+import { Line, Environment, Lightformer, ContactShadows } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
 import { DetailedHouse } from "./HouseModel";
@@ -82,6 +82,35 @@ function cameraAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): void {
 
 const CYAN = new THREE.Color("#0087b5");
 const AMBER = new THREE.Color("#e8a33d");
+
+// --- Sky ------------------------------------------------------------------
+
+const SKY_VERT = /* glsl */ `
+  varying vec3 vDir;
+  void main() {
+    vDir = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const SKY_FRAG = /* glsl */ `
+  uniform vec3 uZenith;
+  uniform vec3 uHorizon;
+  varying vec3 vDir;
+  void main() {
+    // Brighter toward the horizon, where there is more atmosphere to scatter
+    // light, and deepest overhead. The curve is steep so most of the frame
+    // stays dark and the house keeps the eye.
+    float h = clamp(vDir.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 c = mix(uHorizon, uZenith, pow(h, 0.55));
+    gl_FragColor = vec4(c, 1.0);
+  }
+`;
+
+const SKY_UNIFORMS = {
+  uZenith: { value: new THREE.Color("#05080c") },
+  uHorizon: { value: new THREE.Color("#16263a") },
+};
 
 // ---------------------------------------------------------------------------
 // Scene
@@ -184,22 +213,94 @@ function Scene({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <>
-      <fog attach="fog" args={["#0a0f15", 16, 60]} />
-      {/* Moonlight base — enough for the house to read as a silhouette-plus,
-          never enough to feel like day. */}
-      <ambientLight intensity={0.55} color="#6b86a8" />
-      <directionalLight position={[-12, 14, 8]} intensity={1.1} color="#8fa8cc" />
+      <fog attach="fog" args={["#0a0f15", 22, 75]} />
+
+      {/*
+        A procedural night environment.
+
+        Matte surfaces with nothing to reflect are the deepest tell of a fake
+        render — a real wall samples the sky, the ground, and every light around
+        it. These Lightformers are baked into an env map in-engine (no HDRI
+        download, works offline), giving every PBR material something true to
+        sample: cool sky above, warm bounce at porch height, cyan rim behind.
+      */}
+      <Environment resolution={128} frames={1}>
+        <Lightformer intensity={0.55} color="#8fb0d8" position={[0, 12, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[30, 30, 1]} />
+        <Lightformer intensity={0.35} color="#ffc65c" position={[0, 2, 9]} scale={[10, 4, 1]} />
+        <Lightformer intensity={0.4} color="#0087b5" position={[-12, 5, -10]} scale={[14, 8, 1]} />
+        <Lightformer intensity={0.2} color="#16202c" position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[30, 30, 1]} />
+      </Environment>
+
+      {/* Moonlight — the only shadow-caster, so the house drops one clean,
+          directional shadow instead of a muddy overlap of several. */}
+      <ambientLight intensity={0.34} color="#6b86a8" />
+      {/* The moon sits high and BEHIND-RIGHT so the house throws its shadow
+          toward the camera side. A shadow cast away from the viewer is a
+          shadow nobody sees — which is the same as having none. */}
+      <directionalLight
+        position={[15, 19, -7]}
+        intensity={1.5}
+        color="#9fb8dc"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.035}
+        shadow-camera-left={-22}
+        shadow-camera-right={22}
+        shadow-camera-top={22}
+        shadow-camera-bottom={-22}
+        shadow-camera-near={1}
+        shadow-camera-far={70}
+      />
       {/* Rim light from behind-right: separates the roofline from the night sky
           so the silhouette reads as architecture, not a hole in the frame. */}
-      <directionalLight position={[14, 9, -12]} intensity={0.8} color="#4da8c8" />
+      <directionalLight position={[14, 9, -12]} intensity={0.6} color="#4da8c8" />
+
+      {/*
+        Sky dome. Flat black is not night — real night has a gradient, brighter
+        near the horizon where the atmosphere is thickest. Rendered on the
+        inside of a sphere, unlit, behind everything.
+      */}
+      <mesh scale={[-1, 1, 1]}>
+        <sphereGeometry args={[120, 32, 16]} />
+        <shaderMaterial
+          side={THREE.BackSide}
+          depthWrite={false}
+          uniforms={SKY_UNIFORMS}
+          vertexShader={SKY_VERT}
+          fragmentShader={SKY_FRAG}
+        />
+      </mesh>
 
       <Stars />
 
-      {/* Ground — slightly reflective so the lit house has something to sit in */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
+      {/* Ground — receives the house's shadow, which is what puts the house ON
+          the ground rather than above a picture of it. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
         <planeGeometry args={[220, 220]} />
-        <meshStandardMaterial color="#0c1117" roughness={0.72} metalness={0.35} />
+        <meshStandardMaterial color="#0f151d" roughness={0.85} metalness={0.1} envMapIntensity={0.6} />
       </mesh>
+
+      {/*
+        Contact shadow — the grounding pass.
+
+        A directional shadow map alone gets washed out by ambient and
+        environment fill, which is exactly why the house still looked like it
+        was hovering. This renders the silhouette from below into its own
+        texture, so there is always a dense pool of darkness where the building
+        meets the earth. It is the single cue that says "this object has
+        weight".
+      */}
+      <ContactShadows
+        position={[0, 0.02, 0]}
+        scale={26}
+        resolution={1024}
+        blur={2.4}
+        opacity={0.85}
+        far={9}
+        color="#000308"
+        frames={1}
+      />
 
       {/* Ground haze — a soft light pool under the house. Depth without cost:
           the frame reads atmospheric rather than as objects floating in void. */}
@@ -463,10 +564,10 @@ export function LivingMoveCinematic() {
         <Canvas
           camera={{ position: [16, 5.5, 18], fov: 42 }}
           dpr={[1, 1.6]}
+          shadows={{ type: THREE.PCFSoftShadowMap }}
           gl={{ antialias: true }}
           style={{ position: "absolute", inset: 0 }}
         >
-          <color attach="background" args={["#0a0f15"]} />
           <Scene progress={scrollYProgress} />
 
           {/*

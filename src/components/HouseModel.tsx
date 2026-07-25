@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
@@ -204,7 +204,7 @@ function HouseWindow({
     () => ({
       uIntensity: { value: 0 },
       uTime: { value: 0 },
-      uHalf: { value: 2.6 },
+      uHalf: { value: 1.55 },
       uWarm: { value: WARM.clone() },
     }),
     [],
@@ -236,32 +236,39 @@ function HouseWindow({
       {/* Frame: sill, header, jambs — proportioned like real casing */}
       <mesh position={[0, h / 2 + t / 2, 0.03]}>
         <boxGeometry args={[w + 0.16, t * 1.6, 0.1]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.75} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
       <mesh position={[0, -h / 2 - t / 2, 0.05]}>
         <boxGeometry args={[w + 0.22, t * 1.8, 0.16]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.75} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
       {[-1, 1].map((s) => (
         <mesh key={s} position={[(s * (w + t)) / 2, 0, 0.03]}>
           <boxGeometry args={[t * 1.4, h + t, 0.1]} />
-          <meshStandardMaterial color="#e8e4dc" roughness={0.75} />
+          <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
         </mesh>
       ))}
 
       {/* Mullions — the cross that makes a rectangle read as a window */}
       <mesh position={[0, 0, 0.02]}>
         <boxGeometry args={[0.045, h - 0.08, 0.05]} />
-        <meshStandardMaterial color="#dcd8d0" roughness={0.8} />
+        <meshStandardMaterial color="#dcd8d0" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
       <mesh position={[0, 0.12, 0.02]}>
         <boxGeometry args={[w - 0.08, 0.045, 0.05]} />
-        <meshStandardMaterial color="#dcd8d0" roughness={0.8} />
+        <meshStandardMaterial color="#dcd8d0" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
 
-      {/* Volumetric shaft: apex at the glass, spilling outward into the night */}
-      <mesh position={[0, -0.1, 2.6]} rotation={[Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[1.5, 5.2, 22, 1, true]} />
+      {/*
+        Volumetric shaft: apex at the glass, spilling outward into the night.
+
+        Deliberately tight and short. A wide, long cone stops reading as light
+        in air and starts reading as a translucent paper triangle — the exact
+        failure that makes a render look fake. Kept near the window, it is
+        atmosphere; stretched across the lawn, it is geometry.
+      */}
+      <mesh position={[0, -0.1, 1.55]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.72, 3.1, 20, 1, true]} />
         <shaderMaterial
           ref={shaftRef}
           vertexShader={SHAFT_VERT}
@@ -307,6 +314,26 @@ export function DetailedHouse({
   recover: readonly [number, number];
 }) {
   const { map, bump } = useSidingMaps();
+  const root = useRef<THREE.Group>(null);
+
+  /**
+   * Every solid in the house casts and receives.
+   *
+   * Nothing reads as fake faster than an object with no shadow: without one the
+   * house does not sit on the ground, it floats above a picture of ground. The
+   * glass and the volumetric shafts are excluded — transparent, additive things
+   * must not throw geometry-shaped shadows.
+   */
+  useEffect(() => {
+    root.current?.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mat = mesh.material as THREE.Material | undefined;
+      const isLight = mat instanceof THREE.ShaderMaterial || mat?.transparent === true;
+      mesh.castShadow = !isLight;
+      mesh.receiveShadow = !isLight;
+    });
+  }, []);
   const glowMats = useRef<(THREE.ShaderMaterial | null)[]>([]);
   const shaftMats = useRef<(THREE.ShaderMaterial | null)[]>([]);
   const coreMat = useRef<THREE.MeshStandardMaterial>(null);
@@ -363,7 +390,7 @@ export function DetailedHouse({
   });
 
   return (
-    <group>
+    <group ref={root}>
       {/* Warm spill in front of the facade — the walls must catch the light the
           windows throw, or the house reads as unlit boxes with bright stickers. */}
       <pointLight ref={spill} position={[0, 2, 5]} color="#ffc65c" intensity={0} distance={18} />
@@ -378,39 +405,39 @@ export function DetailedHouse({
       {/* Main body — lap siding */}
       <mesh position={[0, 1.75, 0]}>
         <boxGeometry args={[6.3, 2.85, 4.3]} />
-        <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.035} color="#8ea2b8" roughness={0.88} />
+        <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.035} color="#8ea2b8" roughness={0.72} metalness={0.06} envMapIntensity={0.9} />
       </mesh>
 
       {/* Corner trim */}
       {([[-3.16, 2.16], [3.16, 2.16], [-3.16, -2.16], [3.16, -2.16]] as const).map(([x, z], i) => (
         <mesh key={i} position={[x, 1.75, z]}>
           <boxGeometry args={[0.16, 2.9, 0.16]} />
-          <meshStandardMaterial color="#e8e4dc" roughness={0.8} />
+          <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
         </mesh>
       ))}
 
       {/* Belt course between floors */}
       <mesh position={[0, 3.2, 0]}>
         <boxGeometry args={[6.45, 0.14, 4.45]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.8} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
 
       {/* Upper floor */}
       <mesh position={[0, 3.75, -0.2]}>
         <boxGeometry args={[5.4, 1.25, 3.6]} />
-        <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.03} color="#8ea2b8" roughness={0.88} />
+        <meshStandardMaterial map={map} bumpMap={bump} bumpScale={0.03} color="#8ea2b8" roughness={0.72} metalness={0.06} envMapIntensity={0.9} />
       </mesh>
 
       {/* Fascia under the roof — the shadow line that sells a real eave */}
       <mesh position={[0, 4.42, -0.2]}>
         <boxGeometry args={[6.0, 0.18, 4.2]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.8} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
 
       {/* Hip roof */}
       <mesh position={[0, 5.2, -0.2]} rotation={[0, Math.PI / 4, 0]}>
         <coneGeometry args={[4.0, 1.7, 4]} />
-        <meshStandardMaterial color="#2a3340" roughness={0.95} flatShading metalness={0.1} />
+        <meshStandardMaterial color="#2a3340" roughness={0.62} flatShading metalness={0.2} envMapIntensity={1.0} />
       </mesh>
 
       {/* Chimney with a cap */}
@@ -420,7 +447,7 @@ export function DetailedHouse({
       </mesh>
       <mesh position={[1.9, 6.0, -1.3]}>
         <boxGeometry args={[0.78, 0.12, 0.78]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.85} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
 
       {/* ── Porch ───────────────────────────────────────────── */}
@@ -437,17 +464,17 @@ export function DetailedHouse({
       {[-1.5, 1.5].map((x) => (
         <mesh key={x} position={[x, 1.4, 3.5]}>
           <cylinderGeometry args={[0.11, 0.13, 2.0, 10]} />
-          <meshStandardMaterial color="#e8e4dc" roughness={0.8} />
+          <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
         </mesh>
       ))}
       {/* porch roof + fascia */}
       <mesh position={[0, 2.46, 3.0]}>
         <boxGeometry args={[3.6, 0.14, 1.9]} />
-        <meshStandardMaterial color="#2a3340" roughness={0.95} />
+        <meshStandardMaterial color="#2a3340" roughness={0.62} metalness={0.2} envMapIntensity={1.0} />
       </mesh>
       <mesh position={[0, 2.36, 3.9]}>
         <boxGeometry args={[3.6, 0.16, 0.12]} />
-        <meshStandardMaterial color="#e8e4dc" roughness={0.8} />
+        <meshStandardMaterial color="#e8e4dc" roughness={0.55} envMapIntensity={1.1} />
       </mesh>
 
       {/* Front door with panels and a lit fixture */}
