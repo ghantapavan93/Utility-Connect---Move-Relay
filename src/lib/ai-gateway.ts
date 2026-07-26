@@ -123,7 +123,106 @@ export function anthropicAdapter(apiKey: string, model?: string): ModelAdapter {
   };
 }
 
-/** Resolve the active adapter, or null for deterministic mode. */
+/**
+ * Ollama adapter — a real model, running locally, for free.
+ *
+ * This is the preferred adapter for this project, and not merely because it
+ * costs nothing. The whole system is an argument about handling other people's
+ * data carefully, and a local model means the synthetic customer records in
+ * this demo never leave the machine to prove that a language model can be
+ * called. Reviewers can also verify the claim themselves without being issued a
+ * key, which is the difference between a demonstrable capability and a
+ * screenshot.
+ *
+ * The trade is honest and worth stating: an 8B model quantized to 4 bits is
+ * markedly weaker than a frontier model. That matters less here than it would
+ * elsewhere, because the gateway never lets the model decide anything. Its
+ * output is filtered against cited claims and dropped when uncited, so a weaker
+ * model produces a blander briefing rather than a wrong one.
+ */
+export function ollamaAdapter(model?: string, host?: string): ModelAdapter {
+  const modelId = model ?? process.env.RELAY_AI_MODEL ?? "llama3.1:8b";
+  const base = host ?? process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+  return {
+    name: `ollama:${modelId}`,
+    async complete(req) {
+      const res = await fetch(`${base}/api/chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: modelId,
+          stream: false,
+          // Constrained decoding. Without it an 8B model answers "OK." to a
+          // system prompt that asked for JSON — which the gateway then rejects
+          // as invalid_output and falls back, so the model appears unavailable
+          // when it is merely chatty. Ollama can force well-formed JSON at the
+          // sampler, which is a far stronger guarantee than asking politely.
+          format: "json",
+          options: {
+            // Near-deterministic. A briefing that reads differently on every
+            // refresh is impossible to review, and review is the point.
+            temperature: 0.1,
+            num_predict: req.maxTokens,
+          },
+          messages: [
+            { role: "system", content: req.system },
+            { role: "user", content: req.user },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`ollama ${res.status}`);
+      const body = (await res.json()) as {
+        message?: { content?: string };
+        prompt_eval_count?: number;
+        eval_count?: number;
+      };
+      return {
+        text: body.message?.content ?? "",
+        inputTokens: body.prompt_eval_count,
+        outputTokens: body.eval_count,
+      };
+    },
+  };
+}
+
+/**
+ * Is a local Ollama actually reachable?
+ *
+ * Checked rather than assumed. Selecting an adapter because an environment
+ * variable exists, and only discovering at request time that nothing is
+ * listening, turns a missing dependency into a failed briefing.
+ */
+export async function ollamaAvailable(host?: string): Promise<boolean> {
+  const base = host ?? process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+  try {
+    const res = await fetch(`${base}/api/tags`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the active adapter, or null for deterministic mode.
+ *
+ * Order is deliberate. An explicit Anthropic key wins, because someone who
+ * configured one meant it. Otherwise a reachable local Ollama is used. Failing
+ * both, the system runs deterministically — which is not a degraded mode but
+ * the designed floor: every briefing this project produces is assembled from
+ * cited database rows, and the model only ever rewrites that assembly into
+ * prose.
+ */
+export async function resolveAdapter(): Promise<ModelAdapter | null> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (key) return anthropicAdapter(key);
+  if (process.env.RELAY_AI_DISABLE === "1") return null;
+  if (await ollamaAvailable()) return ollamaAdapter();
+  return null;
+}
+
+/** Synchronous resolution, for call sites that cannot await adapter discovery. */
 export function defaultAdapter(): ModelAdapter | null {
   const key = process.env.ANTHROPIC_API_KEY;
   return key ? anthropicAdapter(key) : null;
@@ -179,7 +278,12 @@ export async function renderNarrative(
 ): Promise<NarrativeResult> {
   const started = Date.now();
   const prompt = PROMPTS.briefing_narrative;
-  const adapter = opts.adapter === undefined ? defaultAdapter() : opts.adapter;
+  // Discovery rather than a constant. `defaultAdapter()` could only ever see an
+  // Anthropic key, so on a machine with a perfectly good local model running the
+  // system silently chose deterministic mode and reported a fallback — which is
+  // exactly how "we support LLM APIs" stays technically true and practically
+  // false. `resolveAdapter` asks whether anything is actually reachable.
+  const adapter = opts.adapter === undefined ? await resolveAdapter() : opts.adapter;
   const allowedIds = new Set(claims.flatMap((c) => c.sourceFieldIds));
 
   const deterministic = (reason?: string): NarrativeResult => ({
@@ -200,7 +304,15 @@ export async function renderNarrative(
     try {
       // PII is masked before the input leaves the process.
       const masked = claims.map((c) => ({ ...c, text: maskPII(c.text) }));
-      const timeoutMs = opts.timeoutMs ?? 10_000;
+      // The budget depends on where the model runs.
+      //
+      // Ten seconds is right for a hosted API and wrong for a local one: an 8B
+      // model on CPU took 33 seconds on the first call here, most of it loading
+      // weights into memory. With a single deadline the local model timed out
+      // every time and the system reported a fallback — indistinguishable, from
+      // the outside, from having no model at all.
+      const isLocal = adapter.name.startsWith("ollama:");
+      const timeoutMs = opts.timeoutMs ?? (isLocal ? 90_000 : 10_000);
 
       const response = await Promise.race([
         adapter.complete({
