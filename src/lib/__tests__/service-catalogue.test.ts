@@ -17,7 +17,22 @@ import { SERVICE_CATALOGUE, ROOMS, servicesInRoom } from "../service-catalogue";
  */
 
 const root = process.cwd();
-const read = (p: string) => readFileSync(join(root, p), "utf8");
+
+/**
+ * Read a document with its line endings normalised.
+ *
+ * Without the normalisation these tests pass on the machine they were written
+ * on and fail on a fresh Windows clone, because git checks the file out with
+ * CRLF and the paragraph break the parser looks for is `\r\n\r\n` rather than
+ * `\n\n`. That is the worst possible shape for a defect in this repository: the
+ * headline instruction to a reviewer is `npm run verify`, and it would have
+ * greeted half of them with two red tests and no clue why.
+ *
+ * `.gitattributes` now normalises on checkout as well. This stays because it is
+ * the layer that does not depend on the reviewer's git configuration being the
+ * one we expected.
+ */
+const read = (p: string) => readFileSync(join(root, p), "utf8").replace(/\r\n/g, "\n");
 
 /**
  * Extracts the service names from the route audit, which is where the `[FACT]`

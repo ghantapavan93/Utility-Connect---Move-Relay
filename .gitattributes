@@ -1,0 +1,27 @@
+# Normalise line endings, so a fresh clone behaves the same on every platform.
+#
+# This is not housekeeping. Several tests read repository documents and parse
+# them - the service catalogue is checked against the observed enrollment form
+# in research/utility-connect-route-audit.md rather than against a hardcoded
+# copy, because a hardcoded copy would agree with itself forever and prove
+# nothing. Those parsers look for `\n\n`, and a Windows checkout hands them
+# `\r\n\r\n`.
+#
+# The result was that `npm run verify`, the first instruction in the README,
+# failed with two red tests on a fresh Windows clone and passed everywhere else.
+# A reviewer would have had no way to tell that from a real regression.
+#
+# Everything git recognises as text is stored and checked out with LF. The
+# binary types are listed explicitly so nothing tries to "fix" their contents.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
