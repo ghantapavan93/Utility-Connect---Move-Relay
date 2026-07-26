@@ -87,3 +87,90 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CINEMATIC LAYER
+   ══════════════════════════════════════════════════════════════════════════
+   The vocabulary the vision and demo pages are built from. Ported in spirit
+   from a prior project's vision layer, but re-toned: that one runs a
+   cyan→indigo→violet→orange iridescent gradient, and this design system bans
+   neon gradients and purple-blue "AI" palettes outright. Utility Connect's
+   brand has exactly one saturated colour, #0087B5, and it means verified — so
+   the gradient here travels within that one hue rather than across a rainbow.
+
+   Every animation below is gated on prefers-reduced-motion at the bottom.     */
+
+/* Drifting ambient backdrop. Fixed, pointer-transparent, behind page content. */
+.cine-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(46% 38% at 78% 4%, rgba(0, 135, 181, 0.16), transparent 60%),
+    radial-gradient(42% 36% at 8% 18%, rgba(77, 168, 200, 0.10), transparent 58%),
+    radial-gradient(58% 52% at 52% 112%, rgba(0, 135, 181, 0.14), transparent 62%);
+  background-size: 130% 130%;
+  animation: cine-drift 30s ease-in-out infinite alternate;
+}
+
+@keyframes cine-drift {
+  0%   { background-position: 0% 0%, 0% 0%, 50% 100%; }
+  100% { background-position: 12% 8%, 8% 6%, 44% 92%; }
+}
+
+/* Frosted instrument panel. */
+.cine-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.cine-hairline {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Gradient text, held inside the brand hue. The shimmer is slow enough to
+   read as light moving over a surface rather than as an effect. */
+.cine-shimmer {
+  background: linear-gradient(115deg, #0087b5, #4da8c8, #7fd3ea, #4da8c8, #0087b5);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: cine-shimmer-shift 11s linear infinite;
+}
+
+@keyframes cine-shimmer-shift {
+  to { background-position: 220% center; }
+}
+
+/* Glow reserved for the two words that carry state. */
+.cine-glow-verified { text-shadow: 0 0 26px rgba(0, 135, 181, 0.5); }
+.cine-glow-conflict { text-shadow: 0 0 26px rgba(232, 163, 61, 0.45); }
+
+/* A connector that reads as flowing rather than drawn. */
+.cine-thread {
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 135, 181, 0) 0%,
+    rgba(0, 135, 181, 0.85) 20%,
+    rgba(232, 163, 61, 0.9) 50%,
+    rgba(61, 167, 106, 0.85) 80%,
+    rgba(61, 167, 106, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: cine-flow 3.6s linear infinite;
+}
+
+@keyframes cine-flow {
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-aurora,
+  .cine-shimmer,
+  .cine-thread {
+    animation: none !important;
+  }
+}

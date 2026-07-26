@@ -519,6 +519,7 @@ export function LivingHome() {
                 pos: [number, number, number],
                 look: [number, number, number],
                 fov = 42,
+                name = "residence-hero",
                 width = 2400,
                 height = 1350,
               ) => {
@@ -549,7 +550,7 @@ export function LivingHome() {
                 const res = await fetch("/api/dev/hero", {
                   method: "POST",
                   headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ data, name: "residence-hero" }),
+                  body: JSON.stringify({ data, name }),
                 });
                 return res.json();
               };

@@ -7,6 +7,10 @@ import { Constellation, type Source } from "@/components/Constellation";
 import { StateBadge, type State } from "@/components/StateBadge";
 import { EngineeringPanel } from "@/components/EngineeringPanel";
 import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
+import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
+import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import { ArrowDown, ArrowRight } from "lucide-react";
+import { useRef } from "react";
 
 /**
  * The demo control room — Screens 2, 3, 4, 6, 9 in one guided flow.
@@ -87,9 +91,96 @@ export default function DemoPage() {
 
   const moveState = move?.move?.state;
   const sources = constellationFor(done, lastResult);
+  const consoleRef = useRef<HTMLDivElement>(null);
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-6 px-6 py-10 lg:grid-cols-[320px_1fr]">
+    <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
+      <div className="cine-aurora" aria-hidden />
+      <FilmGrain id="demo" />
+
+      {/*
+        The hero states the thesis before the console asks anyone to click.
+
+        The centrepiece of this demo is not that the happy path works — every
+        system's happy path works. It is the timeout: the provider created the
+        order, the answer never arrived, and the engine refused to guess. So
+        that is the headline, and Proof names the actual failure rather than an
+        adjective.
+      */}
+      <CineHero
+        image="/renders/utility.png"
+        alt="The utility room of the residence, where the provider circuit stalls"
+        accent="unknown"
+        pills={
+          <>
+            <Pill accent="unknown">Live demo · real database</Pill>
+            <Pill accent="verified">All data synthetic</Pill>
+          </>
+        }
+        cycle={<CycleWords words={["Preserved.", "Resolved.", "Verified.", "Reconciled."]} accent="verified" />}
+        headline={
+          <>
+            The order existed.
+            <br />
+            <span className="cine-shimmer">The answer never came.</span>
+          </>
+        }
+        sub="Every system handles the path where the provider replies. This one is built for the moment it does not — where an order may or may not exist, a retry could enrol a real household twice, and the only honest state is UNKNOWN."
+        credibility={[
+          {
+            eyebrow: "Purpose",
+            accent: "verified",
+            body: "Stop a household being enrolled twice when a provider goes quiet — and keep every value traceable to whoever supplied it.",
+          },
+          {
+            eyebrow: "Proof",
+            accent: "unknown",
+            body: "Maya Patel arrives on three channels with two move dates and one wrong digit. The provider creates the order; the response is lost. The blind retry is refused. Reconciliation finds the order that already existed.",
+          },
+          {
+            eyebrow: "Code",
+            accent: "recovered",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 152 tests against a real database.",
+          },
+        ]}
+        actions={
+          <>
+            <button
+              onClick={() => consoleRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+              style={{ background: accentColor("verified", 1) }}
+            >
+              Run it yourself <ArrowDown className="h-4 w-4" />
+            </button>
+            <MagneticLink
+              href="/story"
+              className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+              {...{ style: { borderColor: "rgba(255,255,255,0.26)" } }}
+            >
+              Watch it as a film <ArrowRight className="h-4 w-4" />
+            </MagneticLink>
+          </>
+        }
+      />
+
+      <ChapterMarker n="01" label="The console" />
+      <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+        <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
+          Nine steps. Every one of them{" "}
+          <span style={{ color: accentColor("verified", 1) }}>writes to a real database</span> and
+          reads the result back.
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/60">
+          Nothing here is a scripted animation. Press a step and the engine performs it —
+          deduplication, a human-gated merge, a provider submission that loses its reply, a retry
+          the system refuses to make. Press them out of order and it will tell you why it will not.
+        </p>
+      </div>
+
+      <div
+        ref={consoleRef}
+        className="mx-auto grid max-w-[1400px] gap-6 px-5 pb-16 sm:px-8 lg:grid-cols-[340px_1fr]"
+      >
       {/* Step rail */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
         <h1 className="mb-1 text-lg font-semibold tracking-tight">Move Relay — live demo</h1>
@@ -213,14 +304,68 @@ export default function DemoPage() {
           </Panel>
         )}
       </section>
+      </div>
+
+      <ChapterMarker n="02" label="The same record, three ways" />
+      <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            {
+              href: "/views" as const,
+              t: "Concierge · Customer · Partner",
+              b: "One record, three projections. The partner never sees what the partner is not entitled to — enforced by relationship tuples, not a role string.",
+              a: "verified" as const,
+            },
+            {
+              href: "/theater" as const,
+              t: "Failure Theater",
+              b: "Try to break it. Replay the timeout, force a duplicate, read across a partner boundary. The refusals are the product.",
+              a: "conflict" as const,
+            },
+            {
+              href: "/future" as const,
+              t: "The Continuum",
+              b: "Eight modules extending this same kernel — one built, five concepts, two hypotheses, each labelled where it stands.",
+              a: "solar" as const,
+            },
+          ].map((c) => (
+            <MagneticLink
+              key={c.t}
+              href={c.href}
+              className="cine-glass group block rounded-2xl p-6 transition-colors hover:bg-white/[0.06]"
+              strength={3}
+            >
+              <div
+                className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: accentColor(c.a, 0.95) }}
+              >
+                {c.t}
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-white/65">{c.b}</p>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-white/80">
+                Open <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </MagneticLink>
+          ))}
+        </div>
+
+        <blockquote
+          className="mt-12 max-w-3xl border-l-2 pl-6 text-[clamp(18px,2.3vw,28px)] font-medium leading-[1.35] tracking-tight text-white/90"
+          style={{ borderColor: accentColor("verified", 1) }}
+        >
+          A handoff is not finished when the request is sent. It is finished when someone can prove
+          what happened — and{" "}
+          <span style={{ color: accentColor("verified", 1) }}>say who decided it</span>.
+        </blockquote>
+      </section>
     </main>
   );
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border p-5" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
-      <h2 className="mb-3 text-sm font-semibold">{title}</h2>
+    <div className="cine-glass rounded-xl p-5">
+      <h2 className="mb-3 text-sm font-semibold text-white/90">{title}</h2>
       {children}
     </div>
   );
