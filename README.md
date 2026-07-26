@@ -15,7 +15,7 @@ becomes the source of truth.
 
 ```bash
 npm install
-npm run verify   # 11 schema guarantees + 167 tests — no Docker, no server needed
+npm run verify   # 11 schema guarantees + 175 tests — no Docker, no server needed
 npm run dev      # http://localhost:3000
 ```
 

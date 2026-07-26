@@ -33,9 +33,20 @@ export default function ViewsPage() {
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // The audience is no longer something the client asks for — it is a property
+  // of who the request says it is. Switching tabs switches actor, and the
+  // server decides what that actor may see by walking the relationship graph.
+  // A forged header is trivial here and that is stated plainly on the page:
+  // identity is a demo stand-in, the authorization decision behind it is not.
+  const ACTOR: Record<Audience, string> = {
+    concierge: "user:concierge-7",
+    customer: "user:maya-patel",
+    partner: "user:ntr-agent",
+  };
+
   const load = useCallback(async (a: Audience) => {
     setLoading(true);
-    const res = await fetch(`/api/v1/views?audience=${a}`);
+    const res = await fetch("/api/v1/views", { headers: { "x-actor": ACTOR[a] } });
     setData(await res.json());
     setLoading(false);
   }, []);

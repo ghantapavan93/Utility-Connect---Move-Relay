@@ -14,6 +14,7 @@ import { buildBriefing } from "./briefing";
 import { publish } from "./outbox";
 import { runProjector } from "./projector";
 import { defineWorkflow, startWorkflow, runWorkflow, signal as signalWorkflow, load as loadWorkflow } from "./workflow";
+import { writeTuple } from "./authz";
 
 /**
  * Drives the Maya Patel scenario one deliberate step at a time.
@@ -214,6 +215,22 @@ export async function createMove() {
       }
     }
   });
+
+  // Authorization tuples for the move.
+  //
+  // Without these the graph has nothing to walk and every request is refused,
+  // which is the correct default but makes for a short demo. Each tuple states
+  // a relationship that actually exists in the story: the concierge works for
+  // the operating organization, the customer is the subject of this move, the
+  // referring agent belongs to the partner that sent it. The rival agent gets
+  // nothing, deliberately — that absence is what the cross-tenant denial test
+  // depends on.
+  await writeTuple("org:uc-demo", "owner", `move:${move}`);
+  await writeTuple("user:concierge-7", "member", "org:uc-demo");
+  await writeTuple("user:maya-patel", "viewer", `move:${move}`);
+  await writeTuple("org:ntr", "parent", "org:uc-demo");
+  await writeTuple("user:ntr-agent", "member", "org:ntr");
+  await writeTuple("org:ntr", "owner", `move:${move}`);
 
   return { step: "create_move", moveId: move, reference: MOVE_REF, candidates: candidates.length };
 }
