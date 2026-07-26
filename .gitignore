@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .next/
 dist/
 build/
@@ -6,3 +6,14 @@ build/
 .env.local
 *.log
 .DS_Store
+tsconfig.tsbuildinfo
+
+# Research inputs, deliberately not redistributed.
+#
+# src/Photos holds screenshots of utilityconnect.net taken while auditing their
+# public routes; src/Videos holds their own marketing videos. No code imports
+# either one. They are Utility Connect's assets, not ours, and this repository
+# is not affiliated with them - so the audit in research/ cites them by public
+# URL rather than shipping copies.
+src/Photos/
+src/Videos/

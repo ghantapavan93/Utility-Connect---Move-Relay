@@ -1,14 +1,20 @@
 # CI — every push proves the claims.
 #
-# The same three commands a reviewer is told to run locally, run automatically:
-# typecheck, the 11 schema-guarantee checks against an embedded Postgres, and the
-# 51-test suite. If any invariant the docs claim is broken by a commit, the badge
-# goes red. That is what makes the documentation trustworthy.
+# The same commands a reviewer is told to run locally, run automatically:
+# typecheck, the 11 schema-guarantee checks against an embedded Postgres, the
+# full test suite, and a production build. If any invariant the docs claim is
+# broken by a commit, the badge goes red. That is what makes the documentation
+# trustworthy.
+#
+# The suite size is deliberately not stated here. It changes every time a test
+# is added, and a comment that has to be hand-updated to stay true is a comment
+# that eventually is not - `fitness.test.ts` already guards the counts that
+# appear in the README and on the site.
 name: verify
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
 
 jobs:
