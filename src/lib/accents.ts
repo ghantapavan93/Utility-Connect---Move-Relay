@@ -13,6 +13,11 @@
  * Connect's own blue; a conflict is amber because a disagreement needs
  * judgement rather than alarm; an unknown outcome is held amber; a recovery is
  * green; and the service colours belong to the services that own them.
+ *
+ * `failed` is the one red, and it is deliberately hard to reach. Amber covers
+ * everything that needs a person; red is reserved for a break — an invariant
+ * that did not hold. Reaching for it when amber would do is how a palette stops
+ * meaning anything.
  */
 
 export type Accent =
@@ -20,6 +25,7 @@ export type Accent =
   | "conflict"
   | "unknown"
   | "recovered"
+  | "failed"
   | "electricity"
   | "internet"
   | "security"
@@ -31,6 +37,7 @@ const ACCENT_RGB: Record<Accent, string> = {
   conflict: "232,163,61",
   unknown: "217,140,63",
   recovered: "61,167,106",
+  failed: "229,72,77", // #e5484d — matches --color-state-failed
   electricity: "240,180,41",
   internet: "77,168,200",
   security: "139,123,216",

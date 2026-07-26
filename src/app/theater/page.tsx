@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { CineHero } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import type { Accent } from "@/lib/accents";
+import type { TheaterResult } from "@/lib/theater-contract";
+import { held, violated, completedCount, type Slot } from "@/lib/theater-verdict";
 
 /**
  * The Failure Theater — "go ahead, try to break it."
@@ -26,18 +27,14 @@ const SCENARIOS = [
   { key: "schema_drift", title: "Drift a partner's schema", blurb: "A renamed field quarantines with reasons — never force-fed.", glyph: "≠" },
 ];
 
-interface Result {
-  scenario: string;
-  invariant: string;
-  outcome: string;
-  evidence: Record<string, unknown>;
-}
 
 export default function TheaterPage() {
-  const [results, setResults] = useState<Record<string, Result | "running" | { error: string }>>({});
+  const [results, setResults] = useState<Record<string, Slot>>({});
+  const [attacking, setAttacking] = useState(false);
+  const stopRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const run = async (key: string) => {
+  const run = useCallback(async (key: string) => {
     setResults((r) => ({ ...r, [key]: "running" }));
     try {
       const res = await fetch(`/api/v1/theater/${key}`, { method: "POST" });
@@ -46,7 +43,32 @@ export default function TheaterPage() {
     } catch {
       setResults((r) => ({ ...r, [key]: { error: "network error" } }));
     }
-  };
+  }, []);
+
+  /**
+   * Run every attack, in order.
+   *
+   * Six identical cards that each need their own click is a page most reviewers
+   * sample one of and leave. The claim being made here is about all six holding
+   * together, so the page should be able to make that claim without asking
+   * anyone to click six times first. Any individual "Break it" stops the sweep
+   * and hands control back.
+   */
+  const attackAll = useCallback(async () => {
+    setAttacking(true);
+    stopRef.current = false;
+    setResults({});
+    for (const s of SCENARIOS) {
+      if (stopRef.current) break;
+      await run(s.key);
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    setAttacking(false);
+  }, [run]);
+
+  const refused = SCENARIOS.filter((s) => held(results[s.key])).length;
+  const breached = SCENARIOS.filter((s) => violated(results[s.key])).length;
+  const ran = completedCount(SCENARIOS.map((s) => results[s.key]));
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
@@ -122,27 +144,159 @@ export default function TheaterPage() {
         </h2>
       </div>
 
+      {/*
+        The scoreboard.
+
+        Six identical cards described six invariants in 12px text and reported
+        nothing at all until each was clicked, which meant the page's actual
+        claim — that all six hold, right now, against a live database — was
+        never stated anywhere a reviewer would see it. It is stated here, at the
+        size of the claim, and it counts real outcomes: a scenario returning
+        `VIOLATION` lands in the breach column and turns the whole band red.
+        A scoreboard that could only go up would not be evidence of anything.
+      */}
+      <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+        <div
+          className="rounded-2xl border px-6 py-7 sm:px-9 sm:py-8"
+          style={{
+            borderColor: accentColor(breached ? "failed" : ran ? "recovered" : "conflict", 0.45),
+            background: `linear-gradient(120deg, ${accentColor(
+              breached ? "failed" : ran ? "recovered" : "conflict",
+              0.16,
+            )}, rgba(255,255,255,0.015) 60%)`,
+          }}
+        >
+          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+              Attacks refused
+            </span>
+            {attacking && (
+              <motion.span
+                animate={{ opacity: [1, 0.35, 1] }}
+                transition={{ duration: 1.4, repeat: Infinity }}
+                className="text-[10px] font-bold uppercase tracking-[0.22em]"
+                style={{ color: accentColor("conflict", 1) }}
+              >
+                ● attacking
+              </motion.span>
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4">
+            <span
+              className="font-semibold leading-[0.95] tracking-tight"
+              style={{
+                fontSize: "clamp(44px,8vw,96px)",
+                color: accentColor(breached ? "failed" : "recovered", 1),
+              }}
+            >
+              {refused}
+            </span>
+            <span
+              className="font-semibold leading-none tracking-tight text-white/35"
+              style={{ fontSize: "clamp(22px,3.4vw,40px)" }}
+            >
+              / {SCENARIOS.length}
+            </span>
+            {breached > 0 && (
+              <span
+                className="text-sm font-bold uppercase tracking-[0.18em]"
+                style={{ color: accentColor("failed", 1) }}
+              >
+                {breached} invariant{breached === 1 ? "" : "s"} breached
+              </span>
+            )}
+          </div>
+
+          <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg">
+            {breached > 0
+              ? "An invariant did not hold. That result is shown exactly as returned — this page does not get to hide the one outcome worth seeing."
+              : ran === SCENARIOS.length
+                ? "Six attacks, six refusals, and the database rows that prove each one. Nothing here was scripted; press any card again and it runs again."
+                : ran > 0
+                  ? "Each refusal below is a real run against the live database, returning its evidence rows rather than a message saying it worked."
+                  : "Nothing has been attacked yet. Run all six and watch what the system declines to do."}
+          </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => {
+                if (attacking) {
+                  stopRef.current = true;
+                  setAttacking(false);
+                } else {
+                  void attackAll();
+                }
+              }}
+              className="rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wide transition-transform hover:-translate-y-px"
+              style={
+                attacking
+                  ? {
+                      background: "transparent",
+                      border: `1px solid ${accentColor("conflict", 0.6)}`,
+                      color: accentColor("conflict", 1),
+                    }
+                  : { background: accentColor("conflict", 1), color: "#1a1207" }
+              }
+            >
+              {attacking ? "■ Stop — take over" : "▶ Run all six attacks"}
+            </button>
+            <span className="font-mono text-[11px] text-white/40">
+              isolated theater tenant · live database · not a scripted animation
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div ref={gridRef} className="mx-auto grid max-w-[1400px] gap-4 px-5 pb-20 sm:px-8 md:grid-cols-2">
         {SCENARIOS.map((s) => {
           const result = results[s.key];
           const done = result && result !== "running" && !("error" in result);
+          const ok = held(result);
+          const bad = violated(result);
+          const running = result === "running";
+
+          // Four states, four weights. Every card used to look identical
+          // whether it had held an invariant, breached one, or never run —
+          // which meant the outcome, the only thing on this page that carries
+          // information, was invisible until you read the small print.
+          // Red only for a genuine break. Amber is for things needing a
+          // person; a breached invariant needs a fix.
+          const edge: Accent = bad ? "failed" : "recovered";
           return (
-            <div key={s.key} className="cine-glass rounded-2xl p-5">
+            <div
+              key={s.key}
+              className="cine-glass rounded-2xl p-5 transition-all"
+              style={{
+                borderColor: done ? accentColor(edge, 0.5) : undefined,
+                boxShadow: running ? `0 0 0 3px ${accentColor("conflict", 0.16)}` : undefined,
+              }}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-1 flex items-center gap-2">
-                    <span aria-hidden className="text-lg" style={{ color: "var(--color-state-conflict)" }}>{s.glyph}</span>
+                    <span
+                      aria-hidden
+                      className="text-lg"
+                      style={{ color: accentColor(done ? edge : "conflict", 1) }}
+                    >
+                      {done ? (ok ? "✓" : "✕") : s.glyph}
+                    </span>
                     <h3 className="text-sm font-semibold text-white/90">{s.title}</h3>
                   </div>
                   <p className="text-xs leading-relaxed text-white/55">{s.blurb}</p>
                 </div>
                 <button
-                  onClick={() => run(s.key)}
-                  disabled={result === "running"}
+                  onClick={() => {
+                    stopRef.current = true;
+                    setAttacking(false);
+                    void run(s.key);
+                  }}
+                  disabled={running}
                   className="shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-transform hover:-translate-y-px disabled:opacity-50"
                   style={{ background: "var(--color-state-conflict)", color: "#1a1207" }}
                 >
-                  {result === "running" ? "breaking…" : "Break it"}
+                  {running ? "breaking…" : done ? "Break it again" : "Break it"}
                 </button>
               </div>
 
@@ -155,15 +309,34 @@ export default function TheaterPage() {
                     transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-4 rounded-lg border p-3" style={{ borderColor: "var(--color-state-recovered)", background: "color-mix(in oklab, var(--color-state-recovered) 8%, transparent)" }}>
-                      <div className="mb-1 text-xs font-semibold" style={{ color: "var(--color-state-recovered)" }}>
-                        ✓ {(result as Result).outcome}
+                    {/*
+                      The invariant leads now. It used to sit below the outcome
+                      in small italics, which inverted the hierarchy: the rule
+                      the system is defending is the interesting sentence, and
+                      the outcome is its confirmation.
+                    */}
+                    <div
+                      className="mt-4 rounded-lg border p-3"
+                      style={{
+                        borderColor: accentColor(edge, 0.8),
+                        background: accentColor(edge, 0.08),
+                      }}
+                    >
+                      <div
+                        className="text-[13px] font-semibold leading-snug"
+                        style={{ color: accentColor(edge, 1) }}
+                      >
+                        {(result as TheaterResult).invariant}
                       </div>
-                      <div className="mb-2 text-xs italic" style={{ color: "var(--color-text-mid)" }}>
-                        Invariant: {(result as Result).invariant}
+                      <div className="mt-1.5 text-xs" style={{ color: "var(--color-text-mid)" }}>
+                        <span style={{ color: accentColor(edge, 1) }}>{ok ? "✓" : "✕"}</span>{" "}
+                        {(result as TheaterResult).outcome}
                       </div>
-                      <pre className="overflow-x-auto rounded p-2 font-mono text-[11px] leading-relaxed" style={{ background: "var(--color-ground-0)", color: "var(--color-text-mid)" }}>
-                        {JSON.stringify((result as Result).evidence, null, 2)}
+                      <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+                        Evidence, as returned
+                      </div>
+                      <pre className="mt-1 overflow-x-auto rounded p-2 font-mono text-[11px] leading-relaxed" style={{ background: "var(--color-ground-0)", color: "var(--color-text-mid)" }}>
+                        {JSON.stringify((result as TheaterResult).evidence, null, 2)}
                       </pre>
                     </div>
                   </motion.div>

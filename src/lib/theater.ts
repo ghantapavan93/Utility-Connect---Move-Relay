@@ -33,12 +33,11 @@ async function theaterOrg(): Promise<string> {
   return created[0]!.id;
 }
 
-export interface TheaterResult {
-  scenario: string;
-  invariant: string;
-  outcome: string;
-  evidence: Record<string, unknown>;
-}
+// The result shape and the breach marker live in `theater-contract.ts`, which
+// imports nothing — the browser needs them, and reaching them through this
+// module pulled `pg` (and therefore `dns`) into the client bundle.
+export { VIOLATION, type TheaterResult } from "./theater-contract";
+import { VIOLATION, type TheaterResult } from "./theater-contract";
 
 // ---------------------------------------------------------------------------
 
@@ -95,7 +94,7 @@ export async function duplicateCsv(): Promise<TheaterResult> {
   return {
     scenario: "duplicate_csv",
     invariant: "Re-uploading an identical file replays; it never creates a second set of referrals.",
-    outcome: allReplayed ? "second upload replayed — no duplicate referrals" : "VIOLATION",
+    outcome: allReplayed ? "second upload replayed — no duplicate referrals" : VIOLATION,
     evidence: {
       rowsParsed: mapped.length,
       batchId: batch,
@@ -132,7 +131,7 @@ export async function webhookTwice(): Promise<TheaterResult> {
     invariant: "Delivery is at-least-once; handling is exactly-once per consumer.",
     outcome: handled === firstDelivery && redelivery === 0
       ? `handler ran ${handled}× despite two deliveries`
-      : "VIOLATION",
+      : VIOLATION,
     evidence: {
       firstDeliveryProcessed: firstDelivery,
       redeliveryProcessed: redelivery,
@@ -192,7 +191,7 @@ export async function workerCrash(): Promise<TheaterResult> {
     outcome:
       crashed.state === "failed" && resumed.state === "completed" && reserveCompletions === 1
         ? "crashed at step 2, resumed, completed — step 1 ran exactly once"
-        : "VIOLATION",
+        : VIOLATION,
     evidence: {
       stateAfterCrash: crashed.state,
       stateAfterResume: resumed.state,
@@ -218,7 +217,7 @@ export async function crossTenant(): Promise<TheaterResult> {
     outcome:
       owner.allowed && !rival.allowed && !anonymous.allowed
         ? "owner granted with explanation; rival and anonymous denied"
-        : "VIOLATION",
+        : VIOLATION,
     evidence: {
       owningAgent: owner,
       rivalTenantAdmin: rival,
@@ -260,7 +259,7 @@ export async function staleWrite(): Promise<TheaterResult> {
     outcome:
       first.length === 1 && second.length === 0
         ? "first write won; second was rejected as stale"
-        : "VIOLATION",
+        : VIOLATION,
     evidence: {
       firstWriteRows: first.length,
       secondWriteRows: second.length,
@@ -291,7 +290,7 @@ export async function schemaDrift(): Promise<TheaterResult> {
     invariant: "A payload failing its channel contract is quarantined with reasons — never dropped, never force-fed.",
     outcome: !validation.ok && quarantineId
       ? `quarantined with ${validation.issues.length} machine-readable issues`
-      : "VIOLATION",
+      : VIOLATION,
     evidence: {
       contractVersion: validation.version,
       issues: validation.ok ? [] : validation.issues,
