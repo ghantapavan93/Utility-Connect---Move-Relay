@@ -25,19 +25,61 @@ interface StepDef {
   key: string;
   label: string;
   blurb: string;
+  act: string;
 }
 
+/**
+ * Nine steps in four acts.
+ *
+ * The acts are not decoration. A flat list of nine buttons reads as a queue and
+ * tells a reviewer nothing about which moments matter; grouped, the shape of
+ * the argument becomes visible before anything is clicked. Three sources
+ * arrive, a person decides, the provider goes silent, and the system recovers
+ * without ever guessing. The third act is the one this whole project exists
+ * for, and in a flat list it looked exactly as important as step two.
+ */
+const ACTS: { id: string; n: string; title: string; note: string; accent: "verified" | "conflict" | "unknown" | "recovered" }[] = [
+  {
+    id: "arrival",
+    n: "I",
+    title: "The arrival",
+    note: "One move begins in three places at once, and no two agree.",
+    accent: "verified",
+  },
+  {
+    id: "judgement",
+    n: "II",
+    title: "The judgement",
+    note: "A disagreement is not an error. It needs a person, and it gets one.",
+    accent: "conflict",
+  },
+  {
+    id: "silence",
+    n: "III",
+    title: "The silence",
+    note: "The order was created. The reply never came. Guessing here enrols a household twice.",
+    accent: "unknown",
+  },
+  {
+    id: "recovery",
+    n: "IV",
+    title: "The recovery",
+    note: "Ask the provider what it knows. Recover the order that already existed.",
+    accent: "recovered",
+  },
+];
+
 const STEPS: StepDef[] = [
-  { key: "reset", label: "Reset", blurb: "Wipe to a clean pre-ingestion state." },
-  { key: "ingest", label: "1 · Ingest 3 channels", blurb: "Partner API, CSV, and the customer form arrive." },
-  { key: "detect", label: "2 · Detect duplicate", blurb: "Deterministic scoring across the three submissions." },
-  { key: "create_move", label: "3 · Create Move Record", blurb: "One canonical record; every value keeps its source." },
-  { key: "conflicts", label: "4 · Surface conflicts", blurb: "Only the fields where sources disagree." },
-  { key: "merge", label: "5 · Human approves merge", blurb: "A named concierge decides. AI cannot." },
-  { key: "briefing", label: "6 · Grounded briefing", blurb: "Every claim cites a source row." },
-  { key: "submit", label: "7 · Submit to provider", blurb: "The response is lost after the order is created." },
-  { key: "retry", label: "8 · Retry is blocked", blurb: "UNKNOWN outcome — a blind retry is refused." },
-  { key: "reconcile", label: "9 · Reconcile", blurb: "Ask the provider. Recover the existing order." },
+  { key: "reset", label: "Reset", blurb: "Wipe to a clean pre-ingestion state.", act: "arrival" },
+  { key: "ingest", label: "1 · Ingest 3 channels", blurb: "Partner API, CSV, and the customer form arrive.", act: "arrival" },
+  { key: "detect", label: "2 · Detect duplicate", blurb: "Deterministic scoring across the three submissions.", act: "arrival" },
+  { key: "create_move", label: "3 · Create Move Record", blurb: "One canonical record; every value keeps its source.", act: "judgement" },
+  { key: "conflicts", label: "4 · Surface conflicts", blurb: "Only the fields where sources disagree.", act: "judgement" },
+  { key: "merge", label: "5 · Human approves merge", blurb: "A named concierge decides. AI cannot.", act: "judgement" },
+  { key: "briefing", label: "6 · Grounded briefing", blurb: "Every claim cites a source row.", act: "judgement" },
+  { key: "submit", label: "7 · Submit to provider", blurb: "The response is lost after the order is created.", act: "silence" },
+  { key: "retry", label: "8 · Retry is blocked", blurb: "UNKNOWN outcome — a blind retry is refused.", act: "silence" },
+  { key: "reconcile", label: "9 · Reconcile", blurb: "Ask the provider. Recover the existing order.", act: "recovery" },
 ];
 
 type MoveData = {
@@ -183,10 +225,8 @@ export default function DemoPage() {
       >
       {/* Step rail */}
       <aside className="lg:sticky lg:top-6 lg:self-start">
-        <h1 className="mb-1 text-lg font-semibold tracking-tight">Move Relay — live demo</h1>
-        <p className="mb-3 text-xs" style={{ color: "var(--color-text-lo)" }}>
-          Maya Patel · North Texas Realty · synthetic data
-        </p>
+        <h2 className="mb-1 text-lg font-semibold tracking-tight text-white">The console</h2>
+        <p className="mb-4 text-xs text-white/45">Maya Patel · North Texas Realty · synthetic data</p>
         <div className="mb-4 flex flex-col gap-1">
           <a href="/views" className="text-xs font-semibold" style={{ color: "var(--color-state-verified)" }}>
             See this record as concierge / customer / partner →
@@ -198,33 +238,58 @@ export default function DemoPage() {
             Try to break it — Failure Theater →
           </a>
         </div>
-        <ol className="space-y-1.5">
-          {STEPS.map((s) => {
-            const complete = done.has(s.key);
+        <div className="space-y-6">
+          {ACTS.map((act) => {
+            const steps = STEPS.filter((x) => x.act === act.id);
+            const allDone = steps.every((x) => done.has(x.key));
             return (
-              <li key={s.key}>
-                <button
-                  onClick={() => run(s.key)}
-                  disabled={busy !== null}
-                  className="w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50"
-                  style={{
-                    borderColor: complete ? "var(--color-state-verified)" : "var(--color-ground-3)",
-                    background: complete ? "color-mix(in oklab, var(--color-state-verified) 10%, transparent)" : "var(--color-ground-1)",
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{s.label}</span>
-                    {complete && <span style={{ color: "var(--color-state-verified)" }}>✓</span>}
-                    {busy === s.key && <span className="animate-pulse">…</span>}
-                  </div>
-                  <div className="mt-0.5 text-xs" style={{ color: "var(--color-text-lo)" }}>
-                    {s.blurb}
-                  </div>
-                </button>
-              </li>
+              <div key={act.id}>
+                <div className="mb-2 flex items-baseline gap-2.5">
+                  <span
+                    className="font-mono text-[11px] font-bold"
+                    style={{ color: accentColor(act.accent, allDone ? 1 : 0.55) }}
+                  >
+                    {act.n}
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">
+                    {act.title}
+                  </span>
+                  {allDone && (
+                    <span style={{ color: accentColor(act.accent, 1) }} className="text-[11px]">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <p className="mb-2.5 pl-[26px] text-[11px] leading-relaxed text-white/45">{act.note}</p>
+                <ol className="space-y-1.5">
+                  {steps.map((s) => {
+                    const complete = done.has(s.key);
+                    return (
+                      <li key={s.key}>
+                        <button
+                          onClick={() => run(s.key)}
+                          disabled={busy !== null}
+                          className="w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50"
+                          style={{
+                            borderColor: complete ? accentColor(act.accent, 0.7) : "rgba(255,255,255,0.10)",
+                            background: complete ? accentColor(act.accent, 0.1) : "rgba(255,255,255,0.02)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-white/90">{s.label}</span>
+                            {complete && <span style={{ color: accentColor(act.accent, 1) }}>✓</span>}
+                            {busy === s.key && <span className="animate-pulse text-white/60">…</span>}
+                          </div>
+                          <div className="mt-0.5 text-xs leading-relaxed text-white/50">{s.blurb}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
             );
           })}
-        </ol>
+        </div>
       </aside>
 
       {/* Stage */}

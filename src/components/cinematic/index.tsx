@@ -12,6 +12,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { EASE, SPRING } from "@/lib/motion";
+import { accentColor, type Accent } from "@/lib/accents";
 
 /**
  * Cinematic primitives.
@@ -33,30 +34,13 @@ import { EASE, SPRING } from "@/lib/motion";
 
 /* ───────────────────────────── accents ──────────────────────────────────── */
 
-export type Accent =
-  | "verified"
-  | "conflict"
-  | "unknown"
-  | "recovered"
-  | "electricity"
-  | "internet"
-  | "security"
-  | "solar";
-
-/** rgb triples, so tint/glow/particle can be derived at any alpha. */
-const ACCENT_RGB: Record<Accent, string> = {
-  verified: "0,135,181",
-  conflict: "232,163,61",
-  unknown: "217,140,63",
-  recovered: "61,167,106",
-  electricity: "240,180,41",
-  internet: "77,168,200",
-  security: "139,123,216",
-  solar: "245,196,81",
-};
-
-export const accentRgb = (a: Accent) => ACCENT_RGB[a];
-export const accentColor = (a: Accent, alpha = 1) => `rgba(${ACCENT_RGB[a]},${alpha})`;
+/*
+  Re-exported from lib so the palette has one home. It moved out of this file
+  because it is a pure lookup with no React in it, and server components — the
+  architecture page among them — have every right to ask what colour "verified"
+  is without importing a client module.
+*/
+export { accentColor, accentRgb, type Accent } from "@/lib/accents";
 
 /* ───────────────────────────── film grain ──────────────────────────────── */
 

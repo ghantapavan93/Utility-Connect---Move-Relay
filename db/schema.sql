@@ -263,10 +263,23 @@ CREATE TABLE ai_runs (
 -- Audit — append only
 -- ---------------------------------------------------------------------------
 
+-- No foreign keys on this table, deliberately.
+--
+-- An append-only ledger has to outlive the rows it describes. The immutability
+-- rules below make audit rows undeletable, which means a CASCADE arriving from
+-- organizations or moves cannot remove them — Postgres then finds surviving
+-- children and raises a referential-integrity error, and deleting an
+-- organization becomes impossible. The guarantee is correct; the foreign key
+-- was wrong. outbox_events already carries organization_id without a reference
+-- for exactly this reason, and audit_events now matches it.
+--
+-- The trade is real and accepted: these columns can outlive their parents. That
+-- is the point. An audit trail that disappears when someone deletes the thing
+-- it was auditing is not an audit trail.
 CREATE TABLE audit_events (
   id               BIGSERIAL PRIMARY KEY,
-  organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  move_id          UUID REFERENCES moves(id) ON DELETE CASCADE,
+  organization_id  UUID NOT NULL,
+  move_id          UUID,
   event_type       TEXT NOT NULL,
   actor            TEXT NOT NULL,          -- 'system' | 'ai:<run_id>' | 'human:<id>'
   correlation_id   UUID,

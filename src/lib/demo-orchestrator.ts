@@ -84,7 +84,16 @@ async function ids() {
 export async function reset() {
   __simulator.reset();
   await withTransaction(async (c) => {
-    // Order matters only for readability; ON DELETE CASCADE handles the rest.
+    // Everything cascades from the organization except the audit trail, which
+    // deliberately carries no foreign key and is deliberately left behind.
+    //
+    // The first instinct is to clear it too, so a replayed demo starts from a
+    // blank ledger — but the only way to do that is to disable the no-delete
+    // rule, and a system whose immutability can be switched off for
+    // convenience does not have immutability. The rows simply stay, orphaned,
+    // which is precisely what an append-only trail outliving its subject looks
+    // like. Nothing reads them: every query is scoped to the current
+    // organization, and the reset creates a new one.
     await c.query(`DELETE FROM organizations WHERE slug = $1`, [ORG_SLUG]);
   });
 
