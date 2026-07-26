@@ -31,36 +31,108 @@ export default async function Home({
     <div className="theme-light">
       <MarketingHeader lang={lang} />
       <main>
-        {/* ── Hero — navy, mirroring their photo-overlay hero ──── */}
-        <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-1)" }}>
+        {/*
+          ── Hero ────────────────────────────────────────────────
+
+          Rebuilt, because it was the weakest thing on the site and the first
+          thing anyone sees.
+
+          Three problems, all structural. It was a two-column grid with the
+          headline on the left and the constellation on the right, which put a
+          diagram of the data model directly on top of a photograph of a
+          kitchen — two subjects fighting over one frame, and neither winning.
+          It sat in `max-w-6xl` with `py-20`, so a hero meant to feel like a
+          room felt like a content block. And the type topped out at 48px,
+          which is a heading, not a hero.
+
+          Now: the photograph gets the frame to itself at full viewport height,
+          the headline scales with the viewport, and the constellation moves
+          below the fold where it can be looked at deliberately instead of
+          competing. A scroll cue does the work the collision used to.
+        */}
+        <section
+          className="relative flex min-h-[92svh] flex-col overflow-hidden"
+          style={{ background: "var(--uc-navy-1)" }}
+        >
           <HomeScene />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-8 px-6 py-20 lg:grid-cols-[1.05fr_1fr] lg:py-28">
-            <div>
+
+          <div className="relative flex flex-1 items-center">
+            <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
               <Reveal>
-                <h1 className="text-4xl font-extrabold uppercase leading-[1.05] tracking-tight text-white sm:text-5xl">
+                <h1
+                  className="max-w-4xl font-extrabold uppercase leading-[0.98] tracking-tight text-white"
+                  style={{ fontSize: "clamp(40px,6.6vw,86px)" }}
+                >
                   {copy.hero.h1a}{" "}
                   <span style={{ color: "var(--color-state-verified)" }}>{copy.hero.h1accent}</span>{" "}
                   {lang === "es" ? "en un solo lugar" : "in one place"}
                 </h1>
               </Reveal>
               <Reveal delay={0.08}>
-                <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/70">{copy.hero.p}</p>
+                <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/75 sm:text-xl">
+                  {copy.hero.p}
+                </p>
               </Reveal>
               <Reveal delay={0.15}>
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <Link href="/connect-flow" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>
+                <div className="mt-9 flex flex-wrap gap-3">
+                  <Link
+                    href="/connect-flow"
+                    className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+                    style={{ background: "var(--color-state-verified)" }}
+                  >
                     {copy.hero.ctaPrimary}
                   </Link>
-                  <Link href="/connect-flow" className="rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white" style={{ borderColor: "rgba(255,255,255,0.3)" }}>
+                  <Link
+                    href="/connect-flow"
+                    className="rounded-full border px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+                    style={{ borderColor: "rgba(255,255,255,0.34)" }}
+                  >
                     {copy.hero.ctaSecondary}
                   </Link>
                 </div>
               </Reveal>
             </div>
-            <Reveal delay={0.2}>
+          </div>
+
+          <div className="relative">
+            <TrustStrip />
+          </div>
+        </section>
+
+        {/*
+          The constellation, given its own room.
+
+          It is the signature graphic of the whole platform — sources
+          converging into one record — and on top of the hero photograph nobody
+          could read it. On its own band, with a line of copy telling you what
+          you are looking at, it does the job it was drawn for.
+        */}
+        <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-2, #12181e)" }}>
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[1fr_1.1fr]">
+            <Reveal>
+              <div>
+                <div
+                  className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                  style={{ color: "var(--color-state-verified)" }}
+                >
+                  {lang === "es" ? "Una sola ficha" : "One record"}
+                </div>
+                <h2 className="mt-3 text-[clamp(26px,3.4vw,42px)] font-semibold leading-[1.1] tracking-tight text-white">
+                  {lang === "es"
+                    ? "Una mudanza llega por varios canales. Ninguno coincide."
+                    : "One move arrives through several channels. No two agree."}
+                </h2>
+                <p className="mt-4 max-w-lg text-base leading-relaxed text-white/65">
+                  {lang === "es"
+                    ? "Cada valor conserva quién lo aportó, por qué canal y cuándo. Las diferencias se resuelven con una persona, nunca en silencio."
+                    : "Every value keeps who supplied it, through which channel, and when. Where sources disagree, a named person decides — never the system, and never silently."}
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={0.12}>
               <Constellation3D
                 converged
-                height={400}
+                height={420}
                 sources={[
                   { id: "1", label: "Partner API", state: "verified" },
                   { id: "2", label: "CSV", state: "conflict" },
@@ -70,9 +142,6 @@ export default async function Home({
                 ]}
               />
             </Reveal>
-          </div>
-          <div className="relative">
-            <TrustStrip />
           </div>
         </section>
 

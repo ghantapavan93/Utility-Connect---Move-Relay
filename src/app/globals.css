@@ -174,3 +174,54 @@ body {
     animation: none !important;
   }
 }
+
+/* ── Accessibility preferences ────────────────────────────────────────────
+   Set by AccessibilityMenu as attributes on <html>, so the stylesheet does the
+   work rather than a script reaching into elements. Nothing here overlays or
+   intercepts the page; these are the same mechanisms the design system already
+   uses, exposed to the visitor.
+
+   Text size is not here — that adjusts the root font size directly, which every
+   rem-based token in the system already follows.                             */
+
+/* Motion. The OS-level `prefers-reduced-motion` is honoured above; this is the
+   same switch for someone who cannot reach that setting — a borrowed machine, a
+   locked-down device, or simply not knowing it exists.                        */
+:root[data-a11y-still] *,
+:root[data-a11y-still] *::before,
+:root[data-a11y-still] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Contrast. The brand palette is mid-tone blue against dark navy, which is
+   precisely where ratios fall below AA — so this lifts body text to full white,
+   strengthens borders, and drops the decorative washes that eat contrast.     */
+:root[data-a11y-contrast] {
+  --color-text-mid: #ffffff;
+  --color-text-lo: rgba(255, 255, 255, 0.82);
+}
+:root[data-a11y-contrast] .cine-aurora,
+:root[data-a11y-contrast] .cine-shimmer {
+  display: none;
+}
+:root[data-a11y-contrast] .cine-glass {
+  background: rgba(10, 14, 18, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Links. Colour alone is not a sufficient cue, and blue-on-navy is the hardest
+   case for the most common form of colour vision deficiency.                  */
+:root[data-a11y-underline] a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+/* A visible focus ring, always. Several resets suppress it, and a keyboard
+   visitor who cannot see where they are cannot use the site at all.           */
+:focus-visible {
+  outline: 2px solid var(--color-state-verified);
+  outline-offset: 2px;
+}

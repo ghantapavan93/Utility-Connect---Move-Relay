@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Open_Sans } from "next/font/google";
 import { Toaster } from "sonner";
+import { AccessibilityMenu } from "@/components/AccessibilityMenu";
 import "./globals.css";
 
 // Open Sans is Utility Connect's own body typeface. Using it makes the clone read
@@ -24,6 +25,9 @@ export default function RootLayout({
     <html lang="en" className={openSans.variable}>
       <body className="min-h-dvh antialiased">
         {children}
+        {/* Every route, not just the marketing pages. An accessibility control
+            that is only present where someone thought to add it is not one. */}
+        <AccessibilityMenu />
         {/* Provider responses and reconciliation settle asynchronously; they need
             to surface without stealing focus from whatever the operator is doing. */}
         <Toaster theme="dark" position="bottom-right" closeButton />

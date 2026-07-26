@@ -43,6 +43,20 @@ export function HomeScene() {
           reduce ? undefined : { duration: 38, repeat: Infinity, repeatType: "reverse", ease: "linear" }
         }
       >
+        {/*
+          The grade was crushing the photograph.
+
+          `saturate(0.3)` under a 42% navy multiply is two desaturations
+          stacked, and it turned an interior with warm oak and walnut into flat
+          slate — a hero you look past rather than at. Their reference is
+          desaturated, not colourless: enough wood tone survives to read as a
+          home rather than a rendering.
+
+          Holding more saturation and lifting contrast keeps the room warm,
+          while the wash below does the work of making white type legible. That
+          separation is the point — the tint should sit *over* the image, not be
+          baked into it.
+        */}
         <Image
           src="/renders/residence-hero.png"
           alt=""
@@ -50,14 +64,14 @@ export function HomeScene() {
           priority
           sizes="100vw"
           className="object-cover"
-          style={{ filter: "saturate(0.3) contrast(1.08) brightness(1.02)" }}
+          style={{ filter: "saturate(0.62) contrast(1.14) brightness(0.98)" }}
         />
       </motion.div>
 
       {/* Blue-slate wash, the way their hero is graded. */}
       <div
         className="absolute inset-0"
-        style={{ background: "var(--uc-navy-1)", opacity: 0.42, mixBlendMode: "multiply" }}
+        style={{ background: "var(--uc-navy-1)", opacity: 0.34, mixBlendMode: "multiply" }}
       />
       <div
         className="absolute inset-0"
