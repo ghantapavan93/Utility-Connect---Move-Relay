@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -122,5 +122,51 @@ describe("the ledger stays honest", () => {
         /Commit|commit |\.test\.ts|\.spec\.ts|verify-constraints|uptime_s/.test(entry);
       expect(cites, entry.slice(0, 60)).toBe(true);
     }
+  });
+});
+
+describe("stated test counts cannot drift from the suite", () => {
+  /**
+   * An audit found this project claiming 109 tests in the README, 51 in the
+   * architecture doc and on the home page, 41 in one place and 35 in another,
+   * while the suite actually contained 156. Every one of those numbers was
+   * written honestly and then left behind by the code.
+   *
+   * A project whose entire subject is provenance cannot have its most
+   * quotable number be wrong in four different ways. So the claim is now
+   * checked: any file stating "N tests" must state the real N.
+   */
+  const countTests = () => {
+    const dir = join(root, "src/lib/__tests__");
+    return readdirSync(dir)
+      .filter((f) => f.endsWith(".ts"))
+      .reduce((n, f) => n + (read(`src/lib/__tests__/${f}`).match(/^\s*it\(/gm)?.length ?? 0), 0);
+  };
+
+  it("every stated count matches the number of tests that exist", () => {
+    const actual = countTests();
+    const files = [
+      "README.md",
+      "docs/ARCHITECTURE.md",
+      "docs/DEMO_SCRIPT.md",
+      "docs/BUSINESS_VALUE.md",
+      "src/app/page.tsx",
+      "src/app/demo/page.tsx",
+    ];
+
+    const wrong: string[] = [];
+    for (const f of files) {
+      let src: string;
+      try {
+        src = read(f);
+      } catch {
+        continue;
+      }
+      for (const m of src.matchAll(/(\d{2,4})\s+tests\b/g)) {
+        if (Number(m[1]) !== actual) wrong.push(`${f}: claims ${m[1]}, actual ${actual}`);
+      }
+    }
+
+    expect(wrong, `stated test counts have drifted:\n${wrong.join("\n")}`).toEqual([]);
   });
 });

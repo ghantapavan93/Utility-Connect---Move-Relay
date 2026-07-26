@@ -9,7 +9,7 @@ import { recordAudit } from "./audit";
  * that lives in a process dies with the process, so here every execution and
  * every completed step is a row.
  *
- * The properties this engine guarantees, each proven in workflow.test.ts:
+ * The properties this engine guarantees, each proven in durability.test.ts:
  *
  *   1. RESUMABLE  — a worker that crashes mid-workflow resumes exactly where it
  *      stopped. `runWorkflow` replays from the persisted step index.

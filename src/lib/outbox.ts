@@ -16,7 +16,7 @@ import { query, type Queryable } from "./db";
  *
  * At demo scale the dispatcher is invoked directly; at production scale it runs
  * on a worker loop or LISTEN/NOTIFY. The correctness properties are identical,
- * and they are the part proven in outbox.test.ts.
+ * and they are the part proven in durability.test.ts.
  */
 
 export interface OutboxEvent {

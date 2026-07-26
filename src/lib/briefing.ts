@@ -16,7 +16,7 @@ import { recordAudit } from "./audit";
  * An LLM seam exists (`renderNarrative`) for a future version. Its contract is
  * strict: it may only rephrase claims it is given, and every claim it emits must
  * map back to an input field id. If a future model cannot cite a claim, the
- * claim is dropped, not shown. See docs/AI_BOUNDARIES.md and ADR-004.
+ * claim is dropped, not shown. See CLAUDE.md ("AI boundaries — hard line") and ADR-004.
  *
  * The briefing never decides anything. It assembles what is known, names what is
  * not, and hands both to a human who accepts, edits, or rejects it — a choice

@@ -10,7 +10,7 @@ import { recordAudit } from "./audit";
  * eventually merge two different families' moves, and there is no audit trail
  * that makes that acceptable.
  *
- * AI's role, defined in docs/AI_BOUNDARIES.md, is to *explain* a conflict to the
+ * AI's role, defined in CLAUDE.md ("AI boundaries — hard line"), is to *explain* a conflict to the
  * operator in plain language. It never chooses. See ADR-003.
  */
 

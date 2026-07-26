@@ -29,6 +29,11 @@ const REDACTED_PATHS = new Set([
   "customer.ssn",
   "customer.social_security_number",
   "payment.account_number",
+  // Bare keys as well, because a nested walk matches on both the full path and
+  // the leaf name — a payload that drops the wrapper must not slip through.
+  "ssn",
+  "social_security_number",
+  "account_number",
 ]);
 
 /**
@@ -36,14 +41,34 @@ const REDACTED_PATHS = new Set([
  * a social security number. Audit detail is written on every transition and is
  * read by operators, so it is the most likely place for such a value to leak.
  * Redaction happens here, once, rather than at each call site.
+ *
+ * This walks the whole object rather than its top level, and that is the fix
+ * for a real leak. `REDACTED_PATHS` has always held dotted paths — `customer.ssn`
+ * — while the implementation compared them against top-level keys only. Since
+ * every payload in this system nests customer data under `customer`, the
+ * matcher never fired once: the comment described redaction the code was not
+ * doing, and an SSN in a referral payload went into the audit log in clear.
+ *
+ * Arrays are walked too, without their indices entering the path, so
+ * `services[2].payment.account_number` still matches `payment.account_number`.
  */
 export function redact(
   detail: Record<string, unknown> | null | undefined,
 ): Record<string, unknown> | null {
   if (!detail) return null;
+  return walk(detail, "") as Record<string, unknown>;
+}
+
+function walk(value: unknown, path: string): unknown {
+  if (Array.isArray(value)) return value.map((v) => walk(v, path));
+  if (value === null || typeof value !== "object") return value;
+
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(detail)) {
-    out[k] = REDACTED_PATHS.has(k) ? "[redacted]" : v;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    const next = path ? `${path}.${k}` : k;
+    // Match on the full path *and* the bare key, so a payload that omits the
+    // wrapper — `{ ssn }` rather than `{ customer: { ssn } }` — is still caught.
+    out[k] = REDACTED_PATHS.has(next) || REDACTED_PATHS.has(k) ? "[redacted]" : walk(v, next);
   }
   return out;
 }
