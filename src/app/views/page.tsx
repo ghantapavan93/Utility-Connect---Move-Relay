@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { StateBadge } from "@/components/StateBadge";
-import { useRef } from "react";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { CineHero } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import type { Accent } from "@/lib/accents";
+import { withheld, additional, shared } from "@/lib/projection-diff";
 
 /**
  * Screens 5, 7, 8 — the same Move Record seen by three audiences.
  *
  * One toggle, three projections, all fetched from /api/v1/views. The point the
  * screen makes visually: identical underlying data, deliberately different
- * surfaces, and the differences are enforced on the server. Flip between tabs on
- * the same move and watch the provider account number and the SSN simply not be
- * there for the customer and the partner.
+ * surfaces, and the differences are enforced on the server. Flip between tabs
+ * and the provider's order id and the internal error category are simply not in
+ * the customer's or the partner's payload.
+ *
+ * The page used to make that claim without showing it. Three panels that merely
+ * look different prove nothing — a field can be present in a response and just
+ * not rendered by that component, which is the exact bug this screen exists to
+ * rule out. All three payloads are now fetched and compared, and the withheld
+ * paths are read off the real responses.
  */
 
 type Audience = "concierge" | "customer" | "partner";
@@ -27,33 +33,48 @@ const TABS: Array<{ key: Audience; label: string; blurb: string }> = [
   { key: "partner", label: "Partner", blurb: "Attributed engagement only. Nothing cross-partner, no provider internals." },
 ];
 
+// The audience is not something the client asks for — it is a property of who
+// the request says it is. Switching tabs switches actor, and the server decides
+// what that actor may see by walking the relationship graph. A forged header is
+// trivial here and that is stated plainly on the page: identity is a demo
+// stand-in, the authorization decision behind it is not.
+const ACTOR: Record<Audience, string> = {
+  concierge: "user:concierge-7",
+  customer: "user:maya-patel",
+  partner: "user:ntr-agent",
+};
+
 export default function ViewsPage() {
   const [audience, setAudience] = useState<Audience>("concierge");
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [all, setAll] = useState<Record<Audience, Record<string, unknown>> | null>(null);
+  const [loading, setLoading] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // The audience is no longer something the client asks for — it is a property
-  // of who the request says it is. Switching tabs switches actor, and the
-  // server decides what that actor may see by walking the relationship graph.
-  // A forged header is trivial here and that is stated plainly on the page:
-  // identity is a demo stand-in, the authorization decision behind it is not.
-  const ACTOR: Record<Audience, string> = {
-    concierge: "user:concierge-7",
-    customer: "user:maya-patel",
-    partner: "user:ntr-agent",
-  };
-
-  const load = useCallback(async (a: Audience) => {
+  /**
+   * Fetch all three projections, not just the one on screen.
+   *
+   * Comparing them is the only way to demonstrate an absence, and the
+   * comparison has to be against responses this page actually received — a
+   * hardcoded list of "fields the partner does not get" would keep reassuring a
+   * reviewer long after a projection started leaking one.
+   */
+  const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/v1/views", { headers: { "x-actor": ACTOR[a] } });
-    setData(await res.json());
+    const entries = await Promise.all(
+      (Object.keys(ACTOR) as Audience[]).map(async (a) => {
+        const res = await fetch("/api/v1/views", { headers: { "x-actor": ACTOR[a] } });
+        return [a, (await res.json()) as Record<string, unknown>] as const;
+      }),
+    );
+    setAll(Object.fromEntries(entries) as Record<Audience, Record<string, unknown>>);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    load(audience);
-  }, [audience, load]);
+    void load();
+  }, [load]);
+
+  const data = all?.[audience] ?? null;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
@@ -62,11 +83,17 @@ export default function ViewsPage() {
 
       {/*
         The claim this page makes is a negative one, and negatives are hard to
-        show: the partner does not see the provider account number, and the
-        customer does not see the internal machinery. You cannot photograph an
-        absence — so the page is built as a single toggle over one record, and
-        the proof is that the fields are simply not in the payload when you
-        switch. Enforced on the server, which is the only place it counts.
+        show: the partner does not receive the provider's order id, and the
+        customer does not receive the internal error category. You cannot
+        photograph an absence — so the page fetches all three projections and
+        names the paths that are missing from the one on screen, computed from
+        the responses rather than described in prose. Enforced on the server,
+        which is the only place it counts.
+
+        (The copy here previously cited an SSN and a provider account number.
+        Neither field exists anywhere in this demo's data, so the page was
+        claiming to withhold things it never had. The fields named above are the
+        ones the payloads actually contain.)
       */}
       <CineHero
         image="/renders/residence-hero.png"
@@ -85,7 +112,7 @@ export default function ViewsPage() {
             <span className="cine-shimmer">Three truths.</span>
           </>
         }
-        sub="A concierge, a customer and a partner look at the same move and see three different things — because a partner has no business seeing another partner's referrals, and nobody outside the operator needs the provider's account number. Flip the toggle and watch the fields not be there."
+        sub="A concierge, a customer and a partner look at the same move and see three different things — because a partner has no business seeing another partner's referrals, and nobody outside the operator needs the provider's order id or the reason a submission failed. Flip the toggle and read the fields that are not there."
         credibility={[
           {
             eyebrow: "Purpose",
@@ -135,26 +162,48 @@ export default function ViewsPage() {
         </p>
       </div>
 
+      <WithheldBand audience={audience} all={all} loading={loading} />
+
       <div ref={panelRef} className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setAudience(t.key)}
-            className="rounded-lg border px-4 py-2 text-sm font-semibold transition-colors"
-            style={{
-              borderColor: audience === t.key ? "var(--color-state-verified)" : "var(--color-ground-3)",
-              background: audience === t.key ? "color-mix(in oklab, var(--color-state-verified) 12%, transparent)" : "var(--color-ground-1)",
-              color: audience === t.key ? "var(--color-state-verified)" : "var(--color-text-mid)",
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/*
+        The toggle is the instrument, so it is sized like one. Each tab carries
+        the count of fields the server withholds from that audience, which turns
+        three interchangeable-looking labels into a visible gradient of
+        privilege before anything is clicked.
+      */}
+      <div className="grid gap-2 sm:grid-cols-3">
+        {TABS.map((t) => {
+          const active = audience === t.key;
+          const count = all?.concierge?.exists === true ? withheld(all.concierge, all[t.key]).length : null;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setAudience(t.key)}
+              className="rounded-xl border px-4 py-3 text-left transition-all"
+              style={{
+                borderColor: active ? accentColor("verified", 0.9) : "rgba(255,255,255,0.09)",
+                background: active ? accentColor("verified", 0.14) : "rgba(255,255,255,0.02)",
+                boxShadow: active ? `0 0 0 3px ${accentColor("verified", 0.12)}` : undefined,
+              }}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span
+                  className="text-base font-semibold"
+                  style={{ color: active ? accentColor("verified", 1) : "rgba(255,255,255,0.85)" }}
+                >
+                  {t.label}
+                </span>
+                {count !== null && (
+                  <span className="font-mono text-[11px] text-white/40">
+                    {count === 0 ? "baseline" : `−${count}`}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-white/50">{t.blurb}</p>
+            </button>
+          );
+        })}
       </div>
-      <p className="mt-2 text-sm" style={{ color: "var(--color-text-lo)" }}>
-        {TABS.find((t) => t.key === audience)?.blurb}
-      </p>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -180,6 +229,128 @@ export default function ViewsPage() {
       </AnimatePresence>
       </div>
     </main>
+  );
+}
+
+/**
+ * The fields the server did not send to this audience.
+ *
+ * This is the page's whole argument, and until now it was made only in prose.
+ * The list is computed by comparing the concierge payload against the one on
+ * screen, both fetched moments ago — so it reports the current behaviour of the
+ * server rather than a description of it written at some point in the past. If a
+ * projection ever started leaking a field, the field would drop out of this list
+ * instead of the page carrying on asserting an absence that had stopped being
+ * true.
+ *
+ * The concierge is described as the most-privileged projection, never as
+ * "everything". No view in this system returns every column, and calling one a
+ * superset would be a claim the code does not support — the customer's timeline
+ * appears in no other payload.
+ */
+function WithheldBand({
+  audience,
+  all,
+  loading,
+}: {
+  audience: Audience;
+  all: Record<Audience, Record<string, unknown>> | null;
+  loading: boolean;
+}) {
+  const ready = !!all && all.concierge?.exists === true;
+  const missing = ready ? withheld(all.concierge, all[audience]) : [];
+  const only = ready ? additional(all.concierge, all[audience]) : [];
+  const common = ready ? shared([all.concierge, all.customer, all.partner]) : [];
+
+  const isOperator = audience === "concierge";
+  const accent: Accent = isOperator ? "verified" : "security";
+
+  return (
+    <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+      <div
+        className="rounded-2xl border px-6 py-7 sm:px-9 sm:py-8"
+        style={{
+          borderColor: accentColor(accent, 0.45),
+          background: `linear-gradient(120deg, ${accentColor(accent, 0.16)}, rgba(255,255,255,0.015) 60%)`,
+        }}
+      >
+        <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+          Withheld from this audience
+        </span>
+
+        {!ready ? (
+          <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg">
+            {loading
+              ? "Reading all three projections…"
+              : "No Move Record yet. Run the demo from the start, then come back and compare."}
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-4">
+              <span
+                className="font-semibold leading-[0.95] tracking-tight"
+                style={{ fontSize: "clamp(44px,8vw,96px)", color: accentColor(accent, 1) }}
+              >
+                {missing.length}
+              </span>
+              <span
+                className="font-semibold leading-none tracking-tight text-white/35"
+                style={{ fontSize: "clamp(18px,2.6vw,30px)" }}
+              >
+                field{missing.length === 1 ? "" : "s"} not sent
+              </span>
+            </div>
+
+            <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg">
+              {isOperator
+                ? "This is the most-privileged of the three projections — the baseline the other two are measured against. It is still not every column in the database."
+                : `These paths are present in the concierge's response and absent from this one. Not hidden by CSS, not filtered in the browser — they were never in the payload.`}
+            </p>
+
+            {missing.length > 0 && (
+              <ul className="mt-5 flex flex-wrap gap-1.5">
+                {missing.map((p) => (
+                  <li
+                    key={p}
+                    className="rounded-md border px-2 py-1 font-mono text-[11px]"
+                    style={{
+                      borderColor: accentColor(accent, 0.35),
+                      background: accentColor(accent, 0.08),
+                      color: accentColor(accent, 0.95),
+                    }}
+                  >
+                    {p}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {only.length > 0 && (
+              <div className="mt-5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+                  And {only.length} the concierge does not get
+                </div>
+                <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                  {only.map((p) => (
+                    <li
+                      key={p}
+                      className="rounded-md border border-white/12 bg-white/[0.03] px-2 py-1 font-mono text-[11px] text-white/55"
+                    >
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-5 font-mono text-[11px] text-white/40">
+              {common.length} path{common.length === 1 ? "" : "s"} shared by all three · computed
+              from the three responses this page just received
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

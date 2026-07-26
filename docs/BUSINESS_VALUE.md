@@ -156,7 +156,7 @@ Every signal below is labelled:
 | Signal | Status | Where it comes from |
 |---|---|---|
 | AI-generated code rejection / correction rate | **INSTRUMENTED** | `docs/AI_BUILD_LEDGER.md` entries vs commits |
-| Contract-test coverage of critical paths | **INSTRUMENTED** | 211 tests, incl. 11 schema-guarantee checks |
+| Contract-test coverage of critical paths | **INSTRUMENTED** | 222 tests, incl. 11 schema-guarantee checks |
 | Failures caught before release | **INSTRUMENTED** | test suite |
 | Setup success rate | **INSTRUMENTED** | `npm install && npm run verify`, no Docker required |
 | Mean time to identify a workflow failure | **DERIVABLE** | audit trail reconstructs any move |
