@@ -11,13 +11,22 @@ import { motion, useReducedMotion } from "framer-motion";
  * theirs, so this used to be an SVG approximation of an interior standing in
  * for one, on the reasoning that a licensed photo was not ours to use.
  *
- * That reasoning is obsolete. The residence in `/story` *is* a kitchen with an
- * island, stools and pendants, so this is a still rendered straight out of it at
- * 3000×1687 — `window.__captureHero()` in development renders the scene at print
- * size and writes it to `public/renders`. Same subject as theirs, same grade,
- * entirely our own asset. The marketing hero and the 3D film now come from one
- * model, which is the honest way to match someone's art direction rather than
- * borrow it.
+ * It ran on a render out of `/story` for a while, on the reasoning that the
+ * residence *is* a kitchen with an island and stools, so the marketing hero and
+ * the 3D film could come from one model. That was honest and it was not good
+ * enough: the scene carries baked bounce light on 13 of its 594 meshes, so the
+ * shell is lit and everything standing in the rooms is not, and no camera angle
+ * gets a modelled interior to read as a photographed one.
+ *
+ * So this is a licensed photograph — Pexels, free for commercial use, credited
+ * in `public/photos/CREDITS.md`. Not theirs, and deliberately not: a system
+ * whose entire argument is that every value remembers who supplied it cannot
+ * be built on a page that quietly takes a company's hero image. The resemblance
+ * comes from the grade below, which is matched to their art direction rather
+ * than lifted from their asset.
+ *
+ * The renders keep the platform pages, where "this is the model you can walk
+ * through" is the actual point.
  *
  * The grade is half the job. Their hero is not a bright photo; it is a heavily
  * desaturated one under a blue-slate wash, and that is what lets white type sit
@@ -58,13 +67,13 @@ export function HomeScene() {
           baked into it.
         */}
         <Image
-          src="/renders/residence-hero.png"
+          src="/photos/kitchen-island.jpg"
           alt=""
           fill
           priority
           sizes="100vw"
           className="object-cover"
-          style={{ filter: "saturate(0.62) contrast(1.14) brightness(0.98)" }}
+          style={{ filter: "saturate(0.52) contrast(1.12) brightness(0.94)" }}
         />
       </motion.div>
 
