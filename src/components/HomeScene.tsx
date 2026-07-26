@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useStillness } from "@/lib/use-stillness";
 
 /**
  * The hero image.
@@ -35,10 +37,37 @@ import { motion, useReducedMotion } from "framer-motion";
  * as theirs.
  */
 export function HomeScene() {
-  const reduce = useReducedMotion();
+  const reduce = useStillness();
+  const ref = useRef<HTMLDivElement>(null);
+
+  /*
+    The scroll rig.
+
+    The hero had an ambient drift and nothing tied to scroll, so leaving it felt
+    like scrolling past a poster. This is the same rig the platform pages use:
+    the photograph falls behind the page and scales up slightly, focus pulls off
+    it as it leaves, and the wash deepens so the section below arrives out of
+    darkness rather than out of a bright edge.
+
+    `offset: ["start start", "end start"]` measures from the hero filling the
+    viewport to the moment its bottom reaches the top — so the whole effect
+    plays exactly over the distance the hero is on screen, at any viewport
+    height, which is what keeps it honest on a phone.
+
+    Every animated property is transform, opacity or filter. Nothing here can
+    trigger layout.
+  */
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const scale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [1.04, 1.2]);
+  const y = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["0%", "13%"]);
+  const blur = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [0, 6]);
+  const filter = useTransform(blur, (v) => `blur(${v}px)`);
+  const veil = useTransform(scrollYProgress, [0, 1], reduce ? [0.34, 0.34] : [0.34, 0.7]);
 
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div ref={ref} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Focus pull and parallax, driven by scroll position. */}
+      <motion.div className="absolute inset-0" style={{ y, filter, willChange: "transform, filter" }}>
       {/*
         A very slow drift — enough that the hero is not a dead flat plate, small
         enough that nobody consciously registers it moving, and held completely
@@ -46,8 +75,9 @@ export function HomeScene() {
       */}
       <motion.div
         className="absolute inset-0"
-        initial={reduce ? undefined : { scale: 1.06, x: "-1%" }}
-        animate={reduce ? undefined : { scale: 1.12, x: "1%" }}
+        style={{ scale }}
+        initial={reduce ? undefined : { x: "-1%" }}
+        animate={reduce ? undefined : { x: "1%" }}
         transition={
           reduce ? undefined : { duration: 38, repeat: Infinity, repeatType: "reverse", ease: "linear" }
         }
@@ -76,11 +106,13 @@ export function HomeScene() {
           style={{ filter: "saturate(0.52) contrast(1.12) brightness(0.94)" }}
         />
       </motion.div>
+      </motion.div>
 
-      {/* Blue-slate wash, the way their hero is graded. */}
-      <div
+      {/* Blue-slate wash, deepening as the hero leaves so the next section
+          arrives out of darkness rather than off a bright edge. */}
+      <motion.div
         className="absolute inset-0"
-        style={{ background: "var(--uc-navy-1)", opacity: 0.34, mixBlendMode: "multiply" }}
+        style={{ background: "var(--uc-navy-1)", opacity: veil, mixBlendMode: "multiply" }}
       />
       <div
         className="absolute inset-0"

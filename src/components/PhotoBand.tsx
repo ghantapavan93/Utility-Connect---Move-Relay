@@ -1,4 +1,9 @@
+"use client";
+
+import { useRef } from "react";
 import Image from "next/image";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useStillness } from "@/lib/use-stillness";
 
 /**
  * A full-bleed photograph with a line of copy over it.
@@ -36,9 +41,26 @@ export function PhotoBand({
   priority?: boolean;
 }) {
   const centred = align === "center";
+  const ref = useRef<HTMLElement>(null);
+  const reduce = useStillness();
+
+  /*
+    Parallax, measured across the band's own travel through the viewport.
+
+    `offset: ["start end", "end start"]` runs from the moment the top edge
+    enters the bottom of the screen to the moment the bottom edge leaves the
+    top — the full time the band is visible — so the photograph drifts against
+    the page for the whole pass rather than snapping at an arbitrary point.
+
+    The image is over-scaled to 118% so there is material to move; without that
+    headroom a translated `fill` image exposes the background at one edge.
+  */
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["-9%", "9%"]);
 
   return (
     <section
+      ref={ref}
       className={`relative flex overflow-hidden ${
         height === "tall" ? "min-h-[64vh]" : "min-h-[44vh]"
       }`}
@@ -50,15 +72,20 @@ export function PhotoBand({
         screen reader after it has read the heading adds nothing and costs time.
         Callers pass real alt text when the image itself is the information.
       */}
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        priority={priority}
-        sizes="100vw"
-        className="object-cover"
-        style={{ filter: "saturate(0.5) contrast(1.1) brightness(0.92)" }}
-      />
+      <motion.div
+        className="absolute inset-0"
+        style={{ y, height: "118%", top: "-9%", willChange: "transform" }}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          priority={priority}
+          sizes="100vw"
+          className="object-cover"
+          style={{ filter: "saturate(0.5) contrast(1.1) brightness(0.92)" }}
+        />
+      </motion.div>
 
       {/* The grade, in two passes: a brand wash, then a directional darkening
           under wherever the text lands. */}

@@ -7,6 +7,7 @@ import { Industries } from "@/components/Industries";
 import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
 import { PhotoBand } from "@/components/PhotoBand";
+import { BlurReveal } from "@/components/BlurReveal";
 import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
 import { SITE_COPY, getLang } from "@/lib/site-copy";
@@ -59,16 +60,21 @@ export default async function Home({
 
           <div className="relative flex flex-1 items-center">
             <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-28">
-              <Reveal>
-                <h1
-                  className="max-w-4xl font-extrabold uppercase leading-[0.98] tracking-tight text-white"
-                  style={{ fontSize: "clamp(40px,6.6vw,86px)" }}
-                >
-                  {copy.hero.h1a}{" "}
-                  <span style={{ color: "var(--color-state-verified)" }}>{copy.hero.h1accent}</span>{" "}
-                  {lang === "es" ? "en un solo lugar" : "in one place"}
-                </h1>
-              </Reveal>
+              {/*
+                Word by word, out of blur.
+
+                A hero that fades in as one block is motion that announces
+                itself and says nothing. Focus pulling across a sentence reads
+                as a camera finding its subject, and the accent words land last
+                so the line resolves onto its own point.
+              */}
+              <BlurReveal
+                as="h1"
+                className="max-w-4xl font-extrabold uppercase leading-[0.98] tracking-tight text-white"
+                text={`${copy.hero.h1a} ${copy.hero.h1accent} ${lang === "es" ? "en un solo lugar" : "in one place"}`}
+                emphasis={copy.hero.h1accent.split(" ")}
+                style={{ fontSize: "clamp(40px,6.6vw,86px)" }}
+              />
               <Reveal delay={0.08}>
                 <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/75 sm:text-xl">
                   {copy.hero.p}
