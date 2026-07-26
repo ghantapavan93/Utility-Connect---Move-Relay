@@ -1,8 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { query, withTransaction } from "./db";
 import { publish, dispatch } from "./outbox";
 import { defineWorkflow, startWorkflow, runWorkflow, history } from "./workflow";
 import { writeTuple, checkView } from "./authz";
+import { parseCsv, mapRows } from "./csv";
+import { ingestReferral } from "./intake";
 import { validateSubmission, quarantineSubmission } from "./contracts";
 
 /**
@@ -40,31 +42,66 @@ export interface TheaterResult {
 
 // ---------------------------------------------------------------------------
 
-/** The same CSV uploaded twice. The second upload must collapse, not duplicate. */
+/**
+ * The same CSV uploaded twice. The second upload must replay, not duplicate.
+ *
+ * This scenario used to insert a synthetic JSON row and assert a unique index
+ * rejected the second copy. The index is real and the assertion was true, but
+ * the card said "upload the same CSV twice" and nothing was ever uploaded and
+ * no CSV was ever parsed — an audit flagged it as a claim the code did not
+ * back.
+ *
+ * It now parses actual CSV text through the real parser and runs both rows
+ * through `ingestReferral`, exactly as the upload endpoint does. The second
+ * pass reuses the same content-derived batch id, so the idempotency records
+ * from the first pass are found and the rows replay. That is the property worth
+ * demonstrating: not that a database rejected a byte-identical insert, but that
+ * a partner re-sending yesterday's export does not enrol anyone twice.
+ */
 export async function duplicateCsv(): Promise<TheaterResult> {
   const org = await theaterOrg();
-  const payload = { customer: { first_name: "Maya" }, batch: randomUUID().slice(0, 8) };
-  const hash = `theater-csv-${payload.batch}`;
 
-  const insert = () =>
-    query<{ id: string }>(
-      `INSERT INTO raw_submissions (organization_id, channel, payload, payload_hash, correlation_id)
-       VALUES ($1,'csv_upload',$2,$3,$4)
-       ON CONFLICT (organization_id, channel, payload_hash) DO NOTHING RETURNING id`,
-      [org, JSON.stringify(payload), hash, randomUUID()],
-    );
+  const csv = [
+    "first_name,last_name,email,phone,move_date,to_address",
+    "Maya,Patel,maya.patel@example.com,469-555-0143,2026-08-14,1420 Windhaven Pkwy Plano TX",
+    "Dev,Shah,dev.shah@example.com,469-555-0180,8/20/2026,88 Legacy Dr Frisco TX",
+    "",
+  ].join("\n");
 
-  const first = await insert();
-  const second = await insert();
+  // Content-derived, so "the same file" means the same bytes rather than the
+  // same request. A random id here would make every upload look novel.
+  const batch = createHash("sha256").update(csv).digest("hex").slice(0, 12);
+  const { mapped } = mapRows(parseCsv(csv));
+
+  const runPass = async () => {
+    const statuses: string[] = [];
+    for (const row of mapped) {
+      const r = await ingestReferral({
+        organizationId: org,
+        channel: "csv_upload",
+        payload: row.payload,
+        idempotencyKey: `theater-csv:${batch}:${row.line}`,
+      });
+      statuses.push(r.status);
+    }
+    return statuses;
+  };
+
+  const first = await runPass();
+  const second = await runPass();
+
+  const allReplayed = second.length > 0 && second.every((s) => s === "replayed");
 
   return {
     scenario: "duplicate_csv",
-    invariant: "Identical payloads on one channel collapse to a single submission.",
-    outcome: second.length === 0 ? "second upload collapsed — no duplicate row" : "VIOLATION",
+    invariant: "Re-uploading an identical file replays; it never creates a second set of referrals.",
+    outcome: allReplayed ? "second upload replayed — no duplicate referrals" : "VIOLATION",
     evidence: {
-      firstInsertReturnedRow: first.length === 1,
-      secondInsertReturnedRow: second.length === 1,
-      constraint: "UNIQUE (organization_id, channel, payload_hash)",
+      rowsParsed: mapped.length,
+      batchId: batch,
+      firstPass: first,
+      secondPass: second,
+      mechanism: "persisted idempotency_records keyed on a content hash of the file",
     },
   };
 }

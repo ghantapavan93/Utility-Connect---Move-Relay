@@ -7,6 +7,7 @@ import { Constellation, type Source } from "@/components/Constellation";
 import { StateBadge, type State } from "@/components/StateBadge";
 import { EngineeringPanel } from "@/components/EngineeringPanel";
 import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
+import { CsvUpload } from "@/components/CsvUpload";
 import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 import { ArrowDown, ArrowRight } from "lucide-react";
@@ -182,7 +183,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 175 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 189 tests against a real database.",
           },
         ]}
         actions={
@@ -294,6 +295,8 @@ export default function DemoPage() {
 
       {/* Stage */}
       <section className="space-y-6">
+        {/* The one channel a visitor can drive with their own data. */}
+        <CsvUpload />
         <EngineeringPanel />
         <div className="grid place-items-center rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
           <Constellation sources={sources} converged={done.has("create_move")} />

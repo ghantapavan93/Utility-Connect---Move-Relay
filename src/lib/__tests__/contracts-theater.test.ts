@@ -78,10 +78,18 @@ describe("integration contracts", () => {
 });
 
 describe("failure theater — every scenario upholds its invariant", () => {
-  it("duplicate CSV collapses", async () => {
+  it("a re-uploaded CSV replays rather than creating a second set of referrals", async () => {
     const r = await duplicateCsv();
     expect(r.outcome).not.toBe("VIOLATION");
-    expect(r.evidence.secondInsertReturnedRow).toBe(false);
+
+    // The assertion moved with the scenario. It used to check that a unique
+    // index refused a byte-identical insert — true, but the card promised an
+    // upload and nothing was ever parsed. The scenario now runs real CSV rows
+    // through the real intake path, so the property to check is the one a
+    // partner actually experiences: send yesterday's export again and every row
+    // replays instead of enrolling anyone twice.
+    expect(r.evidence.rowsParsed).toBe(2);
+    expect(r.evidence.secondPass).toEqual(["replayed", "replayed"]);
   });
 
   it("webhook delivered twice, handled once", async () => {
