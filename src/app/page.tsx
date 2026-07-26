@@ -102,7 +102,7 @@ export default async function Home({
                   <Link
                     href="/connect-flow"
                     className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
-                    style={{ background: "var(--color-state-verified)" }}
+                    style={{ background: "var(--uc-cyan-fill)" }}
                   >
                     {copy.hero.ctaPrimary}
                   </Link>
@@ -132,12 +132,22 @@ export default async function Home({
           you are looking at, it does the job it was drawn for.
         */}
         <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-2, #12181e)" }}>
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[1fr_1.1fr]">
+          {/*
+            `min-w-0` on the grid children is load-bearing on a phone.
+
+            A grid track sizes to `min-content` by default, so a child that
+            reports a wide intrinsic size — the constellation canvas does —
+            stretches its column past the container. The section clips at 375px,
+            so nothing scrolled sideways to give the problem away: the heading
+            simply ended mid-word and the copy ran off the edge. Overflow you
+            cannot scroll to is the kind that ships.
+          */}
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <Reveal>
-              <div>
+              <div className="min-w-0">
                 <div
                   className="text-[11px] font-bold uppercase tracking-[0.2em]"
-                  style={{ color: "var(--color-state-verified)" }}
+                  style={{ color: "var(--uc-cyan-ink)" }}
                 >
                   {lang === "es" ? "Una sola ficha" : "One record"}
                 </div>
@@ -154,6 +164,7 @@ export default async function Home({
               </div>
             </Reveal>
             <Reveal delay={0.12}>
+              <div className="min-w-0 overflow-hidden">
               <Constellation3D
                 converged
                 height={420}
@@ -165,6 +176,7 @@ export default async function Home({
                   { id: "5", label: "Concierge", state: "pending" },
                 ]}
               />
+              </div>
             </Reveal>
           </div>
         </section>
@@ -406,7 +418,7 @@ export default async function Home({
                   : "Built by a candidate, not by the company. Not affiliated with Utility Connect, and every customer, partner and provider record on it is synthetic."}
               </p>
               <div className="mt-7 flex flex-wrap justify-center gap-3">
-                <Link href="/demo" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>
+                <Link href="/demo" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--uc-cyan-fill)" }}>
                   {lang === "es" ? "Ver la plataforma" : "See the platform"}
                 </Link>
                 <a href="https://utilityconnect.net" target="_blank" rel="noopener noreferrer" className="rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide transition-colors" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}>
@@ -444,7 +456,7 @@ export default async function Home({
               <h2 className="text-3xl font-extrabold uppercase tracking-tight text-white sm:text-4xl">{copy.cta.title}</h2>
               <p className="mx-auto mt-3 max-w-xl text-white/70">{copy.cta.p}</p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Link href="/connect-flow" className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>{copy.cta.primary}</Link>
+                <Link href="/connect-flow" className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--uc-cyan-fill)" }}>{copy.cta.primary}</Link>
                 <Link href="/demo" className="rounded-full border px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white" style={{ borderColor: "rgba(255,255,255,0.3)" }}>{copy.cta.secondary}</Link>
               </div>
             </Reveal>

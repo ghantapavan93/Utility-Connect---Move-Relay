@@ -111,7 +111,7 @@ export function PhotoBand({
           {eyebrow && (
             <div
               className="text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "var(--color-state-verified)" }}
+              style={{ color: "var(--uc-cyan-ink)" }}
             >
               {eyebrow}
             </div>

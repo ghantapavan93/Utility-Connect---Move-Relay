@@ -65,7 +65,10 @@ function ago(minutes: number): string {
 function Card({ r }: { r: Review }) {
   return (
     <figure
-      className="w-[340px] shrink-0 rounded-2xl border p-5"
+      // 340px in a 375px viewport leaves 35px of margin, so a phone sees one
+      // card and no sense of a wall. Narrower on small screens means the next
+      // card is always partly visible, which is what tells you it continues.
+      className="w-[268px] shrink-0 rounded-2xl border p-5 sm:w-[340px]"
       style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-0)" }}
     >
       <div className="flex items-center justify-between">

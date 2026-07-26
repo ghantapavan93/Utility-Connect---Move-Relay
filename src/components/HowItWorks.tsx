@@ -103,7 +103,7 @@ export function HowItWorks({ lang = "en" }: { lang?: Lang }) {
         <Link
           href="/story"
           className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
-          style={{ background: "var(--color-state-verified)" }}
+          style={{ background: "var(--uc-cyan-fill)" }}
         >
           <span aria-hidden>▶</span> {copy.watchStory}
         </Link>

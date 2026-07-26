@@ -18,6 +18,21 @@
   /* Their brand primary. Here it carries exactly one meaning: verified.
      Scarcity is what gives it meaning. */
   --color-state-verified: #0087b5; /* measured — the Utility Connect blue */
+
+  /* Two accessible derivatives of that one hue.
+   *
+   * #0087b5 is the brand, and measured against WCAG it sits just under AA on
+   * both sides: white text on it is 4.09:1, and it as text on navy is 3.97:1 —
+   * each needs 4.5:1 at the sizes actually used. Darkening fixes the first and
+   * worsens the second, which is why one token cannot serve both.
+   *
+   * So the brand colour keeps its meaning and its marks, and these two carry
+   * the text. Same hue, measured, not eyeballed:
+   *   fill  → white on #007aa3 = 4.87:1
+   *   ink   → #2498bf on navy  = 4.89:1
+   */
+  --uc-cyan-fill: #007aa3; /* fills that carry small white text */
+  --uc-cyan-ink: #2498bf;  /* small cyan text on a dark ground */
   --color-state-pending: #8a8f98;
   --color-state-conflict: #e8a33d; /* amber, not red: a conflict needs judgement,
                                       it is not a failure */
