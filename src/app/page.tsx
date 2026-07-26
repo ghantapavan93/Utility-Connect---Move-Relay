@@ -75,7 +75,22 @@ export default async function Home({
                 emphasis={copy.hero.h1accent.split(" ")}
                 style={{ fontSize: "clamp(40px,6.6vw,86px)" }}
               />
-              <Reveal delay={0.08}>
+              {/*
+                Their signature rule.
+
+                A short cyan bar sits under every heading on their site,
+                including the hero, and it is doing more than decoration: it is
+                the one repeated mark that ties otherwise unrelated sections
+                into a single identity. We already used it on section headings
+                and had omitted it from the one place it matters most.
+              */}
+              <Reveal delay={0.06}>
+                <div
+                  className="mt-6 h-1 w-16 rounded-full"
+                  style={{ background: "var(--color-state-verified)" }}
+                />
+              </Reveal>
+              <Reveal delay={0.1}>
                 <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/75 sm:text-xl">
                   {copy.hero.p}
                 </p>

@@ -4,6 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { SITE_COPY, type Lang } from "@/lib/site-copy";
+import { StepIllustration } from "./StepIllustration";
+
+/**
+ * Which drawing belongs to which step, per track.
+ *
+ * Keyed by position rather than by copy, so translating a step title cannot
+ * silently detach it from its illustration.
+ */
+const ILLUSTRATION = {
+  customers: ["enrollment", "compare", "handled"],
+  partners: ["refer", "brand", "track"],
+} as const;
 
 /**
  * "How it works" — a faithful reimagining of Utility Connect's own
@@ -42,7 +54,7 @@ export function HowItWorks({ lang = "en" }: { lang?: Lang }) {
 
       {/* Connecting timeline — a line with a node above each step, like theirs */}
       <div className="relative">
-        <div className="absolute left-[16.66%] right-[16.66%] top-5 hidden h-px md:block" style={{ background: "var(--color-ground-3)" }} />
+        <div className="absolute left-[16.66%] right-[16.66%] top-[152px] hidden h-px md:block" style={{ background: "var(--color-ground-3)" }} />
         <div className="relative grid gap-4 md:grid-cols-3">
           <AnimatePresence mode="wait">
             {TRACKS[track].map((step, i) => (
@@ -54,6 +66,19 @@ export function HowItWorks({ lang = "en" }: { lang?: Lang }) {
                 transition={{ duration: 0.26, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col items-center text-center"
               >
+                {/*
+                  The illustration, at the scale the reference gives it.
+
+                  A numeral in a circle carried the same information and gave
+                  the eye nothing to hold, which is most of why this section
+                  read as a wireframe next to theirs. The drawings are ours,
+                  in their visual language rather than lifted from it.
+                */}
+                <StepIllustration
+                  kind={ILLUSTRATION[track][i]!}
+                  className="mb-2 h-[132px] w-full max-w-[220px]"
+                />
+
                 {/* node on the line */}
                 <div
                   className="relative z-10 mb-5 grid h-10 w-10 place-items-center rounded-full ring-4"
