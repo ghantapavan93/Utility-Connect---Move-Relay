@@ -500,10 +500,59 @@ export function LivingHome() {
             flashing" into a list of four real defects across the sofa, the
             shelving, the rugs and a door header. Stripped in production.
           */
-          onCreated={({ scene }) => {
+          onCreated={({ scene, gl, camera }) => {
             if (process.env.NODE_ENV !== "production") {
-              const w = window as unknown as { __scene?: unknown; __bakeGI?: unknown };
+              const w = window as unknown as { __scene?: unknown; __bakeGI?: unknown; __captureHero?: unknown };
               w.__scene = scene;
+              /*
+                Renders a still from the residence at print resolution and POSTs
+                it to /api/dev/hero, which writes it into public/.
+
+                Utility Connect's own hero is a photograph of a kitchen with an
+                island and stools, desaturated and pushed blue. Their photograph
+                is theirs, so this renders ours: the same subject, from the same
+                kind of angle, out of the scene that is already built. The
+                marketing hero and the 3D film then come from one source, which
+                is the honest version of matching their art direction.
+              */
+              w.__captureHero = async (
+                pos: [number, number, number],
+                look: [number, number, number],
+                fov = 42,
+                width = 2400,
+                height = 1350,
+              ) => {
+                const cam = camera as THREE.PerspectiveCamera;
+                const prevSize = new THREE.Vector2();
+                gl.getSize(prevSize);
+                const prevPos = cam.position.clone();
+                const prevFov = cam.fov;
+                const prevQuat = cam.quaternion.clone();
+                const prevRatio = cam.aspect;
+
+                gl.setSize(width, height, false);
+                cam.aspect = width / height;
+                cam.fov = fov;
+                cam.position.set(...pos);
+                cam.lookAt(new THREE.Vector3(...look));
+                cam.updateProjectionMatrix();
+                gl.render(scene, cam);
+                const data = gl.domElement.toDataURL("image/png");
+
+                gl.setSize(prevSize.x, prevSize.y, false);
+                cam.aspect = prevRatio;
+                cam.fov = prevFov;
+                cam.position.copy(prevPos);
+                cam.quaternion.copy(prevQuat);
+                cam.updateProjectionMatrix();
+
+                const res = await fetch("/api/dev/hero", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ data, name: "residence-hero" }),
+                });
+                return res.json();
+              };
               // Regenerating the bake: run window.__bakeGI() in the console with
               // the dev server up. It raytraces the live scene and POSTs the
               // result to /api/dev/gi-bake, which writes src/generated.

@@ -44,7 +44,10 @@ export const INDUSTRIES: Industry[] = [
     ],
   },
   {
-    slug: "property-managers",
+    // Their live URL is /property-management, not /property-managers — the one
+    // slug in the set that is not the plural of the audience name. Confirmed
+    // against a capture of the real page. [FACT]
+    slug: "property-management",
     name: "Property Managers",
     glyph: "⌂",
     headline: "A resident move-in they'll remember",
