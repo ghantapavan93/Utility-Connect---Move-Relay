@@ -96,8 +96,8 @@ export default function ViewsPage() {
         ones the payloads actually contain.)
       */}
       <CineHero
-        image="/renders/residence-hero.png"
-        alt="The residence kitchen, where the move becomes a home"
+        image="/renders/living.png"
+        alt="The living room of the residence, looking through to the kitchen"
         accent="security"
         pills={
           <>
