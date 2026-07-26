@@ -17,3 +17,16 @@ tsconfig.tsbuildinfo
 # URL rather than shipping copies.
 src/Photos/
 src/Videos/
+
+# Working notes for the AI assistant on this repository.
+#
+# Kept out of the published tree deliberately. It is a planning document, not
+# documentation: it carries an internal delivery deadline, framing about another
+# company written as guardrails rather than as claims, and a line recording which
+# of the author's own prior projects are still pending evidence. All of that is
+# useful while building and misleading to a reader who finds it in a public repo.
+#
+# What it governs is visible anyway, in the places that matter: the AI boundaries
+# are enforced by a CHECK constraint and a fitness test, and the honesty tiers are
+# labelled on every screen.
+CLAUDE.md
