@@ -15,6 +15,7 @@ import { publish } from "./outbox";
 import { runProjector } from "./projector";
 import { defineWorkflow, startWorkflow, runWorkflow, signal as signalWorkflow, load as loadWorkflow } from "./workflow";
 import { writeTuple } from "./authz";
+import { notifyAcross } from "./notify";
 
 /**
  * Drives the Maya Patel scenario one deliberate step at a time.
@@ -402,6 +403,47 @@ defineWorkflow({
       run: async (wctx) => {
         const sig = wctx["signal:reconciliation"] as { providerOrderId?: string } | undefined;
         return { output: { providerOrderId: sig?.providerOrderId ?? null, resolvedVia: sig ? "reconciliation" : "direct" } };
+      },
+    },
+    {
+      /**
+       * Tell the customer their service is connected — if we are allowed to.
+       *
+       * This step exists to give the consent ledger a production caller. It had
+       * none: the table, the writes and the deny-by-default gate were all real,
+       * and nothing in the system ever sent anything, so the gate never fired
+       * once. A permission check that has never been exercised is not a
+       * guarantee, it is an intention.
+       *
+       * Three channels, three separate decisions, because consent is
+       * per-channel and a system treating it as one flag will happily text
+       * someone who only agreed to be emailed. The demo customer grants phone,
+       * SMS and email for connection_status, so all three pass here — and the
+       * withheld path is exercised directly in consent-gate.test.ts, where a
+       * revocation is written and the same step declines.
+       */
+      name: "notify_customer",
+      run: async (wctx) => {
+        const results = await notifyAcross(
+          {
+            organizationId: String(wctx["organizationId"]),
+            moveId: String(wctx["moveId"]),
+            purpose: "connection_status",
+            template: "electric.connected",
+            actor: "system",
+          },
+          ["email", "sms", "phone"],
+        );
+        return {
+          output: {
+            notified: Object.entries(results)
+              .filter(([, r]) => r.sent)
+              .map(([c]) => c),
+            withheld: Object.entries(results)
+              .filter(([, r]) => !r.sent)
+              .map(([c, r]) => ({ channel: c, reason: r.reason })),
+          },
+        };
       },
     },
   ],
