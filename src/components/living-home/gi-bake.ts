@@ -248,6 +248,70 @@ export interface BakeOptions {
   onProgress?: (done: number, total: number) => void;
 }
 
+/**
+ * Fills in vertices that were sealed inside other geometry.
+ *
+ * A ceiling vertex that happens to sit inside a wall or a beam is enclosed: it
+ * has no hemisphere, every ray it casts hits the inside of the thing it is
+ * buried in, and it bakes to zero. Interpolated across a half-metre grid, one
+ * such vertex drags a metre-wide black smear onto a surface that should be
+ * evenly lit — which is exactly what appeared on the ceiling wherever a wall or
+ * a joist met the slab.
+ *
+ * Every lightmap baker has this problem and every one solves it the same way:
+ * dilate. Sealed samples take the average of their nearest lit neighbours
+ * rather than a value they were never able to measure. Repeated a few times so
+ * the fill spreads inward through larger buried patches.
+ */
+function dilate(values: number[], pos: THREE.BufferAttribute | THREE.InterleavedBufferAttribute, matrix: THREE.Matrix4): number[] {
+  const count = pos.count;
+  const world = new Float32Array(count * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < count; i++) {
+    v.fromBufferAttribute(pos as THREE.BufferAttribute, i).applyMatrix4(matrix);
+    world[i * 3] = v.x;
+    world[i * 3 + 1] = v.y;
+    world[i * 3 + 2] = v.z;
+  }
+
+  const SEALED = 1e-4;
+  const REACH = 0.9; // a little over the vertex grid, so neighbours are found
+  const out = values.slice();
+
+  for (let pass = 0; pass < 4; pass++) {
+    const sealed: number[] = [];
+    for (let i = 0; i < count; i++) {
+      if (out[i * 3]! + out[i * 3 + 1]! + out[i * 3 + 2]! <= SEALED) sealed.push(i);
+    }
+    if (!sealed.length) break;
+
+    const patch = new Map<number, [number, number, number]>();
+    for (const i of sealed) {
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let j = 0; j < count; j++) {
+        if (out[j * 3]! + out[j * 3 + 1]! + out[j * 3 + 2]! <= SEALED) continue;
+        const dx = world[i * 3]! - world[j * 3]!;
+        const dy = world[i * 3 + 1]! - world[j * 3 + 1]!;
+        const dz = world[i * 3 + 2]! - world[j * 3 + 2]!;
+        if (dx * dx + dy * dy + dz * dz > REACH * REACH) continue;
+        r += out[j * 3]!;
+        g += out[j * 3 + 1]!;
+        b += out[j * 3 + 2]!;
+        n++;
+      }
+      if (n) patch.set(i, [r / n, g / n, b / n]);
+    }
+    if (!patch.size) break;
+    for (const [i, [r, g, b]] of patch) {
+      out[i * 3] = r;
+      out[i * 3 + 1] = g;
+      out[i * 3 + 2] = b;
+    }
+  }
+
+  return out;
+}
+
 /** Cosine-weighted hemisphere direction around `n`, from two uniform randoms. */
 function cosineHemisphere(n: THREE.Vector3, u1: number, u2: number, out: THREE.Vector3) {
   const r = Math.sqrt(u1);
@@ -425,7 +489,7 @@ export function bakeGI(scene: THREE.Object3D, opts: BakeOptions): BakeResult {
       if (opts.onProgress && done % 500 === 0) opts.onProgress(done, totalVerts);
     }
 
-    surfaces[mesh.name] = out;
+    surfaces[mesh.name] = dilate(out, pos, mesh.matrixWorld);
   }
 
   return {

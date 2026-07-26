@@ -494,7 +494,10 @@ export function Sofa({
 
       {/* arms */}
       {[-1.17, 1.17].map((x) => (
-        <RoundedBox key={x} args={[0.22, 0.44, 0.95]} radius={0.08} position={[x, 0.5, 0]} castShadow receiveShadow>
+        // 0.91 deep against the frame's 0.95: flush arms put their front and
+        // back faces on the frame's planes, which fights. Arms slightly inset
+        // is also how upholstery is actually built.
+        <RoundedBox key={x} args={[0.22, 0.44, 0.91]} radius={0.08} position={[x, 0.5, 0]} castShadow receiveShadow>
           {linen("#c2baac")}
         </RoundedBox>
       ))}

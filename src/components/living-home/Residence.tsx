@@ -489,12 +489,38 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.92} envMapIntensity={0.7} />
         </mesh>
       ))}
+      {/*
+        Roof finish.
+
+        The slab's top face was the same pale plaster as its underside, and on
+        the approach that meant a 42m band of near-white clipping to paper
+        across the top third of the frame. No roof is finished in the same
+        material as the ceiling below it — this is the weathered membrane a flat
+        roof actually carries, laid 1cm proud of the slab so the two never share
+        a plane.
+      */}
+      {(
+        [
+          [-4.05, 4.9],
+          [4.7, 7.6],
+        ] as const
+      ).map(([z, depth]) => (
+        <mesh key={z} rotation={[-Math.PI / 2, 0, 0]} position={[-1, 3.605, z]} receiveShadow>
+          <planeGeometry args={[42, depth]} />
+          <meshStandardMaterial color="#8f8b83" roughness={0.94} envMapIntensity={0.5} />
+        </mesh>
+      ))}
+
       {/* Glazing bars across the slot. They are structure, and they are also
           what turns one wash of light into a measured rhythm of it. */}
       {Array.from({ length: 15 }, (_, i) => -18.5 + i * 2.6).map((x) => (
         <mesh key={x} position={[x, 3.36, -0.35]} castShadow>
-          <boxGeometry args={[0.09, 0.14, 2.5]} />
-          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.45} metalness={0.5} />
+          <boxGeometry args={[0.075, 0.11, 2.5]} />
+          {/* Mill-finish aluminium, not charcoal. Seen from directly below
+              against open sky these are pure silhouette, and at charcoal they
+              read as a row of black voids punched through the ceiling rather
+              than as the framing of a rooflight. */}
+          <meshStandardMaterial color="#a9aeb4" roughness={0.42} metalness={0.7} envMapIntensity={1.3} />
         </mesh>
       ))}
       {/*
@@ -513,15 +539,30 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         directly under the slot and strangled the light down to a thin line. No
         roof is framed that way — the joists are trimmed around an opening and
         the rooflight sits in the gap.
+
+        They also stop 4cm short of the slab edge rather than flush with it. Cut
+        to the exact edge, the joist's end face and the slab's end face land on
+        one plane, and coplanar same-facing surfaces are a depth-buffer tie —
+        which would strobe along the whole rooflight, in the one place the
+        camera is looking up.
+
+        And they hang 2cm clear of the ceiling rather than buried in it. At
+        y=3.18 they spanned 3.08 to 3.28 while the ceiling underside sits at
+        3.245, so every joist drove 3.5cm up into the slab. That is invisible
+        from below — until the GI bake runs, at which point every ceiling vertex
+        that landed inside a joist was fully enclosed, returned zero irradiance
+        because every ray it cast hit the inside of a beam, and interpolated
+        into a wide black band across the ceiling. A shadow gap is also simply
+        how exposed joists are detailed.
       */}
       {Array.from({ length: 19 }, (_, i) => -19.2 + i * 1.94).flatMap((x) =>
         (
           [
-            [-3.5, 3.8],
-            [3.55, 5.3],
+            [-3.54, 3.72],
+            [3.59, 5.22],
           ] as const
         ).map(([z, depth]) => (
-        <mesh key={`${x}:${z}`} position={[x, 3.18, z]} castShadow receiveShadow>
+        <mesh key={`${x}:${z}`} position={[x, 3.125, z]} castShadow receiveShadow>
           <boxGeometry args={[0.13, 0.2, depth]} />
           {/*
             Pale oak and no texture map. Walnut turned the ceiling into a dark
@@ -1037,9 +1078,23 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
           </mesh>
         ))}
       </group>
-      {/* solar array on the roof plane */}
+      {/*
+        Solar array, on the slab and clear of the rooflight.
+
+        It was at z −1.9, which put three 2x3m near-black panels directly over
+        the slot at z −1.6 to 0.9 — so the foyer's view up through its own
+        rooflight was the underside of the array, and the ceiling read as a row
+        of black rectangles. It reads as a lighting bug and it is a placement
+        bug: the one opening in the roof had the one opaque thing on the roof
+        parked on top of it.
+
+        Now at z −4.2, sitting entirely on the deep slab, and raised to 3.88 so
+        the tilted panels clear the roof membrane rather than slicing through
+        it — which is also how an array is really mounted, on rails above the
+        finish.
+      */}
       {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[-13.6 + i * 2.3, 3.63, -1.9]} rotation={[-0.16, 0, 0]} castShadow>
+        <mesh key={i} position={[-13.6 + i * 2.3, 3.88, -4.2]} rotation={[-0.16, 0, 0]} castShadow>
           <boxGeometry args={[2.0, 0.06, 3.0]} />
           <meshStandardMaterial
             ref={i === 1 ? solarMat : undefined}
