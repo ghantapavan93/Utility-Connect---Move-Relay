@@ -294,7 +294,25 @@ export async function approveMerge(decisions: Array<{ fieldPath: string; value: 
         [ctx.org, ctx.move, d.fieldPath, JSON.stringify(d.value), actor, d.reason],
       );
     }
-    await c.query(`UPDATE moves SET state = 'canonical' WHERE id = $1`, [ctx.move]);
+    /*
+      The version bump is not bookkeeping.
+
+      `moves.ts` guards its own merge with an optimistic lock — the caller names
+      the version it read, the update matches on it, and a stale caller is
+      rejected rather than landing on top of a decision it never saw. This path
+      writes the same canonical values and set the same state without touching
+      `version`, which quietly defeated that lock: after a merge through here,
+      a caller holding a version from before it still matched, and their write
+      went through.
+
+      An optimistic lock is only as strong as the writes that respect it. Every
+      path that changes the record has to move the value the lock is taken on.
+    */
+    await c.query(
+      `UPDATE moves SET state = 'canonical', version = version + 1, updated_at = now()
+        WHERE id = $1`,
+      [ctx.move],
+    );
     await recordAudit(c, {
       organizationId: ctx.org,
       moveId: ctx.move,
