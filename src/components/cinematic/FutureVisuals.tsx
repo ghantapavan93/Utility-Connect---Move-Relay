@@ -2,10 +2,28 @@
 
 import { motion } from "framer-motion";
 import { EASE } from "@/lib/motion";
-import { Stage, accentColor, useCyclePhase, type Accent } from "./index";
+import {
+  DataBadge,
+  PhaseScrubber,
+  Stage,
+  accentColor,
+  useInteractivePhase,
+  useLiveData,
+  type Accent,
+} from "./index";
 
 /**
  * The live mockups for the future concepts.
+ *
+ * Every one of these is *operable*. They autoplay so a visitor who scrolls past
+ * gets the mechanism for free, and the moment anyone clicks a dot or presses an
+ * arrow key the autoplay stops for good and they are driving. A control that
+ * keeps moving under your hand is worse than one that never moved.
+ *
+ * Three of the eight read a real endpoint and say which one on the badge. The
+ * other five say CONCEPT · NOT WIRED, because a moving diagram implies a
+ * running system and five of these modules are not running anything. The label
+ * is worth more than the illusion.
  *
  * A vision page fails in one specific way: it becomes eight paragraphs of
  * confident prose about things that do not exist. The fix is to show each idea
@@ -70,7 +88,8 @@ const VB = "0 0 520 400";
 /* ── 1 · Move Relay — the shipped spine ───────────────────────────────────── */
 
 export function RelayVisual() {
-  const p = useCyclePhase(4, 1500);
+  const ctl = useInteractivePhase(4, 1500);
+  const p = ctl.phase;
   return (
     <Stage accent="verified" live liveLabel="LIVE · INGEST" height={380}>
       <svg viewBox={VB} className={SVG}>
@@ -94,6 +113,16 @@ export function RelayVisual() {
         <Node cx={412} cy={175} accent="verified" on={p >= 3} />
         <Label x={412} y={218} dim={p < 3}>PROVIDER</Label>
       </svg>
+    
+      <PhaseScrubber
+        count={4}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="verified"
+          labels={["Idle", "Three channels arrive", "Conflict held", "Human verified"]}
+      />
     </Stage>
   );
 }
@@ -101,7 +130,8 @@ export function RelayVisual() {
 /* ── 2 · Concierge Compiler ───────────────────────────────────────────────── */
 
 export function ConciergeVisual() {
-  const p = useCyclePhase(4, 1500);
+  const ctl = useInteractivePhase(4, 1500);
+  const p = ctl.phase;
   const lines = [
     { t: "“We move in on the 14th.”", fact: "move_date = Aug 14", ok: true },
     { t: "“…actually the 16th, sorry.”", fact: "move_date = Aug 16", ok: true },
@@ -142,6 +172,16 @@ export function ConciergeVisual() {
           </div>
         </motion.div>
       </div>
+    
+      <PhaseScrubber
+        count={4}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="internet"
+          labels={["Silent", "First fact", "Correction", "Human confirms"]}
+      />
     </Stage>
   );
 }
@@ -149,7 +189,8 @@ export function ConciergeVisual() {
 /* ── 3 · Move Wallet & Offer Graph ────────────────────────────────────────── */
 
 export function WalletVisual() {
-  const p = useCyclePhase(3, 1800);
+  const ctl = useInteractivePhase(3, 1800);
+  const p = ctl.phase;
   const offers = [
     { name: "Electricity · 12mo fixed", why: "eligible: verified address", ok: true },
     { name: "Internet · 500Mb", why: "eligible: serviceable", ok: true },
@@ -190,6 +231,16 @@ export function WalletVisual() {
           It may never invent a discount or rank providers by who paid.
         </div>
       </div>
+    
+      <PhaseScrubber
+        count={3}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="electricity"
+          labels={["Electricity", "Internet", "Security withheld"]}
+      />
     </Stage>
   );
 }
@@ -198,7 +249,8 @@ export function WalletVisual() {
 
 export function LaunchpadVisual() {
   const steps = ["SAMPLE", "MAP", "VALIDATE", "CONTRACT", "DRY RUN", "APPROVE", "LIVE"];
-  const p = useCyclePhase(steps.length + 1, 900);
+  const ctl = useInteractivePhase(steps.length + 1, 900);
+  const p = ctl.phase;
   return (
     <Stage accent="verified" live liveLabel="LIVE · ONBOARDING" height={380}>
       <div className="flex h-full flex-col justify-center gap-6 p-6">
@@ -243,6 +295,15 @@ export function LaunchpadVisual() {
           </span>
         </motion.div>
       </div>
+    
+      <PhaseScrubber
+        count={steps.length + 1}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="verified"
+      />
     </Stage>
   );
 }
@@ -250,7 +311,8 @@ export function LaunchpadVisual() {
 /* ── 5 · Scenario Compiler ────────────────────────────────────────────────── */
 
 export function ScenarioVisual() {
-  const p = useCyclePhase(4, 1400);
+  const ctl = useInteractivePhase(4, 1400);
+  const p = ctl.phase;
   const rows = [
     { name: "duplicate across 3 channels", state: "pass" },
     { name: "provider timeout → UNKNOWN", state: "pass" },
@@ -289,6 +351,16 @@ export function ScenarioVisual() {
           scenario.test.ts already runs this shape against a real database.
         </div>
       </div>
+    
+      <PhaseScrubber
+        count={4}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="recovered"
+          labels={["Compile", "Duplicate", "Timeout", "Retry blocked"]}
+      />
     </Stage>
   );
 }
@@ -296,7 +368,8 @@ export function ScenarioVisual() {
 /* ── 6 · Home Continuum ───────────────────────────────────────────────────── */
 
 export function ContinuumVisual() {
-  const p = useCyclePhase(5, 1500);
+  const ctl = useInteractivePhase(5, 1500);
+  const p = ctl.phase;
   const beats = [
     { t: "MOVE-IN", d: "day 0" },
     { t: "ACTIVATION CHECK", d: "day 3" },
@@ -332,6 +405,16 @@ export function ContinuumVisual() {
           Consent is re-checked at every beat, not assumed from the first.
         </text>
       </svg>
+    
+      <PhaseScrubber
+        count={5}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="solar"
+          labels={["Move-in", "Activation", "Plan review", "Renewal", "Next move"]}
+      />
     </Stage>
   );
 }
@@ -339,7 +422,8 @@ export function ContinuumVisual() {
 /* ── 7 · Provider Reliability Graph ───────────────────────────────────────── */
 
 export function ReliabilityVisual() {
-  const p = useCyclePhase(3, 1800);
+  const ctl = useInteractivePhase(3, 1800);
+  const p = ctl.phase;
   const providers = [
     { n: "Provider A", latency: 0.35, unknown: 0.02 },
     { n: "Provider B", latency: 0.62, unknown: 0.11 },
@@ -375,6 +459,16 @@ export function ReliabilityVisual() {
           on real handoffs — latency, timeouts, reconciliation success.
         </div>
       </div>
+    
+      <PhaseScrubber
+        count={3}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="unknown"
+          labels={["Provider A", "Provider B", "Provider C"]}
+      />
     </Stage>
   );
 }
@@ -382,7 +476,8 @@ export function ReliabilityVisual() {
 /* ── 8 · Service Continuity Graph ─────────────────────────────────────────── */
 
 export function ContinuityVisual() {
-  const p = useCyclePhase(4, 1500);
+  const ctl = useInteractivePhase(4, 1500);
+  const p = ctl.phase;
   return (
     <Stage accent="security" live liveLabel="LIVE · ROUTING" height={380}>
       <svg viewBox={VB} className={SVG}>
@@ -417,6 +512,16 @@ export function ContinuityVisual() {
           Two products, shared primitives. The dashed edge is the one not built.
         </text>
       </svg>
+    
+      <PhaseScrubber
+        count={4}
+        phase={ctl.phase}
+        goTo={ctl.goTo}
+        next={ctl.next}
+        prev={ctl.prev}
+        accent="security"
+          labels={["Need", "Consent", "Workflow", "Vendor hub"]}
+      />
     </Stage>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AnimatePresence,
@@ -402,4 +402,183 @@ export function useCyclePhase(phaseCount: number, intervalMs = 1600): number {
   }, [phaseCount, intervalMs, reduce]);
 
   return reduce ? 0 : phase;
+}
+
+/* ───────────────────────────── interaction ─────────────────────────────── */
+
+/**
+ * A phase that plays itself until someone takes the wheel.
+ *
+ * The autoplay is there so a diagram is never a still frame waiting to be
+ * understood — a visitor who scrolls past sees the mechanism move and gets the
+ * idea for free. But the moment they click, hover-scrub or use a key, autoplay
+ * stops for good and does not resume, because a control that keeps moving under
+ * your hand is worse than one that never moved at all.
+ *
+ * Under reduced motion it never autoplays; it simply starts at frame 0 and
+ * waits, fully operable.
+ */
+export function useInteractivePhase(count: number, intervalMs = 1600) {
+  const reduce = useReducedMotion();
+  const [phase, setPhase] = useState(0);
+  const [driving, setDriving] = useState(false);
+
+  useEffect(() => {
+    if (driving || reduce) return;
+    const id = setInterval(() => setPhase((p) => (p + 1) % count), intervalMs);
+    return () => clearInterval(id);
+  }, [count, intervalMs, driving, reduce]);
+
+  const take = useCallback(
+    (next: number) => {
+      setDriving(true);
+      setPhase(((next % count) + count) % count);
+    },
+    [count],
+  );
+
+  return {
+    phase,
+    /** True once the visitor has taken control — used to swap the badge. */
+    driving,
+    next: () => take(phase + 1),
+    prev: () => take(phase - 1),
+    goTo: take,
+  };
+}
+
+/**
+ * The transport under a live mockup.
+ *
+ * Dots rather than a slider: there are never more than six phases, each one is
+ * a named state rather than a position on a continuum, and a dot you can hit
+ * directly beats a handle you have to aim. Arrow keys work because a diagram
+ * you can only operate with a mouse is a diagram half the audience cannot
+ * operate at all.
+ */
+export function PhaseScrubber({
+  count,
+  phase,
+  goTo,
+  next,
+  prev,
+  accent = "verified",
+  labels,
+}: {
+  count: number;
+  phase: number;
+  goTo: (n: number) => void;
+  next: () => void;
+  prev: () => void;
+  accent?: Accent;
+  labels?: string[];
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Step through this diagram"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowRight") { e.preventDefault(); next(); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
+      }}
+      className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-2 rounded-b-3xl bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-6 outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          onClick={() => goTo(i)}
+          aria-label={labels?.[i] ?? `Step ${i + 1}`}
+          aria-current={i === phase}
+          className="group/dot relative h-6 px-0.5"
+        >
+          <span
+            className="block h-1.5 rounded-full transition-all duration-300"
+            style={{
+              width: i === phase ? 22 : 8,
+              background: i === phase ? accentColor(accent, 1) : "rgba(255,255,255,0.28)",
+            }}
+          />
+          {labels?.[i] && (
+            <span className="pointer-events-none absolute bottom-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-black/85 px-2 py-1 text-[9px] font-medium uppercase tracking-wider text-white/80 opacity-0 transition-opacity group-hover/dot:opacity-100">
+              {labels[i]}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ───────────────────────────── live data ───────────────────────────────── */
+
+/**
+ * Reads a real endpoint, once, when the diagram first scrolls into view.
+ *
+ * Deferring to first sight rather than firing on mount matters on this page:
+ * there are eight diagrams and only three of them are wired, and none of them
+ * should cost a request until someone is actually looking at it.
+ */
+export function useLiveData<T>(url: string | null) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-15% 0px" });
+  const [data, setData] = useState<T | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
+  useEffect(() => {
+    if (!url || !inView || state !== "idle") return;
+    let cancelled = false;
+    setState("loading");
+    fetch(url)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        setData(j as T);
+        setState("ready");
+      })
+      .catch(() => !cancelled && setState("error"));
+    return () => {
+      cancelled = true;
+    };
+  }, [url, inView, state]);
+
+  return { ref, data, state };
+}
+
+/**
+ * States what a diagram actually is.
+ *
+ * This is the honesty rule from the design system, applied to the one place it
+ * is easiest to cheat. A moving diagram implies a running system, and five of
+ * the eight modules on the vision page are not running anything. So a mockup
+ * reading a real endpoint says READING LIVE DATA and names the endpoint; a
+ * mockup that is an argument drawn in SVG says CONCEPT · NOT WIRED and does not
+ * pretend otherwise. The label is more valuable than the illusion.
+ */
+export function DataBadge({ endpoint, state }: { endpoint?: string; state?: "idle" | "loading" | "ready" | "error" }) {
+  if (!endpoint) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45">
+        Concept · not wired
+      </span>
+    );
+  }
+  const ok = state === "ready";
+  const accent: Accent = state === "error" ? "conflict" : "recovered";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
+      style={{
+        borderColor: accentColor(accent, 0.35),
+        background: accentColor(accent, 0.1),
+        color: accentColor(accent, 0.95),
+      }}
+    >
+      <span
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: accentColor(accent, 1), opacity: ok ? 1 : 0.4 }}
+      />
+      {state === "error" ? "endpoint unreachable" : ok ? `live · ${endpoint}` : `reading ${endpoint}`}
+    </span>
+  );
 }
