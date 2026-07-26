@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { StateBadge } from "@/components/StateBadge";
+import { useRef } from "react";
+import { ArrowDown, ArrowRight } from "lucide-react";
+import { CineHero } from "@/components/cinematic/CineHero";
+import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 
 /**
  * Screens 5, 7, 8 — the same Move Record seen by three audiences.
@@ -27,6 +31,7 @@ export default function ViewsPage() {
   const [audience, setAudience] = useState<Audience>("concierge");
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (a: Audience) => {
     setLoading(true);
@@ -40,17 +45,87 @@ export default function ViewsPage() {
   }, [audience, load]);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12">
-      <Link href="/demo" className="text-sm" style={{ color: "var(--color-state-verified)" }}>
-        ← Back to the demo
-      </Link>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">One record, three audiences</h1>
-      <p className="mt-2 text-lg" style={{ color: "var(--color-text-mid)" }}>
-        The same Move Record, projected safely for each audience on the server. Run the
-        demo first so there is a record to project.
-      </p>
+    <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
+      <div className="cine-aurora" aria-hidden />
+      <FilmGrain id="views" />
 
-      <div className="mt-8 flex flex-wrap gap-2">
+      {/*
+        The claim this page makes is a negative one, and negatives are hard to
+        show: the partner does not see the provider account number, and the
+        customer does not see the internal machinery. You cannot photograph an
+        absence — so the page is built as a single toggle over one record, and
+        the proof is that the fields are simply not in the payload when you
+        switch. Enforced on the server, which is the only place it counts.
+      */}
+      <CineHero
+        image="/renders/residence-hero.png"
+        alt="The residence kitchen, where the move becomes a home"
+        accent="security"
+        pills={
+          <>
+            <Pill accent="security">Three projections</Pill>
+            <Pill accent="verified">Enforced server-side</Pill>
+          </>
+        }
+        headline={
+          <>
+            One record.
+            <br />
+            <span className="cine-shimmer">Three truths.</span>
+          </>
+        }
+        sub="A concierge, a customer and a partner look at the same move and see three different things — because a partner has no business seeing another partner's referrals, and nobody outside the operator needs the provider's account number. Flip the toggle and watch the fields not be there."
+        credibility={[
+          {
+            eyebrow: "Purpose",
+            accent: "security",
+            body: "Show that least-privilege is a property of the data returned, not a class name on a div.",
+          },
+          {
+            eyebrow: "Proof",
+            accent: "verified",
+            body: "The projections are computed on the server from relationship tuples. Switch audience and the withheld fields are absent from the response — not hidden in it.",
+          },
+          {
+            eyebrow: "Code",
+            accent: "recovered",
+            body: "Zanzibar-style tuples rather than a role string, a CQRS read model per audience, and tests that fail if a partner projection ever contains a foreign referral.",
+          },
+        ]}
+        actions={
+          <>
+            <button
+              onClick={() => panelRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+              style={{ background: accentColor("verified", 1) }}
+            >
+              Switch the audience <ArrowDown className="h-4 w-4" />
+            </button>
+            <MagneticLink
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+              {...{ style: { borderColor: "rgba(255,255,255,0.26)" } }}
+            >
+              Run the demo first <ArrowRight className="h-4 w-4" />
+            </MagneticLink>
+          </>
+        }
+      />
+
+      <ChapterMarker n="01" label="The same move, three ways" />
+      <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+        <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
+          The safest field is{" "}
+          <span style={{ color: accentColor("security", 1) }}>the one that never left the server</span>.
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/60">
+          Run the demo first so there is a record to project. Then switch between the three
+          audiences below and read the payload — the difference is what is missing.
+        </p>
+      </div>
+
+      <div ref={panelRef} className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
+      <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -92,6 +167,7 @@ export default function ViewsPage() {
           {!loading && data?.exists === true && audience === "partner" && <PartnerView d={data} />}
         </motion.div>
       </AnimatePresence>
+      </div>
     </main>
   );
 }

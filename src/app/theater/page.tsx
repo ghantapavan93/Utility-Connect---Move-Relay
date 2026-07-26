@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ArrowDown, ArrowRight } from "lucide-react";
+import { CineHero } from "@/components/cinematic/CineHero";
+import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 
 /**
  * The Failure Theater — "go ahead, try to break it."
@@ -31,6 +35,7 @@ interface Result {
 
 export default function TheaterPage() {
   const [results, setResults] = useState<Record<string, Result | "running" | { error: string }>>({});
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const run = async (key: string) => {
     setResults((r) => ({ ...r, [key]: "running" }));
@@ -44,29 +49,92 @@ export default function TheaterPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-14">
-      <Link href="/demo" className="text-sm" style={{ color: "var(--color-state-verified)" }}>
-        ← Back to the demo
-      </Link>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">Failure Theater</h1>
-      <p className="mt-2 max-w-2xl text-lg" style={{ color: "var(--color-text-mid)" }}>
-        Most demos show a happy path. These buttons push the real backend where it is
-        supposed to hurt — and return the database rows that prove each invariant held.
-      </p>
+    <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
+      <div className="cine-aurora" aria-hidden />
+      <FilmGrain id="theater" />
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
+      {/*
+        A demo asks you to watch it succeed. This one hands you the controls and
+        asks you to make it fail — which is a far stronger claim, and the only
+        one worth making about reliability. The headline says exactly that,
+        because the refusals *are* the product.
+      */}
+      <CineHero
+        image="/renders/interior-wide.png"
+        alt="The residence interior, seen down its full length"
+        accent="conflict"
+        pills={
+          <>
+            <Pill accent="conflict">Failure theater</Pill>
+            <Pill accent="verified">Runs against the live database</Pill>
+          </>
+        }
+        headline={
+          <>
+            Anyone can demo
+            <br />
+            <span className="cine-shimmer">the happy path.</span>
+          </>
+        }
+        sub="Six buttons that push the real backend where it is supposed to hurt — a duplicate batch, a webhook delivered twice, a worker killed mid-workflow, a partner reaching across a boundary. Each one returns the database rows that prove the invariant held."
+        credibility={[
+          {
+            eyebrow: "Purpose",
+            accent: "conflict",
+            body: "Let a reviewer attack the system directly instead of taking a claim about it on trust.",
+          },
+            {
+            eyebrow: "Proof",
+            accent: "recovered",
+            body: "Every scenario runs in an isolated theater tenant against the live database, and returns the evidence rows — not a message saying it worked.",
+          },
+          {
+            eyebrow: "Code",
+            accent: "verified",
+            body: "The same functions execute in the automated suite. These buttons are not props; they are the tests, with a UI on them.",
+          },
+        ]}
+        actions={
+          <>
+            <button
+              onClick={() => gridRef.current?.scrollIntoView({ behavior: "smooth" })}
+              className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-[#1a1207] transition-transform hover:-translate-y-0.5"
+              style={{ background: accentColor("conflict", 1) }}
+            >
+              Try to break it <ArrowDown className="h-4 w-4" />
+            </button>
+            <MagneticLink
+              href="/demo"
+              className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+              {...{ style: { borderColor: "rgba(255,255,255,0.26)" } }}
+            >
+              Back to the demo <ArrowRight className="h-4 w-4" />
+            </MagneticLink>
+          </>
+        }
+      />
+
+      <ChapterMarker n="01" label="Six ways to break it" />
+      <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+        <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
+          A system is only as trustworthy as{" "}
+          <span style={{ color: accentColor("conflict", 1) }}>the things it refuses to do</span>.
+        </h2>
+      </div>
+
+      <div ref={gridRef} className="mx-auto grid max-w-[1400px] gap-4 px-5 pb-20 sm:px-8 md:grid-cols-2">
         {SCENARIOS.map((s) => {
           const result = results[s.key];
           const done = result && result !== "running" && !("error" in result);
           return (
-            <div key={s.key} className="rounded-2xl border p-5" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+            <div key={s.key} className="cine-glass rounded-2xl p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="mb-1 flex items-center gap-2">
                     <span aria-hidden className="text-lg" style={{ color: "var(--color-state-conflict)" }}>{s.glyph}</span>
-                    <h2 className="text-sm font-semibold">{s.title}</h2>
+                    <h3 className="text-sm font-semibold text-white/90">{s.title}</h3>
                   </div>
-                  <p className="text-xs" style={{ color: "var(--color-text-lo)" }}>{s.blurb}</p>
+                  <p className="text-xs leading-relaxed text-white/55">{s.blurb}</p>
                 </div>
                 <button
                   onClick={() => run(s.key)}
@@ -111,10 +179,17 @@ export default function TheaterPage() {
         })}
       </div>
 
-      <p className="mt-8 text-xs" style={{ color: "var(--color-text-lo)" }}>
-        Every scenario runs in an isolated theater tenant against the live database. The
-        same functions execute in the automated test suite — the buttons are not props.
-      </p>
+      <ChapterMarker n="02" label="Why this is not a prop" />
+      <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
+        <blockquote
+          className="max-w-3xl border-l-2 pl-6 text-[clamp(18px,2.3vw,28px)] font-medium leading-[1.35] tracking-tight text-white/90"
+          style={{ borderColor: accentColor("conflict", 1) }}
+        >
+          Every scenario runs in an isolated theater tenant against the live database, and the same
+          functions execute in the automated suite. The buttons are{" "}
+          <span style={{ color: accentColor("conflict", 1) }}>the tests, with a UI on them</span>.
+        </blockquote>
+      </section>
     </main>
   );
 }
