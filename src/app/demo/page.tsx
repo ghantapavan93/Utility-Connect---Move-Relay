@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Constellation, type Source } from "@/components/Constellation";
@@ -10,6 +10,7 @@ import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
 import { CsvUpload } from "@/components/CsvUpload";
 import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import type { Accent } from "@/lib/accents";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { useRef } from "react";
 
@@ -70,8 +71,15 @@ const ACTS: { id: string; n: string; title: string; note: string; accent: "verif
   },
 ];
 
+/**
+ * The nine narrative steps.
+ *
+ * `reset` is deliberately not one of them. It is plumbing, and giving it the
+ * first slot in the rail meant the first thing a reviewer saw — highlighted as
+ * the next action — was an instruction to wipe the database. It now lives as a
+ * quiet control beneath the player, which runs it implicitly before each play.
+ */
 const STEPS: StepDef[] = [
-  { key: "reset", label: "Reset", blurb: "Wipe to a clean pre-ingestion state.", act: "arrival" },
   { key: "ingest", label: "1 · Ingest 3 channels", blurb: "Partner API, CSV, and the customer form arrive.", act: "arrival" },
   { key: "detect", label: "2 · Detect duplicate", blurb: "Deterministic scoring across the three submissions.", act: "arrival" },
   { key: "create_move", label: "3 · Create Move Record", blurb: "One canonical record; every value keeps its source.", act: "judgement" },
@@ -91,6 +99,136 @@ type MoveData = {
   timeline?: Array<Record<string, unknown>>;
 };
 
+/**
+ * What the database currently says, at the size the claim deserves.
+ *
+ * Every value here is read back from Postgres after each step — the move's own
+ * state, and the provider submission's state, which is the only field in this
+ * project that is allowed to say "unknown" out loud. Nothing is animated ahead
+ * of the data; the band changes because a row changed.
+ */
+function StateBand({
+  move,
+  playing,
+  busy,
+}: {
+  move: MoveData | null;
+  playing: boolean;
+  busy: string | null;
+}) {
+  const state = (move?.move?.state as string | undefined) ?? null;
+  const services = (move?.services ?? []) as Array<Record<string, unknown>>;
+  const submission = (services.find((s) => s.submission_state)?.submission_state as string) ?? null;
+
+  // The headline is the provider outcome once one exists, because that is where
+  // the risk lives. Before submission, the move's own state is the story.
+  const headline = submission ?? state ?? "no record";
+  const accent: Accent =
+    submission === "unknown"
+      ? "unknown"
+      : submission === "reconciled"
+        ? "recovered"
+        : state === "conflict_pending"
+          ? "conflict"
+          : state
+            ? "verified"
+            : "verified";
+
+  const reading =
+    submission === "unknown"
+      ? "The order may or may not exist. A blind retry from here could enrol this household twice."
+      : submission === "reconciled"
+        ? "Reconciliation found the order that was already there. One order — never two."
+        : submission === "submitted"
+          ? "Sent to the provider. Waiting on a reply that may not arrive."
+          : state === "conflict_pending"
+            ? "Sources disagree. The record will not resolve itself; a named person decides."
+            : state === "canonical"
+              ? "One canonical record. Every value still carries the channel that supplied it."
+              : state === "intake"
+                ? "Submissions received. Nothing has been merged, and nothing has been guessed."
+                : "Nothing ingested yet. Press play and the engine builds the record in front of you.";
+
+  return (
+    <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
+      <div
+        className="relative overflow-hidden rounded-2xl border px-6 py-7 sm:px-9 sm:py-8"
+        style={{
+          borderColor: accentColor(accent, 0.45),
+          background: `linear-gradient(120deg, ${accentColor(accent, 0.16)}, rgba(255,255,255,0.015) 60%)`,
+        }}
+      >
+        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/45">
+            Live record state
+          </span>
+          {playing && (
+            <motion.span
+              animate={{ opacity: [1, 0.35, 1] }}
+              transition={{ duration: 1.4, repeat: Infinity }}
+              className="text-[10px] font-bold uppercase tracking-[0.22em]"
+              style={{ color: accentColor(accent, 1) }}
+            >
+              ● playing
+            </motion.span>
+          )}
+        </div>
+
+        {/*
+          What the engine is doing right now.
+
+          The briefing step calls a language model on this machine, and a cold
+          model can take the better part of a minute to load its weights. Without
+          this line the story simply stops mid-act, and a pause you cannot
+          account for is indistinguishable from a hang.
+        */}
+        {busy && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            style={{ color: accentColor(accent, 0.9) }}
+          >
+            {busy === "briefing"
+              ? "Calling a local language model — first call loads the weights"
+              : `Running ${busy.replace(/_/g, " ")}`}
+            …
+          </motion.div>
+        )}
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={headline}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.26, ease: "easeOut" }}
+          >
+            <div
+              className="mt-2 font-semibold uppercase leading-[0.95] tracking-tight"
+              style={{
+                fontSize: "clamp(38px,7vw,86px)",
+                color: accentColor(accent, 1),
+              }}
+            >
+              {headline.replace(/_/g, " ")}
+            </div>
+            <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg">
+              {reading}
+            </p>
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] text-white/40">
+          <span>moves.state = {state ?? "—"}</span>
+          <span>provider_submissions.state = {submission ?? "—"}</span>
+          <span>read live · not a scripted animation</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DemoPage() {
   const [done, setDone] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
@@ -103,6 +241,19 @@ export default function DemoPage() {
     setMove(await res.json());
   }, []);
 
+  /**
+   * Read the record on arrival.
+   *
+   * The state band is a claim about what the database currently holds, and until
+   * this ran it only knew what *this browser tab* had done — so landing on the
+   * page after a step ran elsewhere (or after a reload) reported "no record"
+   * over a database that had one. A panel labelled "read live" has to actually
+   * read on arrival.
+   */
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   const run = useCallback(
     async (step: string) => {
       setBusy(step);
@@ -111,7 +262,7 @@ export default function DemoPage() {
         const json = await res.json();
         if (!json.ok) {
           toast.error(json.error ?? "step failed");
-          return;
+          return false;
         }
         setLastResult({ step, data: json.result });
         setDone((d) => new Set(d).add(step));
@@ -123,8 +274,10 @@ export default function DemoPage() {
         else if (step === "reconcile") toast.success("Existing order recovered. One order, never two.");
         else if (step === "merge") toast.success("Merge approved by concierge-7.");
         else toast.success(STEPS.find((s) => s.key === step)?.label ?? step);
+        return true;
       } catch {
         toast.error("network error");
+        return false;
       } finally {
         setBusy(null);
       }
@@ -132,9 +285,46 @@ export default function DemoPage() {
     [refresh],
   );
 
+  /**
+   * Play the whole story.
+   *
+   * The console used to be nine identical cards that did nothing until someone
+   * clicked ten times in the right order — which meant the most interesting
+   * thing in the project was gated behind knowing what to press. It now runs
+   * itself, pausing on the beats that matter so a viewer can read what just
+   * happened, and any click stops it and hands over control. Same principle as
+   * the diagrams: demonstrate first, then get out of the way.
+   */
+  const playAll = useCallback(async () => {
+    setPlaying(true);
+    stopRef.current = false;
+    setDone(new Set());
+
+    // Always start from a clean database, so a second play tells the same story
+    // as the first rather than deduplicating everything to nothing.
+    if (!(await run("reset"))) {
+      setPlaying(false);
+      return;
+    }
+
+    for (const s of STEPS) {
+      if (stopRef.current) break;
+      const ok = await run(s.key);
+      if (!ok) break;
+      // The silence and the refusal get a longer hold. They are the point of
+      // the whole demo and they are over in a blink at an even pace.
+      const hold = s.key === "submit" || s.key === "retry" ? 2600 : 900;
+      await new Promise((r) => setTimeout(r, hold));
+    }
+    setPlaying(false);
+  }, [run]);
+
   const moveState = move?.move?.state;
   const sources = constellationFor(done, lastResult);
   const consoleRef = useRef<HTMLDivElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const stopRef = useRef(false);
+  const completed = STEPS.filter((s) => done.has(s.key)).length;
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
@@ -220,6 +410,8 @@ export default function DemoPage() {
         </p>
       </div>
 
+      <StateBand move={move} playing={playing} busy={busy} />
+
       <div
         ref={consoleRef}
         className="mx-auto grid max-w-[1400px] gap-6 px-5 pb-16 sm:px-8 lg:grid-cols-[340px_1fr]"
@@ -239,47 +431,173 @@ export default function DemoPage() {
             Try to break it — Failure Theater →
           </a>
         </div>
+        {/*
+          Play / stop, and a progress read-out.
+          `completed` counts narrative steps only; see the progress bar below.
+
+          A demo that requires ten correct clicks before anything happens is a
+          demo most people close. This one performs itself on arrival and yields
+          the moment anyone touches a step.
+        */}
+        <div className="mb-5">
+          <button
+            onClick={() => {
+              if (playing) {
+                stopRef.current = true;
+                setPlaying(false);
+              } else {
+                void playAll();
+              }
+            }}
+            className="w-full rounded-xl px-5 py-3 text-sm font-bold uppercase tracking-wide transition-transform hover:-translate-y-px"
+            style={{
+              background: playing ? "transparent" : accentColor("verified", 1),
+              border: `1px solid ${accentColor(playing ? "conflict" : "verified", playing ? 0.6 : 1)}`,
+              color: playing ? accentColor("conflict", 1) : "#fff",
+            }}
+          >
+            {playing ? "■ Stop — take over" : "▶ Play the whole story"}
+          </button>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  // Counted over the narrative steps only — `reset` also lands in
+                  // `done`, and counting it would report 10/9.
+                  width: `${(completed / STEPS.length) * 100}%`,
+                  background: accentColor("verified", 1),
+                }}
+              />
+            </div>
+            <span className="font-mono text-[10px] text-white/45">
+              {completed}/{STEPS.length}
+            </span>
+            <button
+              onClick={() => {
+                stopRef.current = true;
+                setPlaying(false);
+                setDone(new Set());
+                void run("reset");
+              }}
+              disabled={busy !== null}
+              className="font-mono text-[10px] text-white/35 underline-offset-2 hover:text-white/70 hover:underline disabled:opacity-40"
+            >
+              reset
+            </button>
+          </div>
+
+          {/*
+            The checkmarks track what this browser watched happen; the band above
+            tracks what the database holds. When a record already exists from an
+            earlier run those two disagree, and the honest fix is to say so
+            rather than to reverse-engineer a tick list from the rows.
+          */}
+          {move?.exists && completed === 0 && (
+            <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+              A record already exists from an earlier run. Press play — it resets
+              first, so the story starts from nothing.
+            </p>
+          )}
+        </div>
+
         <div className="space-y-6">
           {ACTS.map((act) => {
             const steps = STEPS.filter((x) => x.act === act.id);
             const allDone = steps.every((x) => done.has(x.key));
             return (
               <div key={act.id}>
-                <div className="mb-2 flex items-baseline gap-2.5">
-                  <span
-                    className="font-mono text-[11px] font-bold"
-                    style={{ color: accentColor(act.accent, allDone ? 1 : 0.55) }}
-                  >
-                    {act.n}
-                  </span>
-                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">
-                    {act.title}
-                  </span>
-                  {allDone && (
-                    <span style={{ color: accentColor(act.accent, 1) }} className="text-[11px]">
-                      ✓
+                {/*
+                  The act header carries its own colour. It is what makes THE
+                  SILENCE read amber from across the room — previously all four
+                  acts were the same grey, so the section the whole project is
+                  built around announced itself no louder than "Reset".
+                */}
+                <div
+                  className="mb-2 border-l-2 pl-3"
+                  style={{ borderColor: accentColor(act.accent, allDone ? 1 : 0.5) }}
+                >
+                  <div className="flex items-baseline gap-2.5">
+                    <span
+                      className="font-mono text-[13px] font-bold"
+                      style={{ color: accentColor(act.accent, allDone ? 1 : 0.7) }}
+                    >
+                      {act.n}
                     </span>
-                  )}
+                    <span
+                      className="text-[13px] font-bold uppercase tracking-[0.18em]"
+                      style={{ color: accentColor(act.accent, 1) }}
+                    >
+                      {act.title}
+                    </span>
+                    {allDone && (
+                      <span style={{ color: accentColor(act.accent, 1) }} className="text-[12px]">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/50">{act.note}</p>
                 </div>
-                <p className="mb-2.5 pl-[26px] text-[11px] leading-relaxed text-white/45">{act.note}</p>
                 <ol className="space-y-1.5">
                   {steps.map((s) => {
                     const complete = done.has(s.key);
+                    // The first not-yet-run step, in narrative order. This is
+                    // what turns a list into an instruction.
+                    const isNext = !complete && STEPS.find((x) => !done.has(x.key))?.key === s.key;
                     return (
                       <li key={s.key}>
                         <button
-                          onClick={() => run(s.key)}
+                          onClick={() => {
+                            stopRef.current = true;
+                            setPlaying(false);
+                            void run(s.key);
+                          }}
                           disabled={busy !== null}
-                          className="w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50"
+                          className="group w-full rounded-lg border px-3 py-2 text-left text-sm transition-all disabled:opacity-60"
                           style={{
-                            borderColor: complete ? accentColor(act.accent, 0.7) : "rgba(255,255,255,0.10)",
-                            background: complete ? accentColor(act.accent, 0.1) : "rgba(255,255,255,0.02)",
+                            // Three states, three weights. Previously every step
+                            // looked identical, so the refusal that the whole
+                            // project is built around read exactly like "Reset".
+                            borderColor: complete
+                              ? accentColor(act.accent, 0.55)
+                              : isNext
+                                ? accentColor(act.accent, 0.9)
+                                : "rgba(255,255,255,0.08)",
+                            background: complete
+                              ? accentColor(act.accent, 0.08)
+                              : isNext
+                                ? accentColor(act.accent, 0.14)
+                                : "rgba(255,255,255,0.02)",
+                            boxShadow: isNext ? `0 0 0 3px ${accentColor(act.accent, 0.12)}` : undefined,
+                            opacity: complete ? 0.72 : 1,
                           }}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-white/90">{s.label}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className="font-medium"
+                              style={{ color: isNext ? accentColor(act.accent, 1) : "rgba(255,255,255,0.9)" }}
+                            >
+                              {s.label}
+                            </span>
                             {complete && <span style={{ color: accentColor(act.accent, 1) }}>✓</span>}
-                            {busy === s.key && <span className="animate-pulse text-white/60">…</span>}
+                            {busy === s.key && (
+                              <motion.span
+                                animate={{ opacity: [1, 0.3, 1] }}
+                                transition={{ duration: 1, repeat: Infinity }}
+                                className="text-[10px] font-bold uppercase tracking-wider"
+                                style={{ color: accentColor(act.accent, 1) }}
+                              >
+                                running
+                              </motion.span>
+                            )}
+                            {isNext && busy === null && (
+                              <span
+                                className="text-[9px] font-bold uppercase tracking-[0.16em]"
+                                style={{ color: accentColor(act.accent, 0.85) }}
+                              >
+                                next
+                              </span>
+                            )}
                           </div>
                           <div className="mt-0.5 text-xs leading-relaxed text-white/50">{s.blurb}</div>
                         </button>
