@@ -6,6 +6,7 @@ import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
 import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
+import { PhotoBand } from "@/components/PhotoBand";
 import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
 import { SITE_COPY, getLang } from "@/lib/site-copy";
@@ -145,6 +146,33 @@ export default async function Home({
           </div>
         </section>
 
+        {/*
+          The photograph the whole product is about.
+
+          Everything else on this page is a claim about systems. This is the
+          moment those systems exist for — a family carrying boxes through a
+          door on a day when nothing in the house is switched on yet. Placed
+          before "how it works" so the mechanism is read as serving something,
+          rather than as the point.
+        */}
+        <PhotoBand
+          src="/photos/moving-in.jpg"
+          alt=""
+          eyebrow={lang === "es" ? "El día de la mudanza" : "Moving day"}
+          title={
+            lang === "es" ? (
+              <>Una dirección se convierte en hogar cuando <span style={{ color: "var(--color-state-verified)" }}>todo empieza a funcionar</span>.</>
+            ) : (
+              <>An address becomes a home only when <span style={{ color: "var(--color-state-verified)" }}>everything begins working together</span>.</>
+            )
+          }
+          body={
+            lang === "es"
+              ? "La electricidad, el internet, el agua y la seguridad no llegan solos. Alguien los coordina — y cada paso queda registrado."
+              : "Power, internet, water and security do not arrive on their own. Someone coordinates them — and every handoff is recorded, attributable, and reversible."
+          }
+        />
+
         {/* ── How it works — white ─────────────────────────────── */}
         <section className="bg-white">
           <div className="mx-auto max-w-6xl px-6 py-20">
@@ -255,6 +283,33 @@ export default async function Home({
           <div className="mx-auto max-w-6xl px-6 py-20"><FrontDoor /></div>
         </section>
 
+        {/*
+          The partner side, given a face.
+
+          "Industries" is an abstract word for brokers, property managers and
+          builders whose actual work is handing someone the keys to a house like
+          this one. The photograph does the explaining the label cannot.
+        */}
+        <PhotoBand
+          src="/photos/suburban-house.jpg"
+          alt=""
+          height="short"
+          align="center"
+          eyebrow={lang === "es" ? "Para socios" : "For partners"}
+          title={
+            lang === "es" ? (
+              <>Cada llave entregada es <span style={{ color: "var(--color-state-verified)" }}>una mudanza que empieza</span>.</>
+            ) : (
+              <>Every set of keys handed over is <span style={{ color: "var(--color-state-verified)" }}>a move about to begin</span>.</>
+            )
+          }
+          body={
+            lang === "es"
+              ? "Agentes, administradores de propiedades y constructores: la atribución se conserva de principio a fin."
+              : "Agents, property managers and builders. Attribution is preserved end to end — who introduced the customer is never lost in the handoff."
+          }
+        />
+
         {/* ── Industries — light ───────────────────────────────── */}
         <section id="industries" className="scroll-mt-20" style={{ background: "var(--color-ground-1)" }}>
           <div className="mx-auto max-w-6xl px-6 py-20">
@@ -282,6 +337,26 @@ export default async function Home({
             </div>
           </div>
         </section>
+
+        {/*
+          The closing image. The house is ready and the story is over — which is
+          the emotional shape of a move that went well, and the right note to
+          leave someone on before the final call to action.
+        */}
+        <PhotoBand
+          src="/photos/living-room-tv.jpg"
+          alt=""
+          height="short"
+          align="center"
+          eyebrow={lang === "es" ? "Listo para mudarse" : "Move-in ready"}
+          title={
+            lang === "es" ? (
+              <>Todo funcionando <span style={{ color: "var(--color-state-verified)" }}>antes de que llegues</span>.</>
+            ) : (
+              <>Everything working <span style={{ color: "var(--color-state-verified)" }}>before you arrive</span>.</>
+            )
+          }
+        />
 
         {/* ── CTA — navy ───────────────────────────────────────── */}
         <section style={{ background: "var(--uc-navy-1)" }}>
