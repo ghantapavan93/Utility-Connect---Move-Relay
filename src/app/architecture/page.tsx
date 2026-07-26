@@ -23,7 +23,7 @@ export default function Architecture() {
         something going red.
       */}
       <CineHero
-        image="/renders/arrival.png"
+        image="/renders/arrival.webp"
         alt="The residence seen from the drive"
         accent="verified"
         pills={

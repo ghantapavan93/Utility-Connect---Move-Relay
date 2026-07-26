@@ -82,7 +82,7 @@ export default function TheaterPage() {
         because the refusals *are* the product.
       */}
       <CineHero
-        image="/renders/interior-wide.png"
+        image="/renders/interior-wide.webp"
         alt="The residence interior, seen down its full length"
         accent="conflict"
         pills={

@@ -55,7 +55,7 @@ export default function ReliabilityPage() {
         move rather than take them on faith.
       */}
       <CineHero
-        image="/renders/spine.png"
+        image="/renders/spine.webp"
         alt="The full length of the residence, seen from the utility threshold"
         accent="recovered"
         pills={

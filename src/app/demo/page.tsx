@@ -342,7 +342,7 @@ export default function DemoPage() {
         adjective.
       */}
       <CineHero
-        image="/renders/utility.png"
+        image="/renders/utility.webp"
         alt="The utility room of the residence, where the provider circuit stalls"
         accent="unknown"
         pills={
@@ -374,7 +374,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 226 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 229 tests against a real database.",
           },
         ]}
         actions={

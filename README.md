@@ -1,5 +1,10 @@
 # Move Relay
 
+[![verify](https://github.com/ghantapavan93/Utility-Connect---Move-Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/ghantapavan93/Utility-Connect---Move-Relay/actions/workflows/ci.yml)
+[![tests](https://img.shields.io/badge/tests-229%20green-3da76a)](docs/ARCHITECTURE.md)
+[![database](https://img.shields.io/badge/database-real%20Postgres%2C%20no%20mocks-0087b5)](db/schema.sql)
+[![licence](https://img.shields.io/badge/licence-MIT-5c5e64)](LICENSE)
+
 **Verified handoff infrastructure for a home-services concierge platform.**
 A proof-of-work built for Utility Connect: one move arrives through a partner
 API, a CSV, and the customer's own form — no two agree — and the system turns
@@ -11,11 +16,21 @@ becomes the source of truth.
 > lost. The system enters `UNKNOWN`, refuses the blind retry, reconciles against
 > the provider, and recovers the existing order. One order. Never two.
 
+## Verify it in one command
+
+```bash
+npm install && npm run verify
+```
+
+11 schema guarantees and 229 tests against a real Postgres — embedded, so there
+is no Docker step and no server to start. Every claim below is enforced by a
+constraint or a test that command runs.
+
 ## Run it
 
 ```bash
 npm install
-npm run verify   # 11 schema guarantees + 226 tests — no Docker, no server needed
+npm run verify   # 11 schema guarantees + 229 tests — no Docker, no server needed
 npm run dev      # http://localhost:3000
 ```
 
@@ -56,6 +71,7 @@ supplied is dropped before display. Reasoning in
 | `/dashboard` | Operator console; every number is a live database count |
 | `/architecture` · `/future` | The decisions and the vision |
 | `/api/v1/health` · `/api/v1/slo` | Readiness probe · live-computed SLOs |
+| `/api/v1/ops/drain` | Outbox drain — `POST` to dispatch, `GET` for queue depth |
 
 ## What is proven, not claimed
 
@@ -103,6 +119,7 @@ run in one command:
 | [FUTURE_VISION](docs/FUTURE_VISION.md) | The Continuum — labelled BUILT / CONCEPT / HYPOTHESIS, never blurred |
 | [DEMO_SCRIPT](docs/DEMO_SCRIPT.md) | 30-second, 2-minute, and 10-minute walkthroughs |
 | [red-team-review](research/red-team-review.md) | The unsoftened self-critique |
+| [DEPLOY](docs/DEPLOY.md) | Vercel + Neon, the cron, and what is optional |
 
 ## Honest limitations
 

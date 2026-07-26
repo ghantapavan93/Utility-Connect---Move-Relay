@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { mkdir, writeFile } from "node:fs/promises";
+import sharp from "sharp";
 import { join } from "node:path";
 
 /**
@@ -30,7 +31,27 @@ export async function POST(req: Request) {
 
   const dir = join(process.cwd(), "public", "renders");
   await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, `${name}.png`), bytes);
 
-  return NextResponse.json({ ok: true, file: `/renders/${name}.png`, bytes: bytes.length });
+  /*
+    Written as WebP, not as the PNG the canvas hands over.
+
+    A 3000x1687 canvas serialises to roughly 4MB of PNG, and these renders are
+    only ever consumed through `next/image`, which re-encodes them anyway — so
+    the PNG bought nothing and cost every reviewer 4MB per frame at clone time.
+    At quality 92 the same frame is around 200KB and visually identical on
+    flat-shaded architectural geometry.
+
+    It also keeps this route honest with the directory it writes into: the
+    pages reference `.webp`, so a capture that still produced `.png` would land
+    a file nothing pointed at and quietly do nothing.
+  */
+  const webp = await sharp(bytes).webp({ quality: 92 }).toBuffer();
+  await writeFile(join(dir, `${name}.webp`), webp);
+
+  return NextResponse.json({
+    ok: true,
+    file: `/renders/${name}.webp`,
+    bytes: webp.length,
+    from: `${(bytes.length / 1048576).toFixed(1)}MB png`,
+  });
 }

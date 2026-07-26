@@ -96,7 +96,7 @@ export default function ViewsPage() {
         ones the payloads actually contain.)
       */}
       <CineHero
-        image="/renders/living.png"
+        image="/renders/living.webp"
         alt="The living room of the residence, looking through to the kitchen"
         accent="security"
         pills={
