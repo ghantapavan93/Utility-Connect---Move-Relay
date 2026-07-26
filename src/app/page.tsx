@@ -8,6 +8,8 @@ import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
 import { PhotoBand } from "@/components/PhotoBand";
 import { BlurReveal } from "@/components/BlurReveal";
+import { ReviewWall } from "@/components/ReviewWall";
+import { PartnerWall } from "@/components/PartnerWall";
 import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
 import { SITE_COPY, getLang } from "@/lib/site-copy";
@@ -344,18 +346,74 @@ export default async function Home({
         {/* ── Reviews — white ──────────────────────────────────── */}
         <section className="bg-white">
           <div className="mx-auto max-w-6xl px-6 py-20">
+            {/*
+              A wall, not three cards.
+
+              Their feed runs dozens of reviews with timestamps to the minute,
+              and the volume is the argument: any single review is just an
+              opinion, but a wall that keeps moving says this is happening now.
+              Three testimonials in a row cannot make that claim.
+            */}
             <Reveal><Center eyebrow="What movers say" title={<>Recent customer <Accent>reviews</Accent></>} /></Reveal>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {REVIEWS.map((r, i) => (
-                <Reveal key={r.name} delay={i * 0.06}>
-                  <figure className="h-full rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
-                    <div className="mb-3" style={{ color: "var(--color-state-conflict)" }}>★★★★★</div>
-                    <blockquote className="text-sm leading-relaxed" style={{ color: "var(--color-text-hi)" }}>&ldquo;{r.quote}&rdquo;</blockquote>
-                    <figcaption className="mt-3 text-xs font-bold" style={{ color: "var(--color-text-lo)" }}>— {r.name}</figcaption>
-                  </figure>
-                </Reveal>
-              ))}
-            </div>
+            <div className="mt-10"><ReviewWall /></div>
+          </div>
+        </section>
+
+        {/* ── Who we work with — light ─────────────────────────── */}
+        <section style={{ background: "var(--color-ground-1)" }}>
+          <div className="mx-auto max-w-6xl px-6 py-20">
+            <Reveal>
+              <Center
+                eyebrow={lang === "es" ? "Con quién trabajamos" : "Who we work with"}
+                title={
+                  lang === "es" ? (
+                    <>Dejemos que <Accent>sumemos valor</Accent></>
+                  ) : (
+                    <>Let us <Accent>add value</Accent></>
+                  )
+                }
+              />
+            </Reveal>
+            <div className="mt-10"><PartnerWall /></div>
+          </div>
+        </section>
+
+        {/* ── About — white ────────────────────────────────────── */}
+        <section className="bg-white">
+          <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+            <Reveal>
+              <div className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+                {lang === "es" ? "Acerca de" : "About"}
+              </div>
+              <h2 className="mt-2 text-3xl font-extrabold uppercase tracking-tight sm:text-4xl" style={{ color: "var(--color-text-hi)" }}>
+                {lang === "es" ? <>Qué es <Accent>esto</Accent></> : <>What this <Accent>is</Accent></>}
+              </h2>
+              <div className="mx-auto mt-4 h-1 w-16 rounded-full" style={{ background: "var(--color-state-verified)" }} />
+              {/*
+                Their About paragraph describes their company. This one
+                describes this project, because writing theirs here — in their
+                voice, on a site that is not theirs — is the line between a
+                concept and an impersonation.
+              */}
+              <p className="mt-6 text-base leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+                {lang === "es"
+                  ? "Este es un rediseño conceptual del sitio público de Utility Connect, con una plataforma funcional debajo: una mudanza llega por varios canales, una persona resuelve los conflictos, y el tiempo de espera de un proveedor se recupera sin crear jamás un pedido duplicado."
+                  : "This is a concept redesign of Utility Connect's public site with a working platform underneath it: one move arrives through several channels, a named person resolves the disagreements, and a provider timeout is recovered without ever creating a duplicate order."}
+              </p>
+              <p className="mt-4 text-sm leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
+                {lang === "es"
+                  ? "Construido por un candidato, no por la empresa. No afiliado a Utility Connect. Todos los datos son sintéticos."
+                  : "Built by a candidate, not by the company. Not affiliated with Utility Connect, and every customer, partner and provider record on it is synthetic."}
+              </p>
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <Link href="/demo" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--color-state-verified)" }}>
+                  {lang === "es" ? "Ver la plataforma" : "See the platform"}
+                </Link>
+                <a href="https://utilityconnect.net" target="_blank" rel="noopener noreferrer" className="rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide transition-colors" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}>
+                  {lang === "es" ? "El sitio real" : "The real Utility Connect"}
+                </a>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -398,7 +456,22 @@ export default async function Home({
           <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 text-white/70 sm:grid-cols-4">
             <div>
               <div className="text-sm font-extrabold uppercase tracking-tight text-white">Utility<span style={{ color: "var(--color-state-verified)" }}>Connect</span></div>
-              <p className="mt-2 text-xs leading-relaxed text-white/50">A redesign with the platform made visible. Not affiliated with Utility Connect.</p>
+              <p className="mt-2 text-xs leading-relaxed text-white/50">
+                A concept redesign with a working platform underneath. Built by a candidate.
+                Not affiliated with Utility Connect.
+              </p>
+              <p className="mt-3 text-xs leading-relaxed text-white/40">
+                Looking for the real company? Their service centre is in The Colony, Texas.
+              </p>
+              <a
+                href="https://utilityconnect.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-xs font-semibold transition-colors hover:text-white"
+                style={{ color: "var(--color-state-verified)" }}
+              >
+                utilityconnect.net →
+              </a>
             </div>
             {FOOTER.map((col) => (
               <div key={col.head}>
@@ -448,14 +521,25 @@ const PLATFORM = [
   { title: "Architecture", body: "Six risk-bearing decisions, each enforced by a test.", href: "/architecture" },
 ];
 
-const REVIEWS = [
-  { name: "Heather M.", quote: "Professional and very friendly. So easy to get our utilities set up. Fantastic service." },
-  { name: "Alli M.", quote: "Amazing to work with. Explained all our options in detail so we knew everything available." },
-  { name: "Justin S.", quote: "Buying a home and moving is stressful — this made it so much easier. Much appreciated." },
-];
 
+/**
+ * Footer columns, mirroring their information architecture.
+ *
+ * Their footer runs Contact Us / Careers / Become A Vendor / Branding /
+ * Internships alongside a service-centre address, a sales phone number and a
+ * sales email. The structure is worth mirroring — it is how a company of this
+ * kind organises its front door, and reproducing that organisation is the
+ * point of a redesign.
+ *
+ * The contact details are deliberately not reproduced. Their address, phone
+ * number and inbox reach real people at a real desk; putting them on a page
+ * that is not theirs would route genuine customers to a company that never
+ * agreed to receive them through it, and would make a concept indistinguishable
+ * from the real thing at exactly the moment it matters. Anyone who wants to
+ * contact Utility Connect is sent to Utility Connect.
+ */
 const FOOTER = [
-  { head: "Company", links: [ { label: "About", href: "/future" }, { label: "Careers", href: "/future" }, { label: "Become a vendor", href: "/future" }, { label: "Branding", href: "/architecture" } ] },
-  { head: "Platform", links: [ { label: "Dashboard", href: "/dashboard" }, { label: "Live demo", href: "/demo" }, { label: "Audiences", href: "/views" } ] },
-  { head: "Get started", links: [ { label: "Set up services", href: "/connect-flow" }, { label: "Partner with us", href: "/connect-flow" }, { label: "Future vision", href: "/future" } ] },
+  { head: "Company", links: [ { label: "About", href: "/future" }, { label: "Careers", href: "/future" }, { label: "Become a vendor", href: "/connect-flow" }, { label: "Branding", href: "/architecture" }, { label: "Internships", href: "/future" } ] },
+  { head: "Platform", links: [ { label: "Live demo", href: "/demo" }, { label: "Failure theater", href: "/theater" }, { label: "Three audiences", href: "/views" }, { label: "Operator console", href: "/dashboard" }, { label: "Architecture", href: "/architecture" } ] },
+  { head: "Get started", links: [ { label: "Set up services", href: "/connect-flow" }, { label: "Partner with us", href: "/connect-flow" }, { label: "The Living Move", href: "/story" }, { label: "Future vision", href: "/future" } ] },
 ];
