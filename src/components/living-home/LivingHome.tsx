@@ -148,6 +148,21 @@ function walkAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): number {
   return THREE.MathUtils.lerp(a.fov ?? 56, b.fov ?? 56, t);
 }
 
+/**
+ * Held while a still is being captured.
+ *
+ * The rig drives the camera from scroll position on every frame, so a capture
+ * that simply moves the camera and waits for the next frame gets the rig's
+ * position back, not the one it asked for. The original hook solved that by
+ * calling `gl.render` directly — which also skipped the EffectComposer, and
+ * therefore captured every still without ambient occlusion, bloom or vignette.
+ *
+ * Locking the rig instead lets the normal composed frame render at the
+ * requested camera. The postprocessing is the difference between a viewport
+ * render and a photograph of the room.
+ */
+const captureLock = { held: false };
+
 function Rig({ progress }: { progress: MotionValue<number> }) {
   const target = useRef(new THREE.Vector3());
   const aim = useRef(new THREE.Vector3());
@@ -155,6 +170,7 @@ function Rig({ progress }: { progress: MotionValue<number> }) {
   const look = useRef(new THREE.Vector3(-6, 2, 0));
 
   useFrame(({ camera, clock }, delta) => {
+    if (captureLock.held) return;
     const p = progress.get();
     const t = clock.elapsedTime;
     const fov = walkAt(p, target.current, aim.current);
@@ -531,13 +547,34 @@ export function LivingHome() {
                 const prevQuat = cam.quaternion.clone();
                 const prevRatio = cam.aspect;
 
+                // Hold the rig, or the next frame puts the camera back where
+                // scroll says it should be rather than where we aimed it.
+                captureLock.held = true;
                 gl.setSize(width, height, false);
                 cam.aspect = width / height;
                 cam.fov = fov;
                 cam.position.set(...pos);
                 cam.lookAt(new THREE.Vector3(...look));
                 cam.updateProjectionMatrix();
-                gl.render(scene, cam);
+
+                /*
+                  Let R3F draw its own frames rather than calling `gl.render`.
+
+                  The direct call was the whole reason these stills looked like
+                  viewport screenshots: it renders the scene straight to the
+                  canvas and never touches the EffectComposer, so every capture
+                  lost the SSAO, the bloom and the vignette that the on-screen
+                  film has. Ambient occlusion in particular is what puts objects
+                  on the floor instead of floating over it.
+
+                  Three frames, not one. The first re-renders at the new size,
+                  the second lets SSAO's normal pass settle against the new
+                  depth buffer, and the third is the one worth keeping.
+                */
+                const frame = () => new Promise((r) => requestAnimationFrame(r));
+                await frame();
+                await frame();
+                await frame();
                 const data = gl.domElement.toDataURL("image/png");
 
                 gl.setSize(prevSize.x, prevSize.y, false);
@@ -546,6 +583,7 @@ export function LivingHome() {
                 cam.position.copy(prevPos);
                 cam.quaternion.copy(prevQuat);
                 cam.updateProjectionMatrix();
+                captureLock.held = false;
 
                 const res = await fetch("/api/dev/hero", {
                   method: "POST",
@@ -583,6 +621,18 @@ export function LivingHome() {
             antialias: true,
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 0.78,
+            /*
+              Development only, and deliberately not in production.
+
+              `toDataURL` reads the drawing buffer, which the browser is free to
+              clear once a frame has been composited — so a capture that waits
+              for frames to settle, as `__captureHero` now does, reads back
+              blank without this. Keeping the buffer costs every visitor a copy
+              on every frame, which is a poor trade for a hook only ever run at
+              a dev console, so it is switched off in the build people actually
+              load.
+            */
+            preserveDrawingBuffer: process.env.NODE_ENV === "development",
           }}
           style={{ position: "absolute", inset: 0 }}
         >
