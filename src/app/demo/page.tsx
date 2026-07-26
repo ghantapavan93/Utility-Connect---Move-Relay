@@ -8,6 +8,7 @@ import { StateBadge, type State } from "@/components/StateBadge";
 import { EngineeringPanel } from "@/components/EngineeringPanel";
 import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
 import { CsvUpload } from "@/components/CsvUpload";
+import { ReferralConsole } from "@/components/ReferralConsole";
 import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 import type { Accent } from "@/lib/accents";
@@ -613,7 +614,16 @@ export default function DemoPage() {
 
       {/* Stage */}
       <section className="space-y-6">
-        {/* The one channel a visitor can drive with their own data. */}
+        {/*
+          The two channels a visitor can drive with their own data.
+
+          The step rail to the left walks one hardcoded move, which made the
+          engine behind it read as a scripted tour of a single record. It is not
+          one: `POST /api/v1/referrals` has always accepted arbitrary payloads
+          through the same contract validation, idempotency and duplicate
+          detection. That capability was real and completely invisible.
+        */}
+        <ReferralConsole />
         <CsvUpload />
         <EngineeringPanel />
         <div className="grid place-items-center rounded-2xl border p-6" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
