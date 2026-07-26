@@ -85,9 +85,40 @@ export interface Span {
 }
 
 /**
+ * Where spans go to be readable later.
+ *
+ * Injected rather than imported so this module stays free of a database
+ * dependency — it is the thing that has to keep working when the database is
+ * the problem. `instrument()` wires the real writer at startup; until then
+ * spans log and nothing persists, which is exactly the old behaviour.
+ */
+type SpanWriter = (row: {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  correlationId?: string;
+  organizationId?: string;
+  name: string;
+  outcome: string;
+  durationMs: number;
+  attributes: Record<string, unknown>;
+}) => void;
+
+let writeSpan: SpanWriter | null = null;
+
+export function setSpanWriter(w: SpanWriter | null): void {
+  writeSpan = w;
+}
+
+/**
  * Opens a child span under `parent`. Returns the span and a stopwatch; `end`
- * logs the duration and outcome. This is the unit the Engineering View reads to
- * show where a request spent its time.
+ * records the duration and outcome. This is the unit the Engineering View reads
+ * to show where a request spent its time.
+ *
+ * Persisting was the missing half. This module produced correct structured JSON
+ * on the console and nothing else, so an Engineering View that promised traces
+ * had nothing to query — the claim was aspirational and the code was fine, which
+ * is the hardest combination to notice.
  */
 export function startSpan(name: string, parent: TraceContext, monotonicNow: number): Span {
   const ctx: TraceContext = {
@@ -109,9 +140,55 @@ export function startSpan(name: string, parent: TraceContext, monotonicNow: numb
         trace: ctx,
         ...extra,
       });
+
+      // Best-effort, and never in the caller's way. Telemetry that can fail a
+      // request it was only supposed to measure is worse than no telemetry.
+      try {
+        const { organizationId, ...attrs } = extra as { organizationId?: string };
+        writeSpan?.({
+          traceId: ctx.traceId,
+          spanId: ctx.spanId,
+          parentSpanId: ctx.parentSpanId,
+          correlationId: ctx.correlationId,
+          organizationId,
+          name,
+          outcome,
+          durationMs: duration,
+          attributes: scrub(attrs) as Record<string, unknown>,
+        });
+      } catch {
+        // Swallowed on purpose. See above.
+      }
+
       return duration;
     },
   };
+}
+
+/**
+ * Runs `fn` inside a span, recording its outcome either way.
+ *
+ * The wrapper exists so instrumenting a function is one line rather than a
+ * try/finally at every call site — the friction that keeps observability
+ * modules unused.
+ */
+export async function traced<T>(
+  name: string,
+  parent: TraceContext,
+  attrs: Record<string, unknown>,
+  fn: (ctx: TraceContext) => Promise<T>,
+): Promise<T> {
+  const span = startSpan(name, parent, Date.now());
+  try {
+    const out = await fn(span.ctx);
+    span.end("ok", attrs);
+    return out;
+  } catch (err) {
+    // The failing span is the one worth having. Record the class of error, not
+    // the message — messages carry payload fragments.
+    span.end("error", { ...attrs, error: (err as Error).name });
+    throw err;
+  }
 }
 
 /** Stable fingerprint of a payload — for idempotency and log correlation. */

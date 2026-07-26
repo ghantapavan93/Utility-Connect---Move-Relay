@@ -1,4 +1,6 @@
 import { query, withTransaction } from "./db";
+import { newTrace, traced } from "./observability";
+import { installTracing } from "./tracing";
 import { recordAudit } from "./audit";
 import { publish } from "./outbox";
 import { runProjector } from "./projector";
@@ -121,14 +123,43 @@ export interface MergeDecision {
  * Apply a human's merge to any move, optimistically locked on the version the
  * human read. Everything commits together or not at all.
  */
-export async function approveMergeFor(input: {
+type MergeInput = {
   organizationId: string;
   moveId: string;
   expectedVersion: number;
   actor: string;
   decisions: MergeDecision[];
   correlationId?: string;
-}): Promise<{ newVersion: number; resolved: string[] }> {
+};
+
+/**
+ * Instrumented entry point.
+ *
+ * The one step in the whole pipeline a human performs, so the span carries the
+ * actor. When someone later asks who resolved a conflicting move date and when,
+ * the audit trail answers it — and the trace answers how long they took and
+ * whether the optimistic lock rejected an earlier attempt.
+ */
+export async function approveMergeFor(
+  input: MergeInput,
+): Promise<{ newVersion: number; resolved: string[] }> {
+  installTracing();
+  return traced(
+    "merge.approve",
+    newTrace(input.correlationId),
+    {
+      organizationId: input.organizationId,
+      moveId: input.moveId,
+      actor: input.actor,
+      decisions: input.decisions.length,
+    },
+    () => approveMergeForImpl(input),
+  );
+}
+
+async function approveMergeForImpl(
+  input: MergeInput,
+): Promise<{ newVersion: number; resolved: string[] }> {
   if (!input.actor.trim()) throw new Error("a merge requires a named human actor");
   if (input.decisions.length === 0) throw new Error("no decisions supplied");
 

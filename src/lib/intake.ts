@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { newTrace, traced } from "./observability";
+import { installTracing } from "./tracing";
 import { query, withTransaction } from "./db";
 import { recordAudit } from "./audit";
 import { publish } from "./outbox";
@@ -64,7 +66,30 @@ export interface IntakeResult {
 
 const DUPLICATE_THRESHOLD = 0.6;
 
+/**
+ * Instrumented entry point.
+ *
+ * The implementation below is untouched and now sits in `ingestReferralImpl`.
+ * Wrapping rather than editing the body puts the span boundary in exactly one
+ * place and means an instrumentation mistake cannot change what ingestion does.
+ *
+ * `newTrace()` starts a fresh trace per referral because ingestion *is* the
+ * root of the request as far as this system is concerned — everything
+ * downstream (validation, duplicate assessment, projection) hangs off it, and
+ * that is what makes "where did this move come from" answerable by trace rather
+ * than by grep.
+ */
 export async function ingestReferral(input: IntakeInput): Promise<IntakeResult> {
+  installTracing();
+  return traced(
+    "ingest.referral",
+    newTrace(input.correlationId),
+    { channel: input.channel, organizationId: input.organizationId },
+    () => ingestReferralImpl(input),
+  );
+}
+
+async function ingestReferralImpl(input: IntakeInput): Promise<IntakeResult> {
   const correlationId = input.correlationId ?? randomUUID();
   const fp = fingerprint(input.payload);
 

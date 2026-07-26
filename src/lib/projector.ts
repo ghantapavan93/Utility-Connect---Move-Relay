@@ -1,4 +1,6 @@
 import { query } from "./db";
+import { newTrace, traced } from "./observability";
+import { installTracing } from "./tracing";
 import { dispatch, type OutboxEvent } from "./outbox";
 
 /**
@@ -118,8 +120,19 @@ async function projectEvent(event: OutboxEvent): Promise<void> {
 }
 
 /** Drain the outbox into the timeline. Returns how many events were projected. */
+/**
+ * Instrumented entry point.
+ *
+ * The projector is the quietest thing in the system — it succeeds silently and
+ * fails silently, and a read model that has stopped updating looks exactly like
+ * one with nothing to do. The span's `dispatched` count is the difference.
+ */
 export async function runProjector(): Promise<number> {
-  return dispatch("projector", projectEvent);
+  installTracing();
+  return traced("projector.run", newTrace(), {}, async () => {
+    const dispatched = await dispatch("projector", projectEvent);
+    return dispatched;
+  });
 }
 
 export async function timelineFor(moveId: string) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { demoConstants } from "@/lib/demo-orchestrator";
+import { recentSpans } from "@/lib/tracing";
 
 /**
  * GET /api/v1/engineering
@@ -84,9 +85,15 @@ export async function GET() {
       ),
     ]);
 
+  // Traces, at last. This route has claimed to show where a request spent its
+  // time since it was written, while the observability module logged to a
+  // console nobody could query and persisted nothing. Spans are now rows.
+  const spans = await recentSpans(40);
+
   return NextResponse.json({
     exists: true,
     moveId: move?.id ?? null,
+    spans,
     rawSubmissions,
     fieldVersions,
     fulfilment,

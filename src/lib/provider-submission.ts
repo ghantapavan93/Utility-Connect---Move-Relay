@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { newTrace, traced } from "./observability";
+import { installTracing } from "./tracing";
 import { withTransaction, type Queryable } from "./db";
 import { recordAudit } from "./audit";
 import { publish } from "./outbox";
@@ -97,7 +99,28 @@ const RESUBMITTABLE: ReadonlySet<SubmissionState> = new Set<SubmissionState>([
   "failed",
 ]);
 
+/**
+ * Instrumented entry point.
+ *
+ * This is the call that can time out, and a timeout is precisely the event
+ * where a duration matters and a log line does not survive. The span records
+ * how long the provider took before the silence, which is the difference
+ * between "the provider is slow" and "the provider is gone".
+ */
 export async function submitToProvider(
+  input: SubmitInput,
+  callProvider: (payload: Record<string, unknown>) => Promise<ProviderResponse>,
+): Promise<SubmitResult> {
+  installTracing();
+  return traced(
+    "provider.submit",
+    newTrace(input.correlationId),
+    { organizationId: input.organizationId, serviceRequestId: input.serviceRequestId },
+    () => submitToProviderImpl(input, callProvider),
+  );
+}
+
+async function submitToProviderImpl(
   input: SubmitInput,
   callProvider: (payload: Record<string, unknown>) => Promise<ProviderResponse>,
 ): Promise<SubmitResult> {

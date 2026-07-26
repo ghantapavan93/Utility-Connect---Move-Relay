@@ -436,4 +436,36 @@ CREATE TABLE quarantined_submissions (
   resolved          BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- ---------------------------------------------------------------------------
+-- Trace spans
+-- ---------------------------------------------------------------------------
+
+-- Where a request spent its time, kept.
+--
+-- The observability module wrote structured JSON to the console and stopped
+-- there, which meant the Engineering View could claim to show traces while
+-- having nothing to read. A log line nobody can query is not observability; it
+-- is a comment that happens to run.
+--
+-- Deliberately no foreign key to organizations. This is diagnostic exhaust,
+-- written on paths that sometimes fail before a tenant is even resolved, and a
+-- span that cannot be recorded because its parent row is missing is a span
+-- recorded exactly when it is least useful.
+CREATE TABLE trace_spans (
+  id               BIGSERIAL PRIMARY KEY,
+  trace_id         UUID NOT NULL,
+  span_id          TEXT NOT NULL,
+  parent_span_id   TEXT,
+  correlation_id   UUID,
+  organization_id  UUID,
+  name             TEXT NOT NULL,
+  outcome          TEXT NOT NULL,          -- 'ok' | 'error'
+  duration_ms      INTEGER NOT NULL,
+  attributes       JSONB,                  -- already PII-scrubbed by the caller
+  started_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX trace_spans_trace_idx ON trace_spans (trace_id, started_at);
+CREATE INDEX trace_spans_recent_idx ON trace_spans (started_at DESC);
+
 COMMIT;
