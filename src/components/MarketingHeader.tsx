@@ -97,7 +97,26 @@ export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
             </AnimatePresence>
           </div>
 
-          <a href="tel:8775879566" className="ml-1 text-sm font-semibold text-white/70">
+          {/*
+            Not a dial link, deliberately.
+
+            This was `tel:8775879566` — Utility Connect's real, live sales
+            line — as a one-tap call from a page that is not theirs. A visitor
+            who tapped it reached a real person at a real desk, routed there by
+            a concept site the company never agreed to. The footer already
+            documented avoiding exactly this; the header never got the memo.
+
+            The number stays visible because removing it would misrepresent the
+            page it clones, and it points at the company instead of dialling
+            them on our behalf.
+          */}
+          <a
+            href="https://utilityconnect.net"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Utility Connect's published number — this concept does not route calls"
+            className="ml-1 text-sm font-semibold text-white/70 transition-colors hover:text-white"
+          >
             (877) 587-9566
           </a>
         </nav>
@@ -173,7 +192,16 @@ export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
               <div className="flex items-center gap-3 pt-2">
                 <Link href={{ pathname: "/", query: {} }} className="text-sm font-bold text-white/85">EN</Link>
                 <Link href={{ pathname: "/", query: { lang: "es" } }} className="text-sm font-bold text-white/85">ES</Link>
-                <a href="tel:8775879566" className="ml-auto text-sm font-semibold text-white/70">(877) 587-9566</a>
+                {/* Same reasoning as the desktop nav: shown, never dialled. */}
+                <a
+                  href="https://utilityconnect.net"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Utility Connect's published number — this concept does not route calls"
+                  className="ml-auto text-sm font-semibold text-white/70"
+                >
+                  (877) 587-9566
+                </a>
               </div>
             </div>
           </motion.nav>

@@ -211,7 +211,7 @@ export function Constellation3D({
   }
 
   return (
-    <div style={{ height, width: "100%" }}>
+    <div style={{ height, width: "100%", maxWidth: "100%" }}>
       <Canvas
         camera={{ position: [0, 0.5, 6], fov: 45 }}
         dpr={[1, 1.75]}

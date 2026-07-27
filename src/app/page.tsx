@@ -133,16 +133,26 @@ export default async function Home({
         */}
         <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-2, #12181e)" }}>
           {/*
-            `min-w-0` on the grid children is load-bearing on a phone.
+            Constrained tracks at EVERY breakpoint, not just `lg`.
 
-            A grid track sizes to `min-content` by default, so a child that
-            reports a wide intrinsic size — the constellation canvas does —
-            stretches its column past the container. The section clips at 375px,
-            so nothing scrolled sideways to give the problem away: the heading
-            simply ended mid-word and the copy ran off the edge. Overflow you
-            cannot scroll to is the kind that ships.
+            A grid track sizes to max-content by default, so a child reporting a
+            wide intrinsic size — the constellation canvas does — stretches its
+            column past the container. The section clips, so nothing scrolls
+            sideways to give it away: the heading just ends mid-word.
+
+            This was fixed once and only at `lg`. Below that the grid had no
+            explicit columns at all, the single implicit track sized to
+            max-content, and a phone still got `grid-template-columns: 555px`
+            inside a 375px box. `min-w-0` on the child could not help, because
+            the blowout is on the *track*.
+
+            It also survived a sweep that reported the page clean, because that
+            sweep compared each element's own scrollWidth to its clientWidth —
+            and here the whole box is oversized while its text fits inside it
+            exactly. The measurement has to be the bounding rect against the
+            viewport.
           */}
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <Reveal>
               <div className="min-w-0">
                 <div
