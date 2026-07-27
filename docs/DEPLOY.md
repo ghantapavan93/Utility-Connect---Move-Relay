@@ -8,7 +8,7 @@ document covers the other half: putting it somewhere a link can be clicked.
 
 ```bash
 npm install
-npm run verify   # 11 schema guarantees + 229 tests, embedded Postgres, no Docker
+npm run verify   # 11 schema guarantees + 234 tests, embedded Postgres, no Docker
 npm run dev      # http://localhost:3000
 ```
 

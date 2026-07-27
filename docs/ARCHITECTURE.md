@@ -140,7 +140,7 @@ id model already matches.
 
 ## Delivery
 
-BUILT: CI on every push — typecheck, 11 schema guarantees, 229 tests, production
+BUILT: CI on every push — typecheck, 11 schema guarantees, 234 tests, production
 build. The claims in these documents are re-verified on every commit.
 TARGET: staging → smoke → approval → production, expand-and-contract migrations,
 feature flags. Deploy reference: Vercel + Neon now; ECS/RDS as the AWS shape.

@@ -22,7 +22,7 @@ becomes the source of truth.
 npm install && npm run verify
 ```
 
-11 schema guarantees and 229 tests against a real Postgres — embedded, so there
+11 schema guarantees and 234 tests against a real Postgres — embedded, so there
 is no Docker step and no server to start. Every claim below is enforced by a
 constraint or a test that command runs.
 
@@ -30,7 +30,7 @@ constraint or a test that command runs.
 
 ```bash
 npm install
-npm run verify   # 11 schema guarantees + 229 tests — no Docker, no server needed
+npm run verify   # 11 schema guarantees + 234 tests — no Docker, no server needed
 npm run dev      # http://localhost:3000
 ```
 

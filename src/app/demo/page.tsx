@@ -9,6 +9,7 @@ import { EngineeringPanel } from "@/components/EngineeringPanel";
 import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
 import { CsvUpload } from "@/components/CsvUpload";
 import { ReferralConsole } from "@/components/ReferralConsole";
+import { StepStage } from "@/components/StepStage";
 import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 import type { Accent } from "@/lib/accents";
@@ -258,6 +259,9 @@ export default function DemoPage() {
   const run = useCallback(
     async (step: string) => {
       setBusy(step);
+      // Before the await: the stage changes as the step starts, not when it
+      // finishes, so the picture and the work are the same event.
+      if (step !== "reset") setStageStep(step);
       try {
         const res = await fetch(`/api/v1/demo/${step}`, { method: "POST" });
         const json = await res.json();
@@ -300,6 +304,7 @@ export default function DemoPage() {
     setPlaying(true);
     stopRef.current = false;
     setDone(new Set());
+    setStageStep(null);
 
     // Always start from a clean database, so a second play tells the same story
     // as the first rather than deduplicating everything to nothing.
@@ -324,6 +329,16 @@ export default function DemoPage() {
   const sources = constellationFor(done, lastResult);
   const consoleRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
+
+  /*
+    Which step the stage is showing.
+
+    Deliberately not derived from `done` or from `busy`. `busy` clears the
+    moment a request resolves, and the illustration should stay up afterwards
+    so a reviewer can read it — the picture is the payoff, not a spinner. This
+    holds the last step that ran until another one starts.
+  */
+  const [stageStep, setStageStep] = useState<string | null>(null);
   const stopRef = useRef(false);
   const completed = STEPS.filter((s) => done.has(s.key)).length;
 
@@ -374,7 +389,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 229 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 234 tests against a real database.",
           },
         ]}
         actions={
@@ -479,6 +494,7 @@ export default function DemoPage() {
                 stopRef.current = true;
                 setPlaying(false);
                 setDone(new Set());
+                setStageStep(null);
                 void run("reset");
               }}
               disabled={busy !== null}
@@ -614,6 +630,29 @@ export default function DemoPage() {
 
       {/* Stage */}
       <section className="space-y-6">
+        {/*
+          What the engine is doing, shown rather than described.
+
+          The rail on the left is accurate and silent — a reviewer pressed
+          "Ingest 3 channels" and watched a tick appear. Each step now has an
+          illustration of the thing itself, and during a play-through they
+          advance with the story.
+        */}
+        <StepStage
+          stepKey={stageStep}
+          label={stageStep ? (STEPS.find((s) => s.key === stageStep)?.label ?? null) : null}
+          blurb={stageStep ? (STEPS.find((s) => s.key === stageStep)?.blurb ?? null) : null}
+          accent={
+            stageStep
+              ? (ACTS.find((a) => a.id === STEPS.find((s) => s.key === stageStep)?.act)?.accent ??
+                "verified")
+              : "verified"
+          }
+          index={stageStep ? STEPS.findIndex((s) => s.key === stageStep) : null}
+          total={STEPS.length}
+          busy={busy !== null && busy !== "reset"}
+          playing={playing}
+        />
         {/*
           The two channels a visitor can drive with their own data.
 
