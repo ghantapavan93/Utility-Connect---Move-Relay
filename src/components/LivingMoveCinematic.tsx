@@ -607,7 +607,22 @@ export function LivingMoveCinematic() {
         >
           <div className="flex flex-col items-center gap-2 text-white/50">
             <span className="text-[11px] font-semibold uppercase tracking-[0.3em]">scroll to begin</span>
-            <span className="animate-bounce text-xl" aria-hidden>↓</span>
+            {/*
+              A drift, not a bounce.
+
+              Tailwind's bounce utility is a cubic-bezier spring loop, and
+              this project's motion rule is ease-out only — real objects
+              decelerate, they do not spring back. The cue reads as a nudge
+              downward now rather than as a bouncing ball.
+            */}
+            <motion.span
+              className="text-xl"
+              aria-hidden
+              animate={{ y: [0, 7, 0] }}
+              transition={{ duration: 1.9, repeat: Infinity, ease: "easeOut" }}
+            >
+              ↓
+            </motion.span>
           </div>
         </motion.div>
 

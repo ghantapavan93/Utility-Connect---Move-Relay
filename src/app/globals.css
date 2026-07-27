@@ -145,19 +145,20 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-/* Gradient text, held inside the brand hue. The shimmer is slow enough to
-   read as light moving over a surface rather than as an effect. */
+/* The accent word on a hero line.
+ *
+ * This was gradient text — a five-stop sweep clipped to the glyphs.
+ * It is one of the most reliable tells that a page was generated rather than
+ * designed, and this project's own rules ban exactly that. Keeping it because
+ * it looked expensive would have been choosing an effect over a stated
+ * principle.
+ *
+ * Solid brand colour instead. The word still separates from the line, which is
+ * the whole job; it just no longer announces how it was made. `color:
+ * transparent` had a second cost worth naming: text that is invisible until a
+ * background paints behind it fails badly if that background never loads. */
 .cine-shimmer {
-  background: linear-gradient(115deg, #0087b5, #4da8c8, #7fd3ea, #4da8c8, #0087b5);
-  background-size: 220% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: cine-shimmer-shift 11s linear infinite;
-}
-
-@keyframes cine-shimmer-shift {
-  to { background-position: 220% center; }
+  color: var(--color-state-verified);
 }
 
 /* Glow reserved for the two words that carry state. */
@@ -184,7 +185,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .cine-aurora,
-  .cine-shimmer,
   .cine-thread {
     animation: none !important;
   }
@@ -218,9 +218,15 @@ body {
   --color-text-mid: #ffffff;
   --color-text-lo: rgba(255, 255, 255, 0.82);
 }
-:root[data-a11y-contrast] .cine-aurora,
-:root[data-a11y-contrast] .cine-shimmer {
+:root[data-a11y-contrast] .cine-aurora {
   display: none;
+}
+/* `.cine-shimmer` used to be a gradient, so hiding it in high-contrast mode was
+   right. It is now the accent *word* inside a hero line — hiding it would
+   delete words from headings, which is the opposite of an accessibility fix.
+   It gets full white instead, which is what high contrast should mean. */
+:root[data-a11y-contrast] .cine-shimmer {
+  color: #ffffff;
 }
 :root[data-a11y-contrast] .cine-glass {
   background: rgba(10, 14, 18, 0.94) !important;

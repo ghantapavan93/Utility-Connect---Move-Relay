@@ -30,3 +30,7 @@ src/Videos/
 # are enforced by a CHECK constraint and a fitness test, and the honesty tiers are
 # labelled on every screen.
 CLAUDE.md
+
+# Impeccable's local state. The skill itself is committed; its per-session
+# scratch and harness-local settings are not.
+.claude/settings.local.json

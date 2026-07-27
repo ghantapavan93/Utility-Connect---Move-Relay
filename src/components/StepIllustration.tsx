@@ -19,8 +19,8 @@ import { useStillness } from "@/lib/use-stillness";
  * this file exists instead of a download.
  *
  * Each draws itself on scroll: the outline strokes on, then the fills arrive.
- * The stroke-drawing is why they are inline SVG and not images — an <img> can
- * fade in, but it cannot be drawn.
+ * The stroke-drawing is why they are inline SVG and not raster assets — a
+ * bitmap can fade in, but it cannot be drawn.
  */
 
 const NAVY = "var(--uc-navy-1, #1a2128)";
