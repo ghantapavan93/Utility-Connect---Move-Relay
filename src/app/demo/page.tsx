@@ -413,7 +413,46 @@ export default function DemoPage() {
         }
       />
 
-      <ChapterMarker n="01" label="The console" />
+      {/*
+        The nine steps as a film.
+
+        The story first, the controls after.
+
+        The console below proves the engine runs, and it is the wrong thing to
+        meet first: a reviewer arriving at nine unlabelled buttons has to press
+        one to learn anything. These bands show the thing itself — the three
+        channels arriving with their real payloads, the duplicate scored, the
+        provider going quiet, the retry refused — so by the time anyone reaches
+        the controls they already know what they are driving.
+
+        Sides alternate, and that is doing work rather than decoration: it
+        resets the eye's entry point on every band, which is what stops nine
+        near-identical dark dashboards collapsing into a contact sheet.
+      */}
+      <ChapterMarker n="01" label="What each step actually does" />
+      <div className="mx-auto max-w-[1400px] px-5 pb-4 sm:px-8">
+        <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
+          Nine steps, and{" "}
+          <span style={{ color: accentColor("verified", 1) }}>what the engine is doing</span> in
+          each one.
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/60">
+          Scroll is the transport — nothing plays on a timer, so you can stop on any frame and
+          read the payload it is showing you.
+        </p>
+      </div>
+      <StepFilm
+        steps={STEPS.map((s, i) => ({
+          key: s.key,
+          n: i + 1,
+          title: s.label.replace(/^\d+\s*·\s*/, ""),
+          body: s.blurb,
+          accent: ACTS.find((a) => a.id === s.act)?.accent ?? "verified",
+          act: ACTS.find((a) => a.id === s.act)?.title ?? "",
+        }))}
+      />
+
+      <ChapterMarker n="02" label="The console" />
       <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
         <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
           Nine steps. Every one of them{" "}
@@ -742,41 +781,6 @@ export default function DemoPage() {
       </section>
       </div>
 
-      {/*
-        The nine steps as a film.
-
-        The console above proves the engine runs. It does not explain what any
-        step does — a reviewer pressed "Ingest 3 channels" and watched a tick
-        appear. These bands show the thing itself: the three channels arriving
-        with their real payloads, the duplicate scored, the provider going
-        quiet, the retry refused.
-
-        Sides alternate, and that is doing work rather than decoration: it
-        resets the eye's entry point on every band, which is what stops nine
-        near-identical dark dashboards collapsing into a contact sheet.
-      */}
-      <ChapterMarker n="02" label="What each step actually does" />
-      <div className="mx-auto max-w-[1400px] px-5 pb-4 sm:px-8">
-        <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
-          Nine steps, and{" "}
-          <span style={{ color: accentColor("verified", 1) }}>what the engine is doing</span> in
-          each one.
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/60">
-          Scroll is the transport — nothing plays on a timer, so you can stop on any frame and
-          read the payload it is showing you.
-        </p>
-      </div>
-      <StepFilm
-        steps={STEPS.map((s, i) => ({
-          key: s.key,
-          n: i + 1,
-          title: s.label.replace(/^\d+\s*·\s*/, ""),
-          body: s.blurb,
-          accent: ACTS.find((a) => a.id === s.act)?.accent ?? "verified",
-          act: ACTS.find((a) => a.id === s.act)?.title ?? "",
-        }))}
-      />
 
       <ChapterMarker n="03" label="The same record, three ways" />
       <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
