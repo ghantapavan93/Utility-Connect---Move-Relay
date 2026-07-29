@@ -2,7 +2,7 @@
   "name": "move-relay",
   "version": "0.1.0",
   "private": true,
-  "description": "Move Relay — verified handoff infrastructure. Proof of work for Utility Connect.",
+  "description": "Move Relay \u2014 verified handoff infrastructure. Proof of work for Utility Connect.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -13,10 +13,13 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed.mjs",
     "db:reset": "node scripts/migrate.mjs --reset && node scripts/seed.mjs",
+    "mcp": "node mcp/server.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:db": "node scripts/verify-constraints.mjs",
-    "verify": "npm run verify:db && vitest run"
+    "verify": "npm run verify:db && vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -38,6 +41,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
