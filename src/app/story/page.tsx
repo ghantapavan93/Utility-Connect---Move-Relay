@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { LivingHome } from "@/components/living-home/LivingHome";
+import { RouteDistinction } from "@/components/nav/RouteDistinction";
 
 /**
  * The Living Move.
@@ -17,6 +18,16 @@ export default function StoryPage() {
   return (
     <main style={{ background: "#0a0f15" }}>
       <LivingHome />
+      {/*
+        After the film, before the live run.
+
+        The cinematic is the one thing on this site that asks for two minutes of
+        uninterrupted attention, so nothing is placed above it. The moment it
+        ends is exactly when a reviewer is deciding whether there is anything
+        behind it — which is the moment to say that two other routes answer that
+        question directly.
+      */}
+      <RouteDistinction />
       <FailureLive />
       <Closing />
     </main>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Constellation3D } from "@/components/Constellation3D";
 import { Reveal } from "@/components/Reveal";
 import { MarketingHeader } from "@/components/MarketingHeader";
@@ -12,6 +13,15 @@ import { ReviewWall } from "@/components/ReviewWall";
 import { PartnerWall } from "@/components/PartnerWall";
 import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
+import { ScrollExpandMedia } from "@/components/blocks/scroll-expansion-hero";
+import { MarketingVideoBand } from "@/components/MarketingVideoBand";
+import { RevealHeadline } from "@/components/RevealHeadline";
+import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
+import { ConvergeText } from "@/components/ui/converge-text";
+import { FeatureCard } from "@/components/ui/feature-card";
+import { TiltCard } from "@/components/ui/tilt-card";
+import { RelayConstellation } from "@/components/home/RelayConstellation";
+import { resolveMarketingVideo, hasMarketingMedia } from "@/lib/marketing-video.server";
 import { SITE_COPY, getLang } from "@/lib/site-copy";
 
 /**
@@ -31,10 +41,88 @@ export default async function Home({
   const lang = getLang((await searchParams).lang);
   const copy = SITE_COPY[lang];
 
+  /*
+    Marketing footage, resolved from disk rather than declared.
+
+    Each slot renders nothing at all when its file is missing, so the page
+    degrades to exactly the page it was before video existed. Which file fills
+    which slot is declared in `src/lib/marketing-video.ts`; the reasoning for
+    each placement is there, next to the decision.
+  */
+  const openerMedia = resolveMarketingVideo("opener");
+  const invitationMedia = resolveMarketingVideo("invitation");
+
   return (
     <div className="theme-light">
       <MarketingHeader lang={lang} />
       <main>
+        {/*
+          ── The opener ──────────────────────────────────────────
+
+          A clip that opens into the viewport as you scroll past it, then hands
+          the page over to the site proper. It sits above the hero rather than
+          replacing it because the hero is what a returning visitor and a
+          search engine both need, and because a page whose first screen is a
+          video is a page with no readable claim until the video loads.
+
+          It costs roughly two screens of scrolling, which is a real price. It
+          is charged exactly once, for the one sentence the whole platform
+          exists to make true, and the section disappears completely if its
+          files ever go missing.
+
+          No eyebrow above the title. A category label over a full-screen film
+          is a caption on a photograph that already says what it is — it adds a
+          line of type competing with the headline and tells the visitor
+          nothing the header has not already told them.
+        */}
+        {hasMarketingMedia(openerMedia) ? (
+          <ScrollExpandMedia
+            sources={openerMedia.sources}
+            posterSrc={openerMedia.poster}
+            bgImageSrc={openerMedia.slot.backdrop}
+            loop={openerMedia.slot.loop}
+            /*
+              One word, not a sentence.
+
+              "Three channels. One verified record." is accurate and it is a
+              *mechanism* — it explains how the system works to someone who has
+              not yet been told why they should care. The first screen has to
+              earn the second, and a homeowner, a broker and a provider all
+              want the same thing from it before any detail: the lights are on
+              when you walk in.
+            */
+            headline={
+              <RevealHeadline
+                kicker={lang === "es" ? "Día de mudanza" : "Move in day"}
+                word={lang === "es" ? "CONECTADO" : "CONNECTED"}
+                /*
+                  No dashes anywhere. A dash invites a clause, and a clause is
+                  how a promise turns into an explanation. Two plain sentences:
+                  the first is what the customer feels, the second is what a
+                  partner needs to trust.
+                */
+                subline={
+                  lang === "es"
+                    ? [
+                        {
+                          text: "Abres la puerta y la luz ya está encendida, el agua ya corre, el internet ya funciona. Cada traspaso detrás de ese momento queda",
+                        },
+                        { text: "con origen, con nombre y con prueba.", accent: true },
+                      ]
+                    : [
+                        {
+                          text: "You open the door and the lights are already on, the water already runs, the internet already works. Every handoff behind that moment is",
+                        },
+                        { text: "sourced, signed and provable.", accent: true },
+                      ]
+                }
+              />
+            }
+            title={lang === "es" ? "Conectado" : "Connected"}
+            scrollToExpand={lang === "es" ? "Desplázate para abrir" : "Scroll to open"}
+          />
+        ) : null}
+
         {/*
           ── Hero ────────────────────────────────────────────────
 
@@ -75,6 +163,7 @@ export default async function Home({
                 className="max-w-4xl font-extrabold uppercase leading-[0.98] tracking-tight text-white"
                 text={`${copy.hero.h1a} ${copy.hero.h1accent} ${lang === "es" ? "en un solo lugar" : "in one place"}`}
                 emphasis={copy.hero.h1accent.split(" ")}
+                marker
                 style={{ fontSize: "clamp(40px,6.6vw,86px)" }}
               />
               {/*
@@ -98,21 +187,19 @@ export default async function Home({
                 </p>
               </Reveal>
               <Reveal delay={0.15}>
+                {/*
+                  The two calls to action, each with a cyan arc that travels
+                  its edge on hover. A flat colour change tells you the pointer
+                  is somewhere; a border that lights and moves tells you which
+                  control you are about to commit to.
+                */}
                 <div className="mt-9 flex flex-wrap gap-3">
-                  <Link
-                    href="/connect-flow"
-                    className="rounded-full px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
-                    style={{ background: "var(--uc-cyan-fill)" }}
-                  >
+                  <HoverBorderGradient href="/connect-flow">
                     {copy.hero.ctaPrimary}
-                  </Link>
-                  <Link
-                    href="/connect-flow"
-                    className="rounded-full border px-8 py-3.5 text-sm font-bold uppercase tracking-wide text-white backdrop-blur-sm transition-colors hover:bg-white/10"
-                    style={{ borderColor: "rgba(255,255,255,0.34)" }}
-                  >
+                  </HoverBorderGradient>
+                  <HoverBorderGradient href="/connect-flow" variant="ghost">
                     {copy.hero.ctaSecondary}
-                  </Link>
+                  </HoverBorderGradient>
                 </div>
               </Reveal>
             </div>
@@ -155,12 +242,16 @@ export default async function Home({
           <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <Reveal>
               <div className="min-w-0">
-                <div
+                {/*
+                  The label performs what the section says. Its letters start
+                  scattered across the three states a field can arrive in and
+                  settle onto one colour, which is the same claim the prose
+                  makes and the constellation beside it draws.
+                */}
+                <ConvergeText
+                  text={lang === "es" ? "Una sola ficha" : "One record"}
                   className="text-[11px] font-bold uppercase tracking-[0.2em]"
-                  style={{ color: "var(--uc-cyan-ink)" }}
-                >
-                  {lang === "es" ? "Una sola ficha" : "One record"}
-                </div>
+                />
                 <h2 className="mt-3 text-[clamp(26px,3.4vw,42px)] font-semibold leading-[1.1] tracking-tight text-white">
                   {lang === "es"
                     ? "Una mudanza llega por varios canales. Ninguno coincide."
@@ -168,9 +259,48 @@ export default async function Home({
                 </h2>
                 <p className="mt-4 max-w-lg text-base leading-relaxed text-white/65">
                   {lang === "es"
-                    ? "Cada valor conserva quién lo aportó, por qué canal y cuándo. Las diferencias se resuelven con una persona, nunca en silencio."
-                    : "Every value keeps who supplied it, through which channel, and when. Where sources disagree, a named person decides — never the system, and never silently."}
+                    ? "Cada valor conserva quién lo aportó, por qué canal y cuándo. Cuando las fuentes no coinciden, decide una persona con nombre. Nunca el sistema, y nunca en silencio."
+                    : "Every value keeps who supplied it, through which channel, and when. Where sources disagree, a named person decides. Never the system, and never silently."}
                 </p>
+
+                {/*
+                  One address, described three ways.
+
+                  These are not decoration and they are not a gallery. The
+                  paragraph above is abstract about "channels"; the photographs
+                  are the single real house that the partner feed, the spreadsheet
+                  and the customer form are all trying to describe, which is what
+                  makes their disagreement matter.
+
+                  Licensed photography from `public/photos`, credited in
+                  CREDITS.md. Stock imagery pulled from an image search would be
+                  someone else's copyright with no licence attached.
+                */}
+                <ul className="mt-8 flex list-none gap-3">
+                  {[
+                    { src: "/photos/suburban-house.jpg", label: lang === "es" ? "API del socio" : "Partner API" },
+                    { src: "/photos/moving-boxes.jpg", label: lang === "es" ? "Carga CSV" : "CSV upload" },
+                    { src: "/photos/kitchen-island.jpg", label: lang === "es" ? "Formulario" : "Customer form" },
+                  ].map((channel) => (
+                    <li key={channel.label} className="min-w-0 flex-1">
+                      <div className="relative aspect-4/3 overflow-hidden rounded-lg">
+                        <Image
+                          src={channel.src}
+                          alt=""
+                          fill
+                          sizes="(max-width: 1024px) 30vw, 160px"
+                          className="object-cover"
+                          /* Same grade as every other photograph on the page, so
+                             three stock frames read as one brand's photography. */
+                          style={{ filter: "saturate(0.5) contrast(1.1) brightness(0.82)" }}
+                        />
+                      </div>
+                      <div className="mt-2 truncate text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                        {channel.label}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </Reveal>
             <Reveal delay={0.12}>
@@ -204,6 +334,7 @@ export default async function Home({
           src="/photos/moving-in.jpg"
           alt=""
           eyebrow={lang === "es" ? "El día de la mudanza" : "Moving day"}
+          eyebrowLiquid
           title={
             lang === "es" ? (
               <>Una dirección se convierte en hogar cuando <span style={{ color: "var(--color-state-verified)" }}>todo empieza a funcionar</span>.</>
@@ -213,8 +344,8 @@ export default async function Home({
           }
           body={
             lang === "es"
-              ? "La electricidad, el internet, el agua y la seguridad no llegan solos. Alguien los coordina — y cada paso queda registrado."
-              : "Power, internet, water and security do not arrive on their own. Someone coordinates them — and every handoff is recorded, attributable, and reversible."
+              ? "La electricidad, el internet, el agua y la seguridad no llegan solos. Alguien los coordina, y cada paso queda registrado."
+              : "Power, internet, water and security do not arrive on their own. Someone coordinates them, and every handoff is recorded, attributable and reversible."
           }
         />
 
@@ -260,14 +391,16 @@ export default async function Home({
             <Reveal>
               <Center eyebrow={copy.features.eyebrow} title={<>{copy.features.title} <Accent>{copy.features.titleAccent}</Accent></>} />
             </Reveal>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/*
+              Lit from behind rather than outlined. Six flat white boxes on a
+              near-white ground had almost no separation from the page; the glow
+              gives each card an edge without adding a border heavy enough to
+              turn the grid into a table.
+            */}
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f, i) => (
                 <Reveal key={f.title} delay={(i % 3) * 0.05}>
-                  <div className="h-full rounded-2xl border bg-white p-6" style={{ borderColor: "var(--color-ground-3)" }}>
-                    <div className="mb-3 grid h-12 w-12 place-items-center rounded-xl text-2xl" style={{ background: "color-mix(in oklab, var(--color-state-verified) 12%, white)", color: "var(--color-state-verified)" }} aria-hidden>{f.glyph}</div>
-                    <h3 className="mb-1.5 text-base font-bold" style={{ color: "var(--color-text-hi)" }}>{f.title}</h3>
-                    <p className="text-sm leading-relaxed">{f.body}</p>
-                  </div>
+                  <FeatureCard icon={f.icon} title={f.title} body={f.body} />
                 </Reveal>
               ))}
             </div>
@@ -306,17 +439,18 @@ export default async function Home({
             <Reveal>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>The platform · built and functioning</span>
               <h2 className="mt-3 max-w-3xl text-3xl font-extrabold uppercase tracking-tight text-white sm:text-4xl">Every move becomes a living, <Accent>verified</Accent> record.</h2>
-              <p className="mt-3 max-w-2xl text-lg text-white/70">Behind the concierge is a working system: a move arrives from many channels, conflicts are resolved by a human, and a provider timeout is recovered without ever creating a duplicate order. Real code, real database, 234 tests.</p>
+              <p className="mt-3 max-w-2xl text-lg text-white/70">Behind the concierge is a working system: a move arrives from many channels, conflicts are resolved by a human, and a provider timeout is recovered without ever creating a duplicate order. Real code, real database, 524 tests.</p>
             </Reveal>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {/*
+              These four are the only cards on the page that open something
+              real, so they are the only ones that get the tilt. Spending the
+              heaviest interaction on the links that lead to working software is
+              the point; spreading it everywhere would say nothing.
+            */}
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {PLATFORM.map((p, i) => (
                 <Reveal key={p.title} delay={i * 0.05}>
-                  <Link href={p.href as never} className="group block h-full rounded-xl border p-5 transition-colors hover:border-white/40" style={{ borderColor: "rgba(255,255,255,0.15)", background: "var(--uc-navy-2)" }}>
-                    <div className="mb-2 h-1 w-8 rounded-full" style={{ background: "var(--color-state-verified)" }} />
-                    <h3 className="mb-1 text-sm font-bold text-white">{p.title}</h3>
-                    <p className="text-xs leading-relaxed text-white/60">{p.body}</p>
-                    <span className="mt-3 inline-block text-xs font-bold" style={{ color: "var(--color-state-verified)" }}>Open →</span>
-                  </Link>
+                  <TiltCard href={p.href} title={p.title} body={p.body} />
                 </Reveal>
               ))}
             </div>
@@ -400,9 +534,29 @@ export default async function Home({
           </div>
         </section>
 
-        {/* ── About — white ────────────────────────────────────── */}
+        {/*
+          ── About, with the film in it — white ─────────────────
+
+          These were two stacked blocks: a centred column of prose explaining
+          what this project is, and further down a video sitting on its own
+          above the closing buttons. Neither supported the other. The prose had
+          nothing to look at and the film had nothing to read, so the page
+          asked the visitor to make the connection between them across half a
+          screen of scrolling.
+
+          One composition now. The paragraph that says what this is sits beside
+          the film that shows it, and because that film resolves onto "set up
+          your services" and "partner with us", the closing buttons follow
+          immediately — the last frame hands over to controls a few
+          centimetres below, rather than to a photograph.
+
+          The text is left-aligned rather than centred for the same reason it
+          is beside the film and not above it: centred prose next to a hard
+          rectangular frame has no shared edge, and the two read as two things
+          that happen to be adjacent.
+        */}
         <section className="bg-white">
-          <div className="mx-auto max-w-3xl px-6 py-20 text-center">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 lg:grid-cols-2">
             <Reveal>
               <div className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
                 {lang === "es" ? "Acerca de" : "About"}
@@ -410,7 +564,7 @@ export default async function Home({
               <h2 className="mt-2 text-3xl font-extrabold uppercase tracking-tight sm:text-4xl" style={{ color: "var(--color-text-hi)" }}>
                 {lang === "es" ? <>Qué es <Accent>esto</Accent></> : <>What this <Accent>is</Accent></>}
               </h2>
-              <div className="mx-auto mt-4 h-1 w-16 rounded-full" style={{ background: "var(--color-state-verified)" }} />
+              <div className="mt-4 h-1 w-16 rounded-full" style={{ background: "var(--color-state-verified)" }} />
               {/*
                 Their About paragraph describes their company. This one
                 describes this project, because writing theirs here — in their
@@ -427,7 +581,7 @@ export default async function Home({
                   ? "Construido por un candidato, no por la empresa. No afiliado a Utility Connect. Todos los datos son sintéticos."
                   : "Built by a candidate, not by the company. Not affiliated with Utility Connect, and every customer, partner and provider record on it is synthetic."}
               </p>
-              <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <div className="mt-7 flex flex-wrap gap-3">
                 <Link href="/demo" className="rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5" style={{ background: "var(--uc-cyan-fill)" }}>
                   {lang === "es" ? "Ver la plataforma" : "See the platform"}
                 </Link>
@@ -436,28 +590,26 @@ export default async function Home({
                 </a>
               </div>
             </Reveal>
+
+            {/*
+              The film, or the closing photograph in its place. Never a gap:
+              a two-column layout with one empty column is worse than a
+              single column, so the fallback is a real image rather than null.
+            */}
+            <Reveal delay={0.08}>
+              {hasMarketingMedia(invitationMedia) ? (
+                <MarketingVideoBand media={invitationMedia} />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- art-directed still, sized by the same 16:9 frame as the film it replaces
+                <img
+                  src="/photos/living-room-tv.jpg"
+                  alt=""
+                  className="aspect-video w-full rounded-xl object-cover"
+                />
+              )}
+            </Reveal>
           </div>
         </section>
-
-        {/*
-          The closing image. The house is ready and the story is over — which is
-          the emotional shape of a move that went well, and the right note to
-          leave someone on before the final call to action.
-        */}
-        <PhotoBand
-          src="/photos/living-room-tv.jpg"
-          alt=""
-          height="short"
-          align="center"
-          eyebrow={lang === "es" ? "Listo para mudarse" : "Move-in ready"}
-          title={
-            lang === "es" ? (
-              <>Todo funcionando <span style={{ color: "var(--color-state-verified)" }}>antes de que llegues</span>.</>
-            ) : (
-              <>Everything working <span style={{ color: "var(--color-state-verified)" }}>before you arrive</span>.</>
-            )
-          }
-        />
 
         {/* ── CTA — navy ───────────────────────────────────────── */}
         <section style={{ background: "var(--uc-navy-1)" }}>
@@ -472,6 +624,21 @@ export default async function Home({
             </Reveal>
           </div>
         </section>
+
+        {/*
+          ── The proof layer ─────────────────────────────────────
+
+          The last band before the footer, and the only one that leads anywhere
+          deep. Everything above is the marketing site doing its own job; a
+          reviewer who stops there never learns that twelve further routes carry
+          the actual working system, because route names are the worst possible
+          invitation to click.
+
+          Inserted here rather than woven into the sections above, so nothing
+          existing moves. It is dark on a light page on purpose: the shift from
+          claim to evidence should be felt before it is read.
+        */}
+        <RelayConstellation />
 
         {/* ── Footer — deep navy ───────────────────────────────── */}
         <footer style={{ background: "var(--uc-navy-0)" }}>
@@ -528,12 +695,12 @@ function Accent({ children }: { children: React.ReactNode }) {
 }
 
 const FEATURES = [
-  { glyph: "☎", title: "Concierge", body: "A trained moving expert who supports you through the whole journey." },
-  { glyph: "✦", title: "Promotions & specials", body: "The best products and offers for your new home, tailored to your lifestyle." },
-  { glyph: "✉", title: "USPS mail forwarding", body: "Your concierge forwards your mail on your behalf." },
-  { glyph: "◈", title: "Community resources", body: "Get to know your new schools, parks, and neighborhood." },
-  { glyph: "✓", title: "Moving checklist", body: "A detailed checklist so nothing slips before moving day." },
-  { glyph: "▤", title: "Provider summary", body: "A written summary of selections and account numbers for your records." },
+  { icon: "concierge", title: "Concierge", body: "A trained moving expert who supports you through the whole journey." },
+  { icon: "offers", title: "Promotions & specials", body: "The best products and offers for your new home, tailored to your lifestyle." },
+  { icon: "mail", title: "USPS mail forwarding", body: "Your concierge forwards your mail on your behalf." },
+  { icon: "community", title: "Community resources", body: "Get to know your new schools, parks, and neighborhood." },
+  { icon: "checklist", title: "Moving checklist", body: "A detailed checklist so nothing slips before moving day." },
+  { icon: "summary", title: "Provider summary", body: "A written summary of selections and account numbers for your records." },
 ];
 
 const PLATFORM = [

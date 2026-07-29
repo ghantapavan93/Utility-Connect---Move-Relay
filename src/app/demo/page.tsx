@@ -13,6 +13,8 @@ import { StepStage } from "@/components/StepStage";
 import { StepFilm } from "@/components/StepFilm";
 import { CineHero, CycleWords } from "@/components/cinematic/CineHero";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import { RouteDistinction } from "@/components/nav/RouteDistinction";
+import { ParticleCanvas, type FieldPhase } from "@/components/ui/particle-canvas";
 import type { Accent } from "@/lib/accents";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { useRef } from "react";
@@ -343,10 +345,45 @@ export default function DemoPage() {
   const stopRef = useRef(false);
   const completed = STEPS.filter((s) => done.has(s.key)).length;
 
+  /**
+   * Which act the background field is showing.
+   *
+   * Read from the provider submission first, because that row is the only place
+   * in this project allowed to say "unknown" out loud and it outranks anything
+   * the step rail believes. Only when there is no submission does this fall back
+   * to the act of the step currently on the stage — the same precedence
+   * `StateBand` uses, so the two never disagree about what is happening.
+   */
+  const submissionState = ((move?.services ?? []) as Array<Record<string, unknown>>).find(
+    (s) => s.submission_state,
+  )?.submission_state as string | undefined;
+
+  const fieldPhase: FieldPhase =
+    submissionState === "unknown"
+      ? "silence"
+      : submissionState === "reconciled"
+        ? "recovery"
+        : ((STEPS.find((s) => s.key === stageStep)?.act as FieldPhase | undefined) ?? "idle");
+
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
       <div className="cine-aurora" aria-hidden />
+      {/*
+        The field reads the same phase the console is in, so it is showing the
+        database rather than accompanying it. During the provider silence it
+        very nearly stops — which is the honest picture of an UNKNOWN outcome.
+      */}
+      <ParticleCanvas phase={fieldPhase} />
       <FilmGrain id="demo" />
+
+      {/*
+        Everything below sits in its own stacking context above the canvas.
+
+        Without it the canvas wins: a fixed, positioned element paints above
+        non-positioned block content no matter what order they appear in, so the
+        particles would be drawn over the copy rather than behind it.
+      */}
+      <div className="relative" style={{ zIndex: 1 }}>
 
       {/*
         The hero states the thesis before the console asks anyone to click.
@@ -390,7 +427,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 234 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 524 tests against a real database.",
           },
         ]}
         actions={
@@ -451,6 +488,15 @@ export default function DemoPage() {
           act: ACTS.find((a) => a.id === s.act)?.title ?? "",
         }))}
       />
+
+      {/*
+        Three doors onto one room, named.
+
+        Sits under the hero rather than over it: a reviewer should meet
+        the page's own claim first, then learn that two neighbouring
+        routes tell the same story a different way.
+      */}
+      <RouteDistinction />
 
       <ChapterMarker n="02" label="The console" />
       <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
@@ -834,6 +880,7 @@ export default function DemoPage() {
           <span style={{ color: accentColor("verified", 1) }}>say who decided it</span>.
         </blockquote>
       </section>
+      </div>
     </main>
   );
 }

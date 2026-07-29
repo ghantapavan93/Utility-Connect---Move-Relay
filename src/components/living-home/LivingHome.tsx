@@ -304,7 +304,7 @@ interface ChapterCopy {
 
 const CHAPTERS: ChapterCopy[] = [
   {
-    range: [0.005, 0.072],
+    range: [0.0, 0.105],
     room: "Arrival",
     catalogueRoom: "arrival",
     title: "An address becomes a home only when everything begins working together.",
@@ -312,7 +312,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.098, 0.178],
+    range: [0.065, 0.209],
     room: "Garage · The handoff",
     catalogueRoom: "garage",
     title: "One move can begin in several places at once",
@@ -322,7 +322,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.2, 0.278],
+    range: [0.169, 0.308],
     room: "Foyer · The Move Record",
     catalogueRoom: "foyer",
     title: "One move. Every source preserved. Every decision explainable.",
@@ -332,7 +332,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.385, 0.458],
+    range: [0.3535, 0.49],
     room: "Living room · Connectivity",
     catalogueRoom: "living",
     title: "The router finds the line",
@@ -342,7 +342,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.482, 0.568],
+    range: [0.45, 0.60],
     room: "Kitchen · Essential utilities",
     catalogueRoom: "kitchen",
     title: "The services nobody notices until they are missing",
@@ -352,7 +352,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.592, 0.688],
+    range: [0.56, 0.72],
     room: "Utility room · Home systems",
     catalogueRoom: "utility",
     title: "The last circuit is requested",
@@ -362,7 +362,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "INTERACTIVE CONCEPT",
   },
   {
-    range: [0.298, 0.362],
+    range: [0.268, 0.3935],
     room: "Entry · Security",
     title: "Protection is a decision, not a default",
     body: "Security interest is conditional and price-sensitive. The system records that as a conditional interest rather than an order — AI may explain the options, it may not enrol anyone.",
@@ -371,7 +371,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.712, 0.818],
+    range: [0.68, 0.85],
     room: "The silence",
     title: "The provider created the order. The response never arrived.",
     body: "The utility circuit stalls half-lit. Not red, not failed — UNKNOWN. A blind retry here would enrol this household twice at a real utility, so the system refuses and schedules reconciliation instead.",
@@ -380,7 +380,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.842, 0.908],
+    range: [0.81, 0.938],
     room: "Recovery",
     title: "Ask the provider. Finish the light.",
     body: "Reconciliation finds the order that existed all along. The stalled circuit completes and the entry sensor settles verified. One order. Never two. Every transition in the audit trail.",
@@ -389,7 +389,7 @@ const CHAPTERS: ChapterCopy[] = [
     label: "BUILT AND FUNCTIONING",
   },
   {
-    range: [0.928, 1.0],
+    range: [0.898, 1.0],
     room: "The Continuum",
     title: "Utility Connect can connect more than the move",
     body: "Installation checks, renewal windows, seasonal maintenance, a trusted vendor, a referral, the next move. The same verified record carries the whole relationship — with consent, and with attribution intact.",
@@ -407,7 +407,18 @@ const LABEL_STYLE: Record<ChapterCopy["label"], string> = {
 
 function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: ChapterCopy }) {
   const [a, b] = c.range;
-  const opacity = useTransform(progress, [a, a + 0.018, b - 0.018, b], [0, 1, 1, 0]);
+  /*
+    The bands tile the scroll and overlap at their edges, so one chapter is
+    always fading in as the one before it fades out.
+
+    They used to sit apart with a two-percent gap between each pair, and each
+    band spent 0.036 of its width in a fade — which measured out as **half the
+    scroll showing no caption at all**: 52 of 103 sampled positions had nothing
+    on screen. A viewer got long stretches of a beautiful empty house and no
+    idea what they were looking at, which is the one thing a scroll-driven story
+    cannot afford.
+  */
+  const opacity = useTransform(progress, [a, a + 0.02, b - 0.02, b], [0, 1, 1, 0]);
   const y = useTransform(progress, [a, b], [22, -22]);
 
   return (
@@ -496,7 +507,19 @@ export function LivingHome() {
 
   return (
     <div ref={ref} style={{ height: "1000vh", background: "#0d1218" }} className="relative">
-      <div className="sticky top-0 h-screen overflow-hidden">
+      {/*
+        `100svh`, not `h-screen`. On a phone `100vh` is the URL-bar-hidden
+        height, so while the bar is showing a fixed-height sticky stage extends
+        past the visible area and its lowest content is cut off — and the lowest
+        caption here sits 42px from the stage's bottom edge, well inside what
+        the bar covers.
+
+        `dvh` would also avoid the clip, but it tracks the bar as it collapses,
+        which means the stage resizes mid-scroll and the WebGL drawing buffer is
+        reallocated on the way down. `svh` is the smallest viewport: nothing is
+        ever hidden and the height never changes, so the canvas is sized once.
+      */}
+      <div className="sticky top-0 h-[100svh] overflow-hidden">
         <Canvas
           camera={{ position: [-30, 4.2, 22], fov: 52, near: 0.05, far: 400 }}
           dpr={[1, 1.75]}

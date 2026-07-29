@@ -40,6 +40,7 @@ export interface Credibility {
 export function CineHero({
   image,
   alt,
+  backdrop,
   pills,
   cycle,
   headline,
@@ -48,8 +49,20 @@ export function CineHero({
   actions,
   accent = "verified",
 }: {
-  image: string;
-  alt: string;
+  /** Omitted when `backdrop` is supplied. */
+  image?: string;
+  alt?: string;
+  /**
+   * A drawing to stand behind the headline instead of a photograph.
+   *
+   * A photograph is right when the page is about a household — a kitchen, a
+   * doorway, boxes in a hall. It is wrong when the page is about constraints,
+   * because then the image is decoration with a house in it, and the reader
+   * learns nothing from the largest element on the screen.
+   *
+   * Pages whose subject is a mechanism pass the mechanism.
+   */
+  backdrop?: ReactNode;
   pills: ReactNode;
   /** The cycling verb stack — the state machine, said as four words. */
   cycle?: ReactNode;
@@ -76,14 +89,30 @@ export function CineHero({
       {/* 0 — base */}
       <div className="absolute inset-0 bg-[#04070b]" />
 
-      {/* 1 — the photograph */}
-      <motion.div style={{ scale, y, filter }} className="absolute inset-0">
-        <Image src={image} alt={alt} fill priority sizes="100vw" className="object-cover" />
-      </motion.div>
+      {/* 1 — the photograph, or the drawing that replaces it */}
+      {backdrop ? (
+        /*
+          No parallax scale and no blur on a drawing. Both were tuned to stop a
+          photograph looking flat, and both make fine strokes illegible — the
+          thing a diagram is entirely made of. It drifts and fades instead.
+        */
+        <motion.div
+          style={{ y, opacity: useTransform(scrollYProgress, [0, 1], [1, 0.35]) }}
+          /* Inset from the edges and held to the top half: a diagram needs
+             margin to read, and the headline owns the lower part of the hero. */
+          className="absolute inset-x-0 top-0 h-[62%] px-5 pt-24 sm:px-8"
+        >
+          {backdrop}
+        </motion.div>
+      ) : image ? (
+        <motion.div style={{ scale, y, filter }} className="absolute inset-0">
+          <Image src={image} alt={alt ?? ""} fill priority sizes="100vw" className="object-cover" />
+        </motion.div>
+      ) : null}
 
       {/* 2 — tonal grade, deepening on scroll */}
       <motion.div
-        style={{ opacity: grade }}
+        style={{ opacity: backdrop ? 0.5 : grade }}
         className="absolute inset-0 bg-gradient-to-b from-[#04070b]/70 via-[#04070b]/60 to-[#04070b]"
       />
       <div

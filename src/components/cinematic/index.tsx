@@ -12,7 +12,7 @@ import {
   useTransform,
 } from "framer-motion";
 import { EASE, SPRING } from "@/lib/motion";
-import { accentColor, type Accent } from "@/lib/accents";
+import { accentColor, accentInk, type Accent } from "@/lib/accents";
 
 /**
  * Cinematic primitives.
@@ -40,7 +40,7 @@ import { accentColor, type Accent } from "@/lib/accents";
   architecture page among them — have every right to ask what colour "verified"
   is without importing a client module.
 */
-export { accentColor, accentRgb, type Accent } from "@/lib/accents";
+export { accentColor, accentInk, accentRgb, type Accent } from "@/lib/accents";
 
 /* ───────────────────────────── film grain ──────────────────────────────── */
 
@@ -305,7 +305,13 @@ export function Pill({ children, accent = "verified" }: { children: ReactNode; a
       style={{
         borderColor: accentColor(accent, 0.3),
         background: accentColor(accent, 0.08),
-        color: accentColor(accent, 0.9),
+        /*
+          Ink, not the raw accent. This is 10px uppercase at 90% opacity, which
+          measured 3.62:1 over the brightest background on a module page —
+          under the 4.5 small text needs. The border and the fill keep the true
+          accent, because neither is read.
+        */
+        color: accentInk(accent),
       }}
     >
       {children}

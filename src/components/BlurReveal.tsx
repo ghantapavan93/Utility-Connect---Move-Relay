@@ -38,6 +38,7 @@ function tokenize(text: string) {
 export function BlurReveal({
   text,
   emphasis = [],
+  marker = false,
   as: Tag = "h2",
   className,
   style,
@@ -48,6 +49,15 @@ export function BlurReveal({
   text: string;
   /** Words rendered in the verified accent, landing at the end of the cascade. */
   emphasis?: string[];
+  /**
+   * Draw a highlighter bar behind the emphasised run instead of colouring it.
+   *
+   * The two are alternatives, never both: cyan type on a cyan marker is type
+   * you cannot read. When this is on, the emphasised words stay white and the
+   * accent moves from the glyphs to the mark behind them, so the colour still
+   * carries its one meaning and the phrase still separates from the line.
+   */
+  marker?: boolean;
   as?: Tag;
   className?: string;
   /** Fluid type sizes belong on the element, not in a utility class. */
@@ -67,14 +77,57 @@ export function BlurReveal({
   );
   const isEmphasis = (w: string) => emphasised.has(w.toLowerCase().replace(/[^a-z0-9]/gi, ""));
 
+  /** Colour the glyphs only when no bar is going to sit behind them. */
+  const accentStyle = (word: string) =>
+    isEmphasis(word) && !marker ? { color: "var(--color-state-verified)" } : undefined;
+
+  /*
+    Marker geometry, in em so it tracks the type size at every breakpoint.
+
+    One bar per *word*, not one per phrase. A single rect over the phrase is
+    correct only while the phrase stays on one line; the moment a heading wraps
+    mid-phrase, that rect becomes the union of two line boxes and paints a solid
+    block across the gap between them. Per-word bars wrap the way the words do.
+
+    The bleed is what keeps them reading as one stroke: each bar overruns its
+    word by 0.18em on both sides, and adjacent bars therefore overlap by 0.36em
+    across a space roughly 0.26em wide. No seam on a line, and a clean break
+    wherever the browser chose to wrap.
+  */
+  const BLEED = "-0.18em";
+  const barClass = "pointer-events-none absolute bottom-[0.04em] top-[0.12em] rounded-[0.1em]";
+  /*
+    No negative z-index. The word is not a stacking context, so `-z-10` sends
+    the bar behind the *section's* background image rather than behind the
+    glyphs. Painting order does the job instead: the bar is emitted first and
+    the positioned text after it.
+  */
+  const barStyle = { left: BLEED, right: BLEED, background: "rgba(0,135,181,0.32)" } as const;
+
+  /** Position of each emphasised word within the emphasised sequence. */
+  const emphasisOrder = useMemo(() => {
+    const order = new Map<number, number>();
+    let n = 0;
+    tokens.forEach((t, i) => {
+      if (isEmphasis(t.word)) order.set(i, n++);
+    });
+    return order;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokens, emphasised]);
+
   if (reduce) {
     return (
       <Tag className={className} style={style}>
         {tokens.map((t, i) => (
           <Fragment key={i}>
-            <span style={isEmphasis(t.word) ? { color: "var(--color-state-verified)" } : undefined}>
-              {t.word}
-            </span>
+            {marker && isEmphasis(t.word) ? (
+              <span className="relative inline-block">
+                <span aria-hidden className={barClass} style={barStyle} />
+                <span className="relative">{t.word}</span>
+              </span>
+            ) : (
+              <span style={accentStyle(t.word)}>{t.word}</span>
+            )}
             {t.trailing}
           </Fragment>
         ))}
@@ -82,21 +135,32 @@ export function BlurReveal({
     );
   }
 
+  /*
+    The stroke starts once the last emphasised word has mostly arrived, then
+    crosses one word at a time. A highlighter that reaches a word before the
+    word exists reads as two unrelated animations sharing a box.
+
+    Each segment is short and its successor begins exactly as it ends, so the
+    phrase is crossed by one continuous drag rather than by several bars
+    inflating at once. Linear easing, because eased segments visibly slow at
+    every word boundary.
+  */
+  const lastEmphasisIndex = tokens.reduce((acc, t, i) => (isEmphasis(t.word) ? i : acc), -1);
+  const markerStart = delay + lastEmphasisIndex * stagger + 0.12 + 0.34;
+  const SEGMENT = 0.16;
+
   return (
     <Tag className={className} style={style}>
-      {tokens.map((t, i) => (
-        <Fragment key={i}>
-          {/*
-            `inline-block` is required for transform to apply to an inline run,
-            and `whitespace-pre` on the trailing space keeps the gap from
-            collapsing now that each word is its own box.
-          */}
+      {tokens.map((t, i) => {
+        /*
+          `inline-block` is required for transform to apply to an inline run,
+          and `whitespace-pre` on the trailing space keeps the gap from
+          collapsing now that each word is its own box.
+        */
+        const glyphs = (
           <motion.span
             className="inline-block"
-            style={{
-              willChange: "transform, filter, opacity",
-              ...(isEmphasis(t.word) ? { color: "var(--color-state-verified)" } : {}),
-            }}
+            style={{ willChange: "transform, filter, opacity", ...accentStyle(t.word) }}
             initial={{ opacity: 0, y: "0.35em", filter: "blur(10px)" }}
             whileInView={{ opacity: 1, y: "0em", filter: "blur(0px)" }}
             viewport={{ once, margin: "-12% 0px" }}
@@ -110,9 +174,38 @@ export function BlurReveal({
           >
             {t.word}
           </motion.span>
-          {t.trailing && <span className="whitespace-pre">{t.trailing}</span>}
-        </Fragment>
-      ))}
+        );
+
+        return (
+          <Fragment key={i}>
+            {marker && isEmphasis(t.word) ? (
+              <span className="relative inline-block">
+                {/* Grown from the left, the way a highlighter is dragged.
+                    Fading a coloured block in behind words looks like a
+                    rendering artefact; growing it reads as someone marking the
+                    part of the line that matters. */}
+                <motion.span
+                  aria-hidden
+                  className={barClass}
+                  style={{ ...barStyle, transformOrigin: "left center" }}
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once, margin: "-12% 0px" }}
+                  transition={{
+                    duration: SEGMENT,
+                    delay: markerStart + (emphasisOrder.get(i) ?? 0) * SEGMENT,
+                    ease: "linear",
+                  }}
+                />
+                <span className="relative">{glyphs}</span>
+              </span>
+            ) : (
+              glyphs
+            )}
+            {t.trailing && <span className="whitespace-pre">{t.trailing}</span>}
+          </Fragment>
+        );
+      })}
     </Tag>
   );
 }

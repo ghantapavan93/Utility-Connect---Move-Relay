@@ -40,7 +40,12 @@ export const SITE_COPY: Record<Lang, SiteCopy> = {
       badge: "Concierge · Technology · Verified handoffs",
       h1a: "Compare all",
       h1accent: "home services",
-      p: "Simplify your move and save time. Compare providers, hear special offers, and connect every essential service — with a dedicated concierge and a platform that keeps every handoff visible, attributable, and verified.",
+      /*
+        No dashes. A dash invites a clause, and a clause is where a promise
+        turns into an explanation. Three plain sentences instead: what you get,
+        who does it, and what the system guarantees while they do.
+      */
+      p: "One move, every service, one conversation. A dedicated concierge compares providers, finds the offers worth hearing, and sets up power, internet, water and security before you arrive. Every handoff underneath stays visible, attributable and verified.",
       ctaPrimary: "Set up services",
       ctaSecondary: "Partner with us",
     },
@@ -57,9 +62,9 @@ export const SITE_COPY: Record<Lang, SiteCopy> = {
         { n: 3, title: "We handle the rest", body: "Installations scheduled, a written service summary sent. You move in ready." },
       ],
       partners: [
-        { n: 1, title: "Connect your channel", body: "Branded microsite, API, widget, or CSV — refer a client the way that fits your workflow." },
+        { n: 1, title: "Connect your channel", body: "Branded microsite, API, widget or CSV. Refer a client the way that fits your workflow." },
         { n: 2, title: "Every handoff stays verified", body: "Move Relay preserves who referred whom, through which channel, with attribution intact." },
-        { n: 3, title: "See safe, live status", body: "A partner-safe view of engagement and progress — never another partner's pipeline." },
+        { n: 3, title: "See safe, live status", body: "A partner-safe view of engagement and progress. Never another partner's pipeline." },
       ],
       watchStory: "Watch the story",
     },
@@ -83,7 +88,7 @@ export const SITE_COPY: Record<Lang, SiteCopy> = {
       badge: "Concierge · Tecnología · Traspasos verificados",
       h1a: "Compare todos los",
       h1accent: "servicios del hogar",
-      p: "Simplifique su mudanza y ahorre tiempo. Compare proveedores, escuche ofertas especiales y conecte cada servicio esencial — con un concierge dedicado y una plataforma que mantiene cada traspaso visible, atribuible y verificado.",
+      p: "Una mudanza, todos los servicios, una sola conversación. Un concierge dedicado compara proveedores, encuentra las ofertas que valen la pena y activa luz, internet, agua y seguridad antes de que llegues. Cada traspaso por debajo queda visible, atribuible y verificado.",
       ctaPrimary: "Configurar servicios",
       ctaSecondary: "Sea nuestro socio",
     },
@@ -100,9 +105,9 @@ export const SITE_COPY: Record<Lang, SiteCopy> = {
         { n: 3, title: "Nosotros hacemos el resto", body: "Instalaciones programadas y un resumen escrito de sus servicios. Llegue a su hogar listo." },
       ],
       partners: [
-        { n: 1, title: "Conecte su canal", body: "Micrositio con su marca, API, widget o CSV — refiera clientes como mejor le convenga." },
+        { n: 1, title: "Conecte su canal", body: "Micrositio con su marca, API, widget o CSV. Refiera clientes como mejor le convenga." },
         { n: 2, title: "Cada traspaso queda verificado", body: "Move Relay preserva quién refirió a quién, por qué canal, con la atribución intacta." },
-        { n: 3, title: "Vea el estado en vivo", body: "Una vista segura del progreso — nunca la cartera de otro socio." },
+        { n: 3, title: "Vea el estado en vivo", body: "Una vista segura del progreso. Nunca la cartera de otro socio." },
       ],
       watchStory: "Vea la historia",
     },

@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { CineHero } from "@/components/cinematic/CineHero";
-import { ChapterMarker, FilmGrain, MagneticLink, Pill } from "@/components/cinematic";
-import { accentColor } from "@/lib/accents";
+import { ChapterMarker, FilmGrain, InViewBurst, MagneticLink, Pill, Tilt3DCard } from "@/components/cinematic";
+import { accentColor, accentInk } from "@/lib/accents";
+import { DECISIONS, type Decision } from "@/lib/decisions";
+import { DecisionScene } from "@/components/architecture/DecisionScenes";
+import { AuroraCanvas } from "@/components/ui/cosmic-aurora";
+import { TrustMapBackdrop } from "@/components/architecture/TrustMapBackdrop";
 
 /**
  * The architecture page — written for a CTO. It states the decisions that carry
@@ -12,7 +16,20 @@ export default function Architecture() {
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
       <div className="cine-aurora" aria-hidden />
+      {/*
+        A flow field, on the page about constraining where data may go. Paths
+        that are unpredictable in detail and plainly governed in aggregate are
+        what every decision listed below is trying to produce.
+      */}
+      <AuroraCanvas />
       <FilmGrain id="arch" />
+
+      {/*
+        The content gets its own stacking context above the canvas. A fixed,
+        positioned element paints above non-positioned block content regardless
+        of source order, so without this the field would cover the page.
+      */}
+      <div className="relative" style={{ zIndex: 1 }}>
 
       {/*
         An architecture page is usually a diagram nobody can disagree with. This
@@ -23,8 +40,16 @@ export default function Architecture() {
         something going red.
       */}
       <CineHero
-        image="/renders/arrival.webp"
-        alt="The residence seen from the drive"
+        /*
+          The mechanism, not a photograph of a house.
+
+          This was `/renders/arrival.webp` — a 3D render of a driveway — on a
+          page about partial unique indexes, CHECK constraints and authority
+          boundaries. A reader met a picture of a home and learned nothing from
+          the largest element on the screen. The strongest hero for a page about
+          a mechanism is the mechanism, running.
+        */
+        backdrop={<TrustMapBackdrop />}
         accent="verified"
         pills={
           <>
@@ -49,7 +74,7 @@ export default function Architecture() {
           {
             eyebrow: "Proof",
             accent: "recovered",
-            body: "Eleven schema guarantees are proven by SQL that must be rejected, and fitness tests fail the build if a module crosses a boundary this page claims it does not.",
+            body: "Twelve schema guarantees are proven by SQL that must be rejected, and fitness tests fail the build if a module crosses a boundary this page claims it does not.",
           },
           {
             eyebrow: "Code",
@@ -69,30 +94,22 @@ export default function Architecture() {
       />
 
       <ChapterMarker n="01" label="Six decisions" />
-      <div className="mx-auto max-w-[1400px] px-5 pb-10 sm:px-8">
+      <div className="mx-auto max-w-[1400px] px-5 pb-4 sm:px-8">
         <h2 className="max-w-3xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.08] tracking-tight text-white">
           A decision with no rejected alternative{" "}
-          <span style={{ color: accentColor("verified", 1) }}>was never a decision</span>.
+          <span style={{ color: accentInk("verified") }}>was never a decision</span>.
         </h2>
+        <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/60">
+          Each of these could have gone the other way, and the other way is usually the
+          default. So every one names what was rejected, what it would have cost, and the
+          constraint that enforces the choice — because a claim about a guarantee is worth
+          nothing without the line that makes it one.
+        </p>
       </div>
 
-      <div className="mx-auto grid max-w-[1400px] gap-4 px-5 pb-16 sm:px-8 md:grid-cols-2">
-        {DECISIONS.map((d, i) => (
-          <section key={d.title} className="cine-glass rounded-2xl p-6">
-            <span className="font-mono text-[11px] font-semibold text-white/35">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <h3 className="mt-2 text-lg font-semibold text-white">{d.title}</h3>
-            <p className="mt-2.5 text-sm leading-relaxed text-white/65">{d.body}</p>
-            <p
-              className="mt-4 border-l-2 pl-3 font-mono text-[11px] leading-relaxed"
-              style={{ borderColor: accentColor("verified", 0.7), color: accentColor("verified", 0.95) }}
-            >
-              {d.proof}
-            </p>
-          </section>
-        ))}
-      </div>
+      {DECISIONS.map((dec, i) => (
+        <DecisionSection key={dec.slug} d={dec} index={i} />
+      ))}
 
       <ChapterMarker n="02" label="Check it yourself" />
       <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
@@ -104,43 +121,104 @@ export default function Architecture() {
           </p>
           <pre className="mt-4 overflow-x-auto rounded-lg bg-black/50 p-4 font-mono text-xs leading-relaxed text-white/75">
 {`npm install
-npm run verify   # 11 schema guarantees + the behaviour suite`}
+npm run verify   # 12 schema guarantees + the behaviour suite`}
           </pre>
         </div>
       </section>
+      </div>
     </main>
   );
 }
 
-const DECISIONS = [
-  {
-    title: "The database is the source of truth — not XState, not the frontend",
-    body: "Workflow state lives in Postgres and is enforced by constraints. A partial unique index permits exactly one canonical value per field per move, so two concurrent approvals cannot produce two truths. The UI may visualise state; it can never be the authority for it.",
-    proof: "field_versions_one_canonical_idx · scenario.test.ts Act 2",
-  },
-  {
-    title: "AI explains conflicts; it never merges them",
-    body: "A canonical value requires a named human actor. This is a CHECK constraint, so it holds regardless of application code — an attempt to write a canonical value with no selector is rejected by the database itself.",
-    proof: "canonical_requires_actor CHECK · verify-constraints.mjs",
-  },
-  {
-    title: "A lost provider response is UNKNOWN, not failed",
-    body: "Their own Terms of Service state the customer contracts directly with the provider; Utility Connect facilitates. So the provider owns order truth, and a lost response means we do not know. The system records UNKNOWN, blocks a blind retry, and reconciles against the provider — recovering the existing order rather than creating a second one.",
-    proof: "provider-submission.ts · scenario.test.ts Act 3",
-  },
-  {
-    title: "Idempotency is persisted, never Redis-only",
-    body: "A unique index on (organization_id, operation_key) makes a duplicate submission structurally impossible, and it survives restart and cache eviction — which a Redis lock does not. Redis is reserved for short-lived locks and rate limiting.",
-    proof: "provider_submissions_operation_key_idx",
-  },
-  {
-    title: "The audit log is append-only, enforced",
-    body: "Every consequential transition writes an audit event in the same transaction as the change, so the two commit together or not at all. DO INSTEAD NOTHING rules on UPDATE and DELETE mean the log survives application bugs, not just good intentions.",
-    proof: "audit_events_no_update / _no_delete · scenario.test.ts Act 4",
-  },
-  {
-    title: "RAG and 3D are deferred on purpose",
-    body: "The v1 briefing generates from structured rows, so every claim is traceable and testable with no model in the loop. The signature visual is 2D SVG rather than Three.js, because operational software that needs to be trusted rarely benefits from 3D — and a constellation that does not render real state would be exactly the decoration the design system bans.",
-    proof: "briefing.ts renderNarrative seam · ADR-004, ADR-005",
-  },
-];
+/**
+ * One decision, argued rather than asserted.
+ *
+ * Four parts, in the order a sceptic reads them: the drawing, because the
+ * mechanism is a shape before it is a sentence; the claim; the alternative that
+ * was rejected and what it would have cost; and the constraint itself, because
+ * every sentence above it is only as good as that line of SQL.
+ *
+ * Sides alternate so a page of six does not read as a column, and the diagram
+ * leads on the first one — a reviewer who reads nothing else should still have
+ * seen a mechanism refuse something.
+ */
+function DecisionSection({ d, index }: { d: Decision; index: number }) {
+  const flip = index % 2 === 1;
+
+  return (
+    <section className="relative mx-auto max-w-[1400px] px-5 py-12 sm:px-8 sm:py-16">
+      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+        <div className={`min-w-0 ${flip ? "lg:order-2" : "lg:order-1"}`}>
+          <span className="font-mono text-[11px] font-semibold text-white/55">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+
+          <h3 className="mt-2 text-[clamp(20px,2.6vw,32px)] font-semibold leading-[1.1] tracking-tight text-white">
+            {d.title}
+          </h3>
+
+          {/* The one sentence this decision may say loudly. */}
+          <p className="mt-3.5 max-w-xl text-[clamp(15px,1.7vw,19px)] font-semibold leading-[1.35] tracking-tight text-white/95">
+            {d.line}
+          </p>
+
+          <p className="mt-3.5 max-w-xl text-sm leading-relaxed text-white/60">{d.body}</p>
+
+          {/*
+            The rejected alternative, given its own frame rather than a clause.
+            It is the half of a decision that is normally left out, and leaving
+            it out is what turns an argument into an assertion.
+          */}
+          <div
+            className="mt-5 max-w-xl rounded-xl p-4"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          >
+            <div
+              className="text-[10px] font-bold uppercase tracking-[0.16em]"
+              style={{ color: accentInk("conflict") }}
+            >
+              Rejected
+            </div>
+            <p className="mt-1.5 text-sm leading-relaxed text-white/70">{d.rejected.option}</p>
+            <p className="mt-2 text-xs leading-relaxed text-white/50">{d.rejected.cost}</p>
+          </div>
+
+          {/* The line that actually holds. */}
+          <div className="mt-4 max-w-xl overflow-hidden rounded-xl border" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+            <div
+              className="flex items-center justify-between px-3.5 py-2 font-mono text-[10px]"
+              style={{ background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.5)" }}
+            >
+              <span>{d.code.source}</span>
+              <span>{d.code.lang}</span>
+            </div>
+            <pre className="overflow-x-auto bg-black/40 px-3.5 py-3 font-mono text-[11px] leading-relaxed text-white/75">
+{d.code.snippet}
+            </pre>
+          </div>
+
+          <p className="mt-4 max-w-xl text-xs leading-relaxed text-white/45">
+            <span className="font-semibold text-white/65">Why this is not the default. </span>
+            {d.unusual}
+          </p>
+
+          <p
+            className="mt-3 border-l-2 pl-3 font-mono text-[11px] leading-relaxed"
+            style={{ borderColor: accentColor(d.accent, 0.7), color: accentInk(d.accent) }}
+          >
+            {d.proof}
+          </p>
+        </div>
+
+        <div className={`relative min-w-0 ${flip ? "lg:order-1" : "lg:order-2"}`}>
+          <Tilt3DCard max={4}>
+            <div className="cine-glass relative overflow-hidden rounded-2xl p-4 sm:p-6">
+              <InViewBurst accent={d.accent} />
+              <div className="aspect-[420/260] w-full"><DecisionScene slug={d.slug} /></div>
+            </div>
+          </Tilt3DCard>
+        </div>
+      </div>
+    </section>
+  );
+}

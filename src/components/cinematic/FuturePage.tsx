@@ -1,20 +1,15 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
+import Link from "next/link";
 import { motion, useScroll, useTransform } from "framer-motion";
-import {
-  ArrowDown,
-  ArrowRight,
-  GitBranch,
-  Layers,
-  LineChart,
-  Network,
-  Rocket,
-  ShieldCheck,
-  Wallet,
-  Waypoints,
-} from "lucide-react";
+import { ArrowDown, ArrowRight } from "lucide-react";
+
 import { EASE } from "@/lib/motion";
+import { CONTINUUM, labelCounts, type ContinuumModule } from "@/lib/continuum";
+import { accentColor, accentInk } from "@/lib/accents";
+import { ParticleCanvas } from "@/components/ui/particle-canvas";
+import { SCENES, AuthorityStackScene } from "@/components/continuum/Scenes";
 import {
   ChapterMarker,
   FilmGrain,
@@ -23,284 +18,76 @@ import {
   Pill,
   RevealHeading,
   Tilt3DCard,
-  accentColor,
-  type Accent,
 } from "./index";
-import {
-  ConciergeVisual,
-  ContinuityVisual,
-  ContinuumVisual,
-  LaunchpadVisual,
-  RelayVisual,
-  ReliabilityVisual,
-  ScenarioVisual,
-  WalletVisual,
-} from "./FutureVisuals";
 
 /**
- * The Continuum — the future-vision page as a cinematic scroll.
+ * The Continuum — one verified handoff becoming a living home relationship.
  *
- * The previous version was eight stacked paragraphs. Everything true was in
- * there and nobody would ever have read it, because a wall of confident prose
- * about software that does not exist is the least persuasive artefact in
- * product work. This is the same eight modules with the same claims and the
- * same honesty labels, rebuilt as a narrative: one act per module, the copy on
- * one side, a live mockup of the mechanism on the other, sides alternating so
- * the eye keeps moving down the page.
+ * Rebuilt from a catalogue into a sequence. The previous version was eight
+ * modules arguing for themselves in parallel, several of them arguing the same
+ * thing: two sections about getting data in, three about surfacing what needs
+ * attention. Read end to end it was a list, and a list has no thesis.
  *
- * Two rules hold it to this project's standards rather than letting it become a
- * showreel. First, the labels never blur — BUILT AND FUNCTIONING, INTERACTIVE
- * CONCEPT and FUTURE HYPOTHESIS are printed on every act, and the one module
- * that is actually built says so loudest. Second, every accent names a utility
- * state; there is no colour here chosen because a card needed to look different
- * from the one above it.
+ * Now the order carries the argument. Everything enters through one door, a
+ * human is helped rather than replaced, what needs attention explains itself,
+ * the partner who sent it can see it, the relationship outlives the move, and
+ * an external agent is let near it last and least.
+ *
+ * Two rules hold it to this project's standards. The honesty labels never
+ * blur — one built, four concepts, two hypotheses, printed on every act and
+ * counted by a test. And each section is allowed exactly one bold sentence,
+ * because a page where everything is emphasised has emphasised nothing.
+ *
+ * No competitor is named anywhere on this page. The market reasoning behind
+ * these sections, with sources, is in `research/competitive-landscape.md`.
  */
 
-type Label = "BUILT AND FUNCTIONING" | "INTERACTIVE CONCEPT" | "FUTURE HYPOTHESIS";
-
-interface Module {
-  icon: typeof Network;
-  title: string;
-  kicker: string;
-  body: string;
-  bullets: string[];
-  visual: ReactNode;
-  accent: Accent;
-  label: Label;
-}
-
-const LABEL_ACCENT: Record<Label, Accent> = {
-  "BUILT AND FUNCTIONING": "recovered",
-  "INTERACTIVE CONCEPT": "internet",
-  "FUTURE HYPOTHESIS": "solar",
+const WORD: Record<number, string> = {
+  1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven", 8: "Eight",
 };
 
-const MODULES: Module[] = [
-  {
-    icon: Waypoints,
-    title: "Move Relay",
-    kicker: "THE SPINE EVERYTHING ELSE STANDS ON",
-    body: "Multi-channel ingestion, deterministic duplicate detection, a canonical record no machine may write alone, a grounded briefing, a provider timeout that resolves to UNKNOWN rather than a guess, and reconciliation that finds the order which existed all along.",
-    bullets: [
-      "Real code over real Postgres, not a mock",
-      "Every field carries who supplied it, through which channel, and when",
-      "A blind retry is refused — the count of retries not attempted is the headline metric",
-    ],
-    visual: <RelayVisual />,
-    accent: "verified",
-    label: "BUILT AND FUNCTIONING",
-  },
-  {
-    icon: GitBranch,
-    title: "Concierge Compiler",
-    kicker: "A CONVERSATION BECOMES EVIDENCE",
-    body: "Every concierge call compiles into facts, and each fact stays tied to the utterance it came from. The AI proposes; a human confirms; the record updates through the same approval path Move Relay already enforces.",
-    bullets: [
-      "Each extracted fact links back to its transcript moment",
-      "Preferences are not facts, and the compiler says so",
-      "Demo replays a synthetic call — no live telephony",
-    ],
-    visual: <ConciergeVisual />,
-    accent: "internet",
-    label: "INTERACTIVE CONCEPT",
-  },
-  {
-    icon: Wallet,
-    title: "Move Wallet & Offer Graph",
-    kicker: "ONE TRANSPARENT PLACE FOR EVERY BENEFIT",
-    body: "Eligibility is decided by rules against verified campaign data, and the reason is always shown next to the answer. An offer withheld is as legible as an offer granted.",
-    bullets: [
-      "Eligibility carries its own justification",
-      "AI may explain an offer; it may never invent a discount",
-      "No secret ranking of providers by who paid",
-    ],
-    visual: <WalletVisual />,
-    accent: "electricity",
-    label: "INTERACTIVE CONCEPT",
-  },
-  {
-    icon: Rocket,
-    title: "Network Launchpad",
-    kicker: "PARTNER ONBOARDING AT NETWORK SCALE",
-    body: "Sample data becomes an AI-assisted mapping, which becomes deterministic validation, contract tests, synthetic referrals, a human approval, and only then a live channel — with drift monitoring behind it.",
-    bullets: [
-      "Credible at LeadingRE scale: ~550 firms, ~135k associates",
-      "AI suggests the mapping; it never activates the channel",
-      "Drift after launch is surfaced, not silently absorbed",
-    ],
-    visual: <LaunchpadVisual />,
-    accent: "verified",
-    label: "INTERACTIVE CONCEPT",
-  },
-  {
-    icon: Layers,
-    title: "Scenario Compiler",
-    kicker: "DESCRIBE A FAILURE, WATCH IT RUN",
-    body: "State a scenario in plain language; the system generates synthetic referrals, injects the failure, runs the permission tests, and returns a pass/fail replay you can step through.",
-    bullets: [
-      "Duplicate across channels · provider timeout · blocked retry · cross-partner read",
-      "The same engine that runs the scenario runs production",
-      "scenario.test.ts is a working seed of exactly this",
-    ],
-    visual: <ScenarioVisual />,
-    accent: "recovered",
-    label: "INTERACTIVE CONCEPT",
-  },
-  {
-    icon: LineChart,
-    title: "Home Continuum",
-    kicker: "THE MOVE IS THE ACQUISITION, NOT THE PRODUCT",
-    body: "A permissioned home profile that stays useful after move-in: activation checks, plan reviews, renewal windows, life events. The retention engine that turns a one-time acquisition into a relationship.",
-    bullets: [
-      "Consent re-checked at every beat, never assumed from the first",
-      "The direct answer to lifetime-concierge positioning",
-      "Same provenance kernel, longer time horizon",
-    ],
-    visual: <ContinuumVisual />,
-    accent: "solar",
-    label: "FUTURE HYPOTHESIS",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Provider Reliability Graph",
-    kicker: "LEARN FROM WHAT ACTUALLY HAPPENED",
-    body: "Latency, timeout rate, unknown-outcome rate, reconciliation success — measured across every handoff. No model decides which provider is best; the operational record does.",
-    bullets: [
-      "Measured, never predicted",
-      "The prototype already emits the raw material",
-      "An unknown outcome is a fact about a provider, not an error to hide",
-    ],
-    visual: <ReliabilityVisual />,
-    accent: "unknown",
-    label: "FUTURE HYPOTHESIS",
-  },
-  {
-    icon: Network,
-    title: "Service Continuity Graph",
-    kicker: "TWO PRODUCTS, SHARED PRIMITIVES",
-    body: "Authorized home-service needs flowing into a verified vendor workflow. Move Relay and a vendor hub stay separate products sharing one kernel — provenance, consent, attribution, workflow state, human approval, audit.",
-    bullets: [
-      "Portfolio thinking without assuming anyone's private roadmap",
-      "The dashed edge is the part that is not built",
-      "Authorization is relationship-based, not a role string",
-    ],
-    visual: <ContinuityVisual />,
-    accent: "security",
-    label: "FUTURE HYPOTHESIS",
-  },
-];
-
-/* ── hero ─────────────────────────────────────────────────────────────────── */
-
-function Hero({ onScroll }: { onScroll: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const y = useTransform(scrollYProgress, [0, 1], [0, 120]);
-  const fade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-
-  return (
-    <div ref={ref} className="relative flex min-h-[86vh] items-center overflow-hidden">
-      {/* One wash of verified blue from below — the only colour in the frame. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{ background: `radial-gradient(ellipse at 50% 120%, ${accentColor("verified", 0.16)}, transparent 60%)` }}
-      />
-      <motion.div style={{ y, opacity: fade }} className="relative mx-auto w-full max-w-[1400px] px-5 sm:px-8">
-        <Pill accent="verified">The continuum</Pill>
-        <h1 className="mt-6 max-w-4xl text-[clamp(34px,6vw,76px)] font-extrabold uppercase leading-[1.02] tracking-tight text-white">
-          The move is the acquisition.
-          <br />
-          <span style={{ color: accentColor("verified", 1) }}>The home is the product.</span>
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-white/65">
-          Move Relay makes the first handoffs trustworthy. Everything below extends the same
-          provenance, consent and attribution kernel across the rest of the home relationship —
-          one act at a time, each labelled for exactly what it is.
-        </p>
-        <div className="mt-9 flex flex-wrap items-center gap-3">
-          <button
-            onClick={onScroll}
-            className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
-            style={{ background: accentColor("verified", 1) }}
-          >
-            Walk the continuum <ArrowDown className="h-4 w-4" />
-          </button>
-          <MagneticLink
-            href="/story"
-            className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
-            {...{ style: { borderColor: "rgba(255,255,255,0.28)" } }}
-          >
-            See the built proof <ArrowRight className="h-4 w-4" />
-          </MagneticLink>
-        </div>
-
-        {/* Honesty legend, stated before the first claim rather than after the last. */}
-        <div className="mt-12 flex flex-wrap gap-2">
-          {(Object.keys(LABEL_ACCENT) as Label[]).map((l) => (
-            <span
-              key={l}
-              className="rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-              style={{
-                borderColor: accentColor(LABEL_ACCENT[l], 0.35),
-                background: accentColor(LABEL_ACCENT[l], 0.08),
-                color: accentColor(LABEL_ACCENT[l], 0.95),
-              }}
-            >
-              {l}
-            </span>
-          ))}
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-/* ── one act ──────────────────────────────────────────────────────────────── */
-
-function StoryRow({ m, index }: { m: Module; index: number }) {
-  const Icon = m.icon;
+function StorySection({ m, index }: { m: ContinuumModule; index: number }) {
+  const Scene = SCENES[m.slug];
+  // Sides alternate so the eye keeps travelling down the page rather than
+  // running a column.
   const flip = index % 2 === 1;
 
   return (
-    <section className="relative">
-      <div className="relative mx-auto grid max-w-[1400px] gap-10 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1fr_1.25fr] lg:items-center">
-        <span className="absolute left-4 top-14 hidden h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#04070b] font-mono text-[11px] font-semibold text-white/55 sm:flex">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-
+    <section className="relative mx-auto max-w-[1400px] px-5 py-16 sm:px-8 sm:py-24">
+      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <motion.div
-          initial={{ opacity: 0, y: 26 }}
+          initial={{ opacity: 0, y: 28 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
+          viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.7, ease: EASE.outQuart }}
           className={`min-w-0 ${flip ? "lg:order-2" : "lg:order-1"}`}
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-xl border"
-              style={{
-                borderColor: accentColor(m.accent, 0.3),
-                background: accentColor(m.accent, 0.08),
-                color: accentColor(m.accent, 1),
-              }}
-            >
-              <Icon className="h-4 w-4" />
-            </span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: accentColor(m.accent, 0.9) }}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Pill accent={m.accent}>{m.label}</Pill>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55">
               {m.kicker}
             </span>
           </div>
 
-          <h3 className="mt-5 text-[clamp(26px,3.4vw,46px)] font-semibold leading-[1.06] tracking-tight text-white">
+          <h3 className="mt-5 text-[clamp(26px,3.4vw,44px)] font-semibold leading-[1.06] tracking-tight text-white">
             {m.title}
           </h3>
-          <p className="mt-4 max-w-xl text-base leading-relaxed text-white/65">{m.body}</p>
+
+          {/*
+            The one sentence this section may say loudly. Everything else on the
+            page is body weight, which is what lets this land at all.
+          */}
+          <p className="mt-4 max-w-xl text-[clamp(17px,1.9vw,22px)] font-semibold leading-[1.35] tracking-tight text-white/95">
+            {m.line}
+          </p>
+
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/60">{m.body}</p>
 
           <ul className="mt-6 space-y-2.5">
             {m.bullets.map((b) => (
               <li key={b} className="flex items-start gap-2.5 text-sm leading-relaxed text-white/70">
                 <span
+                  aria-hidden
                   className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ background: accentColor(m.accent, 1) }}
                 />
@@ -309,18 +96,24 @@ function StoryRow({ m, index }: { m: Module; index: number }) {
             ))}
           </ul>
 
-          {/* The label sits with the claim, not in a key at the bottom of the page. */}
-          <div className="mt-6">
-            <span
-              className="rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-              style={{
-                borderColor: accentColor(LABEL_ACCENT[m.label], 0.4),
-                background: accentColor(LABEL_ACCENT[m.label], 0.1),
-                color: accentColor(LABEL_ACCENT[m.label], 1),
-              }}
+          <div className="mt-7 flex flex-wrap items-center gap-5">
+            <Link
+              href={`/future/${m.slug}` as never}
+              className="group inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em]"
+              style={{ color: accentInk(m.accent) }}
             >
-              {m.label}
-            </span>
+              The full case
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            {m.proof && (
+              <Link
+                href={m.proof.href as never}
+                className="group inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white/55 transition-colors hover:text-white/90"
+              >
+                {m.proof.label}
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            )}
           </div>
         </motion.div>
 
@@ -332,75 +125,185 @@ function StoryRow({ m, index }: { m: Module; index: number }) {
           className={`relative min-w-0 ${flip ? "lg:order-1" : "lg:order-2"}`}
         >
           <Tilt3DCard max={4}>
-            <div className="relative">
+            <div className="cine-glass relative overflow-hidden rounded-2xl p-4 sm:p-6">
               <InViewBurst accent={m.accent} />
-              {m.visual}
+              <div className="aspect-[420/260] w-full">{Scene ? <Scene /> : null}</div>
             </div>
           </Tilt3DCard>
         </motion.div>
       </div>
-
-      <div className="absolute left-[33px] top-0 hidden h-full w-px bg-gradient-to-b from-transparent via-white/8 to-transparent sm:block" />
     </section>
   );
 }
 
-/* ── page ─────────────────────────────────────────────────────────────────── */
-
 export default function FuturePage() {
   const storyRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const counts = labelCounts();
+
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+  const heroFade = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
+      {/*
+        The same field the demo runs on.
+
+        The beams were doing an honest job — encoding the built/concept/
+        hypothesis ratio as colour — and reading badly: a coloured wash with no
+        detail, competing with the diagrams rather than sitting behind them.
+        The particle field is the vocabulary this project already uses for
+        records in transit, so the background of a page about a record's life
+        is now made of records.
+
+        Fixed at `arrival` rather than wired to state, and that is deliberate:
+        this page reads no database, and driving the field from a phase it
+        cannot observe would be the decoration the demo's version specifically
+        avoids. Arrival is the phase this whole page is about.
+      */}
+      <div className="cine-aurora" aria-hidden />
+      <ParticleCanvas phase="arrival" />
       <FilmGrain id="future" />
 
-      <Hero onScroll={() => storyRef.current?.scrollIntoView({ behavior: "smooth" })} />
+      <div className="relative" style={{ zIndex: 1 }}>
+        <section ref={heroRef} className="mx-auto max-w-[1400px] px-5 pb-16 pt-24 sm:px-8 sm:pb-24 sm:pt-32">
+          <motion.div style={{ opacity: heroFade }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill accent="verified">The Continuum</Pill>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/55">
+                An additive hypothesis
+              </span>
+            </div>
 
-      <div ref={storyRef} className="scroll-mt-8">
-        <ChapterMarker n="01" label="Eight modules, one kernel" />
-        <div className="mx-auto max-w-[1400px] px-5 pb-4 sm:px-8">
-          <RevealHeading className="max-w-3xl text-[clamp(26px,4vw,52px)] font-semibold leading-[1.06] tracking-tight text-white">
-            Preserve · resolve · attribute · verify —{" "}
-            <span style={{ color: accentColor("verified", 1) }}>the same primitives, a wider surface.</span>
-          </RevealHeading>
-        </div>
+            <RevealHeading className="mt-6 max-w-4xl text-[clamp(34px,6vw,76px)] font-semibold leading-[1.02] tracking-tight text-white">
+              From one verified handoff to a living home relationship
+            </RevealHeading>
 
-        {MODULES.map((m, i) => (
-          <StoryRow key={m.title} m={m} index={i} />
-        ))}
-      </div>
+            <p className="mt-7 max-w-2xl text-lg leading-relaxed text-white/70">
+              Move Relay begins at one difficult moment: three sources disagreeing about a
+              household, and a provider whose reply never arrives. Once that foundation is
+              trustworthy, the same verified record can carry everything that comes after it.
+            </p>
 
-      <ChapterMarker n="02" label="The thread" />
-      <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 sm:p-12">
-          <blockquote className="max-w-3xl text-[clamp(20px,2.6vw,32px)] font-medium leading-[1.3] tracking-tight text-white/90">
-            Utility Connect should not only connect the home. It can become the intelligence
-            layer that keeps the home, customer, partner, concierge, provider and vendor
-            relationship <span style={{ color: accentColor("verified", 1) }}>connected over time</span>.
-          </blockquote>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/55">
-            One module on this page is built and covered by tests. Five are explorable concepts.
-            Two are hypotheses that have been reasoned about and not written. That ratio is
-            deliberate, and it is printed on every act above rather than left for you to guess.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <MagneticLink
-              href="/story"
-              className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-wide text-white"
-              {...{ style: { background: accentColor("verified", 1) } }}
-            >
-              Walk the built proof <ArrowRight className="h-4 w-4" />
-            </MagneticLink>
-            <MagneticLink
-              href="/demo"
-              className="inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
-              {...{ style: { borderColor: "rgba(255,255,255,0.25)" } }}
-            >
-              Run the live demo <ArrowRight className="h-4 w-4" />
-            </MagneticLink>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <button
+                onClick={() => storyRef.current?.scrollIntoView({ behavior: "smooth" })}
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-wide text-white"
+                style={{ background: "var(--uc-cyan-fill)" }}
+              >
+                Walk the continuum <ArrowDown className="h-4 w-4" />
+              </button>
+              <MagneticLink
+                href="/demo"
+                className="inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+                {...{ style: { borderColor: "rgba(255,255,255,0.25)" } }}
+              >
+                See the built proof <ArrowRight className="h-4 w-4" />
+              </MagneticLink>
+            </div>
+
+            {/*
+              The ratio, at the top rather than buried at the bottom. It is the
+              most important thing on the page and the easiest to skim past.
+            */}
+            <div className="mt-10 flex flex-wrap gap-2">
+              <Pill accent="recovered">{counts["BUILT AND FUNCTIONING"] ?? 0} built and functioning</Pill>
+              <Pill accent="internet">{counts["INTERACTIVE CONCEPT"] ?? 0} interactive concepts</Pill>
+              <Pill accent="solar">{counts["FUTURE HYPOTHESIS"] ?? 0} future hypotheses</Pill>
+            </div>
+          </motion.div>
+        </section>
+
+        <div ref={storyRef} className="scroll-mt-8">
+          <ChapterMarker n="01" label="Seven sections, one record" />
+          <div className="mx-auto max-w-[1400px] px-5 pb-2 sm:px-8">
+            <p className="max-w-2xl text-base leading-relaxed text-white/60">
+              The order is the argument. Everything enters through one door, a person is helped
+              rather than replaced, what needs attention explains itself, the partner who sent it
+              can see it, the relationship outlives the move — and an external agent is let near
+              it last, and least.
+            </p>
           </div>
+
+          {CONTINUUM.map((m, i) => (
+            <StorySection key={m.slug} m={m} index={i} />
+          ))}
         </div>
-      </section>
+
+        <ChapterMarker n="02" label="The boundary that holds it together" />
+        <section className="mx-auto max-w-[1400px] px-5 pb-12 sm:px-8">
+          <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
+            <div className="min-w-0">
+              <h2 className="max-w-xl text-[clamp(24px,3.4vw,44px)] font-semibold leading-[1.06] tracking-tight text-white">
+                Not an autonomous assistant.
+                <br />
+                <span style={{ color: accentInk("verified") }}>
+                  A human-led system where every intelligent action stays grounded.
+                </span>
+              </h2>
+              <p className="mt-6 max-w-xl text-sm leading-relaxed text-white/60">
+                Read it from the bottom. Nothing above a layer is safe until the layer beneath it
+                exists: intelligence is only worth having over a record you can verify, and
+                authority is only meaningful over intelligence you can constrain.
+              </p>
+            </div>
+            <div className="min-w-0">
+              <div className="cine-glass relative overflow-hidden rounded-2xl p-4 sm:p-6">
+                <div className="aspect-[420/260] w-full">
+                  <AuthorityStackScene />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 sm:p-12">
+            <blockquote className="max-w-3xl text-[clamp(20px,2.6vw,32px)] font-medium leading-[1.3] tracking-tight text-white/90">
+              Utility Connect should not only connect the home. It can become the layer that keeps
+              the home, customer, partner, concierge and provider relationship{" "}
+              <span style={{ color: accentInk("verified") }}>connected over time</span>.
+            </blockquote>
+
+            <p className="mt-6 max-w-2xl text-sm leading-relaxed text-white/55">
+              {WORD[counts["BUILT AND FUNCTIONING"] ?? 0]} section on this page is built and covered
+              by tests. {WORD[counts["INTERACTIVE CONCEPT"] ?? 0]} are explorable concepts.{" "}
+              {WORD[counts["FUTURE HYPOTHESIS"] ?? 0]} are hypotheses that have been reasoned about
+              and not written. That ratio is deliberate, and it is printed on every act above
+              rather than left for you to guess.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <MagneticLink
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-wide text-white"
+                {...{ style: { background: "var(--uc-cyan-fill)" } }}
+              >
+                Open the operator console <ArrowRight className="h-4 w-4" />
+              </MagneticLink>
+              <MagneticLink
+                href="/architecture"
+                className="inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+                {...{ style: { borderColor: "rgba(255,255,255,0.25)" } }}
+              >
+                Read the decisions <ArrowRight className="h-4 w-4" />
+              </MagneticLink>
+            </div>
+
+            {/*
+              The disclosure, quiet and unavoidable. This is a portfolio piece
+              reasoning from public workflows, not anyone's internal roadmap,
+              and a page of confident future-tense product copy has to say so
+              somewhere a reader will actually reach.
+            */}
+            <p className="mt-8 max-w-2xl text-xs leading-relaxed text-white/40">
+              Future hypotheses reasoned from publicly observable moving and home-service
+              workflows. Not affiliated with Utility Connect, and not presented as its internal
+              roadmap. Every customer, partner and provider record in this project is synthetic.
+            </p>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

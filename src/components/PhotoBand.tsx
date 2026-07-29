@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useStillness } from "@/lib/use-stillness";
+import { LiquidText } from "@/components/ui/liquid-text";
 
 /**
  * A full-bleed photograph with a line of copy over it.
@@ -25,6 +26,7 @@ export function PhotoBand({
   src,
   alt,
   eyebrow,
+  eyebrowLiquid = false,
   title,
   body,
   align = "left",
@@ -34,6 +36,15 @@ export function PhotoBand({
   src: string;
   alt: string;
   eyebrow?: string;
+  /**
+   * Render the eyebrow as a display word that fills with cyan instead of as an
+   * 11px label.
+   *
+   * Reserved for the one band where the fill means something. A rising level is
+   * a claim — that the services come on — and repeating it above every
+   * photograph would turn a statement into a template.
+   */
+  eyebrowLiquid?: boolean;
   title: React.ReactNode;
   body?: string;
   align?: "left" | "center";
@@ -108,14 +119,20 @@ export function PhotoBand({
         <div
           className={`mx-auto w-full max-w-6xl px-6 py-20 ${centred ? "text-center" : ""}`}
         >
-          {eyebrow && (
-            <div
-              className="text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: "var(--uc-cyan-ink)" }}
-            >
-              {eyebrow}
-            </div>
-          )}
+          {eyebrow &&
+            (eyebrowLiquid ? (
+              <LiquidText
+                text={eyebrow}
+                className={`h-auto w-[min(64vw,380px)] ${centred ? "mx-auto" : ""}`}
+              />
+            ) : (
+              <div
+                className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: "var(--uc-cyan-ink)" }}
+              >
+                {eyebrow}
+              </div>
+            ))}
           <h2
             className={`mt-3 font-semibold leading-[1.08] tracking-tight text-white ${
               centred ? "mx-auto max-w-3xl" : "max-w-2xl"
