@@ -8,6 +8,13 @@ build/
 .DS_Store
 tsconfig.tsbuildinfo
 
+# Playwright's own output. The specs are the evidence; their artifacts are not.
+test-results/
+playwright-report/
+
+# Scratch, declared non-durable in CLAUDE.md. Decisions belong in docs/DECISIONS.
+notes/
+
 # Research inputs, deliberately not redistributed.
 #
 # src/Photos holds screenshots of utilityconnect.net taken while auditing their
