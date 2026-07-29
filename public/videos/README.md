@@ -15,13 +15,18 @@ file, and a file no slot plays.
 
 ---
 
-## The three slots
+## The four slots
 
-| Slot | Where it plays | File | Loops |
-| --- | --- | --- | --- |
-| `opener` | Above the hero, scroll-expansion treatment | `Photoreal_architectural_cinema.mp4` | yes |
-| `brand` | Inside the About section | `Create_a_world_class_cinemati.mp4` | no |
-| `invitation` | Inside the closing call to action | `Generated Video July 26, 2026 - 2_50AM.mp4` | no |
+| Slot | Role | Where it plays | File | Loops |
+| --- | --- | --- | --- | --- |
+| `opener` | clip | Above the hero, scroll-expansion treatment | `Photoreal_architectural_cinema.mp4` then `Create_a_world_class_cinemati.mp4`, played as one film | no |
+| `invitation` | clip | Inside the closing call to action | `Generated Video July 26, 2026 - 2_50AM.mp4` | no |
+| `brandFilm` | backdrop | Behind "the same front door" | `uc-brand-film.mp4` | yes |
+| `channels` | backdrop | Behind "one move arrives through several channels" | `uc-product-film.mp4` | yes |
+
+A **clip** is the thing the visitor is asked to watch. A **backdrop** is the
+room they read in — an ambient loop under text, never a thing to sit through.
+The distinction is declared on the slot and decides which ceilings apply.
 
 ### Why each one sits where it does
 
@@ -91,8 +96,10 @@ what makes a heavier file defensible low on the page.
 | Aspect | 16:9 |
 | Resolution | 1920×1080 max |
 | Codec | H.264 High profile |
-| Duration | **under 14s** — checked |
+| Duration, clips | **under 14s** — checked |
+| Duration, backdrops | not checked — they loop, so there is no end to reach |
 | Size, opener | **under 3 MB** — checked |
+| Size, backdrops | **under 4 MB** — checked, tighter than a clip |
 | Size, below the fold | **under 8 MB** — checked |
 | Fast-start | **required** — checked |
 | Poster | optional; JPEG under 350 KB. Without one the frame is black until the first frame decodes |
@@ -163,8 +170,11 @@ ffmpeg -i INPUT.mp4 \
   -movflags +faststart public/videos/OUTPUT.mp4
 ```
 
-`ffmpeg-static` is a dev dependency, so `node -e "console.log(require('ffmpeg-static'))"`
-gives you a binary without installing anything system-wide.
+ffmpeg is **not** a dependency of this repository. Encoding happens once, by
+hand, when a clip is added - carrying an 80 MB binary through every `npm
+install` and every deployment build to serve that is a bad trade. Install it
+however suits your machine, or run it once with
+`npx --yes ffmpeg-static-cli` / `npx --yes ffmpeg-static`.
 
 The raw downloads stay ignored — `YTDown.com_*`, `*_720p.mp4`, `*_1080p.mp4` —
 and a test asserts `git check-ignore` still covers that pattern. Dropping a
