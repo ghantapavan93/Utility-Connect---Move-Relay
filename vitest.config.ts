@@ -29,6 +29,25 @@ export default defineConfig({
     },
   },
   test: {
+    /*
+      Isolation, made explicit rather than inherited.
+
+      Under PGlite each test file gets its own in-memory database for free,
+      because Vitest re-instantiates modules per file. The suite grew to depend
+      on that without anyone deciding it should, and the dependency was
+      invisible until the same tests ran against a real server and started
+      seeing each other's rows.
+
+      This hook gives every file its own PostgreSQL schema when `RELAY_DB=pg`,
+      and does nothing under PGlite. It is a no-op for the zero-setup path and
+      the thing that makes the real-server path trustworthy.
+    */
+    setupFiles: ["src/lib/__tests__/setup-pg-schema.ts"],
+    // Vitest's default glob also matches the Playwright specs in `e2e/`. Left
+    // alone it collects them, fails on the missing Playwright runtime, and
+    // reports a broken unit suite for a browser test that was never its job.
+    // The two runners share a repository, not a scope.
+    exclude: ["**/node_modules/**", "**/dist/**", "e2e/**"],
     fileParallelism: false,
     // Database work through a WASM Postgres is slower than an in-memory fake,
     // and a reset that drops and recreates a tenant is the slowest step here.
