@@ -1,240 +1,435 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { AppSidebar } from "@/components/AppSidebar";
-import { Constellation3D } from "@/components/Constellation3D";
-import { StateBadge } from "@/components/StateBadge";
+import { IntakeComposer } from "@/components/console/IntakeComposer";
+import { MovesTable, type MoveRow as TableRow } from "@/components/console/MovesTable";
+import { WorkflowRunner } from "@/components/console/WorkflowRunner";
+import { ControlRoomHero } from "@/components/control-room/ControlRoomHero";
+import { DecisionLanes } from "@/components/control-room/DecisionLanes";
+import { BatchOperation } from "@/components/control-room/BatchOperation";
+import { DomainMap, type DomainMapData } from "@/components/control-room/DomainMap";
+import { MergeApproval } from "@/components/control-room/MergeApproval";
+import {
+  headlineFor,
+  lanesFor,
+  metricsFor,
+  shiftBriefFor,
+  type BatchResult,
+  type LoadState,
+  type MoveRow,
+  type ServiceRow,
+  type Stats,
+} from "@/lib/control-room";
+import { accentColor, type Accent } from "@/lib/accents";
 
 /**
- * The operator dashboard — the product shell overview.
+ * The move operations control room.
  *
- * Every headline figure is a real count from /api/v1/stats, so the numbers move
- * only when the demo actually runs. The referral list is the synthetic scenario
- * cohort, labelled as such. No fabricated production metrics anywhere: a reviewer
- * can cross-check any number against the database.
+ * This was an operator console in the developer sense: intake controls at the
+ * top, a metric strip, and a 3D graph whose five node states were hardcoded
+ * literals. Everything on it worked and almost none of it answered the question
+ * an operator actually arrives with — not "how many moves exist" but "what is
+ * waiting for me, and why can the system not finish it".
+ *
+ * It now opens with a headline derived from returned rows, three decision lanes
+ * separating what automation settled from what a named human must settle, and a
+ * domain map drawn from the selected move's own projection rather than from an
+ * array in this file.
+ *
+ * ## One read, one truth
+ *
+ * Every panel is fed from a single `refresh`. The panels are not independent —
+ * a batch landing changes the move list, the counts, the lanes and the map
+ * together — and refreshing them separately produced a console that briefly
+ * disagreed with itself about how many moves existed.
+ *
+ * ## What it will not do
+ *
+ * There is no reset control. `demo.reset()` deletes the whole `uc-demo`
+ * organisation, and this page shares that tenant with `/demo` and with every
+ * other reviewer, so a public reset would let one visitor destroy another's
+ * shift mid-run. The gap is real, and it is stated on the page.
  */
 
-interface Stats {
-  activeMoves: number;
-  canonicalMoves: number;
-  duplicatesPrevented: number;
-  openConflicts: number;
-  auditEvents: number;
-  aiBriefings: number;
-  ordersRecovered: number;
-  providerSubmissions: number;
+const ACTOR = "user:concierge-7";
+
+interface ConciergeProjection {
+  exists?: boolean;
+  verified?: Array<{ field: string; source: string; by: string | null }>;
+  unconfirmed?: Array<{ field: string; source: string }>;
 }
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [hasData, setHasData] = useState(false);
+  const [moves, setMoves] = useState<MoveRow[]>([]);
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [projection, setProjection] = useState<ConciergeProjection | null>(null);
+  const [batch, setBatch] = useState<BatchResult | null>(null);
+  const [load, setLoad] = useState<LoadState>("loading");
+  const [selected, setSelected] = useState<MoveRow | null>(null);
+  const [query, setQuery] = useState("");
+  const [shiftNote, setShiftNote] = useState<string | null>(null);
+
+  const lanesRef = useRef<HTMLDivElement>(null);
+  const batchRef = useRef<HTMLDivElement>(null);
+  const mergeRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Re-read everything the console shows.
+   *
+   * A failed request sets `failed` rather than leaving the previous state in
+   * place. A console that still looks calm after the tenant became unreachable
+   * is the most misleading thing this page could do, and it is exactly what a
+   * `catch` that only logs produces.
+   */
+  const refresh = useCallback(async () => {
+    try {
+      const [sRes, mRes] = await Promise.all([fetch("/api/v1/stats"), fetch("/api/v1/moves")]);
+      if (!sRes.ok || !mRes.ok) {
+        setLoad("failed");
+        return;
+      }
+      const s = await sRes.json();
+      const m = await mRes.json();
+
+      const rows: MoveRow[] = m.moves ?? [];
+      setStats(s.stats);
+      setMoves(rows);
+      setSelected((prev) => (prev && rows.some((r) => r.id === prev.id) ? prev : (rows[0] ?? null)));
+      setLoad(s.hasData && rows.length > 0 ? "ready" : "empty");
+    } catch {
+      setLoad("failed");
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/v1/stats")
-      .then((r) => r.json())
-      .then((d) => {
-        setStats(d.stats);
-        setHasData(d.hasData);
-      });
+    void refresh();
+  }, [refresh]);
+
+  /**
+   * The selected move's operations and its concierge projection.
+   *
+   * The projection is what feeds the map: it already carries the real channel
+   * names, the operator who committed each canonical value, and the provider
+   * state — all behind the same authorization gate as every other read.
+   * Assembling the graph from anything else would mean inventing it twice.
+   */
+  useEffect(() => {
+    if (!selected) {
+      setServices([]);
+      setProjection(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [f, v] = await Promise.all([
+          fetch(`/api/v1/moves/${selected.id}/fulfillment`, { headers: { "X-Actor": ACTOR } }),
+          fetch(`/api/v1/moves/${selected.id}/views`, { headers: { "x-actor": ACTOR } }),
+        ]);
+        if (cancelled) return;
+
+        if (f.ok) {
+          const j = await f.json();
+          setServices(
+            (j.services ?? []).map(
+              (r: { id: string; serviceType: string; submissionState: string | null; providerOrderId: string | null }) => ({
+                id: r.id,
+                serviceType: r.serviceType,
+                state: r.submissionState,
+                providerOrderId: r.providerOrderId,
+              }),
+            ),
+          );
+        } else {
+          setServices([]);
+        }
+        setProjection(v.ok ? ((await v.json()) as ConciergeProjection) : null);
+      } catch {
+        if (!cancelled) {
+          setServices([]);
+          setProjection(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
+
+  const headline = useMemo(
+    () => headlineFor({ load, stats, moves, batch, services }),
+    [load, stats, moves, batch, services],
+  );
+  const lanes = useMemo(
+    () => lanesFor({ load, stats, moves, batch, services, selected }),
+    [load, stats, moves, batch, services, selected],
+  );
+  const metrics = useMemo(() => metricsFor(stats, moves, services), [stats, moves, services]);
+  const brief = useMemo(
+    () => shiftBriefFor({ load, stats, moves, batch, services }),
+    [load, stats, moves, batch, services],
+  );
+
+  /** The map, assembled from the projection rather than from a literal. */
+  const mapData: DomainMapData = useMemo(() => {
+    const fields = [...(projection?.verified ?? []), ...(projection?.unconfirmed ?? [])];
+    const names = [...new Set(fields.map((f) => f.source))];
+    const canonicalSources = new Set((projection?.verified ?? []).map((f) => f.source));
+
+    return {
+      reference: selected?.reference ?? null,
+      channels: names.map((name) => ({
+        name,
+        committed: canonicalSources.has(name),
+        contested: (selected?.openConflicts ?? 0) > 0 && !canonicalSources.has(name),
+      })),
+      operator: (projection?.verified ?? []).map((f) => f.by).find((b): b is string => !!b) ?? null,
+      operations: services.map((s) => ({
+        serviceType: s.serviceType,
+        state: s.state,
+        orderId: s.providerOrderId ?? null,
+      })),
+      contestedFields: selected?.openConflicts ?? 0,
+    };
+  }, [projection, services, selected]);
+
+  /**
+   * The guided shift.
+   *
+   * Deliberately small: it points the reviewer at the batch and lets the real
+   * operation carry the narrative. Orchestrating the full seventeen-step
+   * sequence from here would need to reset the shared `uc-demo` tenant first,
+   * and that reset is not safe to expose while two reviewers share it — so the
+   * shift starts where the backend can genuinely take it.
+   */
+  const runShift = useCallback(() => {
+    setShiftNote("Processing the synthetic partner batch. Watch the lanes, the metrics and the map change together.");
+    batchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const onBatchLanded = useCallback(
+    (result: BatchResult) => {
+      setBatch(result);
+      void refresh();
+      setShiftNote(
+        `${result.rows.accepted} accepted, ${result.rows.quarantined} held for review. Every panel below now reads from that same result.`,
+      );
+    },
+    [refresh],
+  );
+
+  /**
+   * Lane actions go to the control that performs them.
+   *
+   * `resolve-conflict` is the one item on this page that names a decision only
+   * a person may take, and until the merge control existed its button led back
+   * to the lane it came from — an authority notice pointing at nothing.
+   */
+  const onLaneAction = useCallback((id: string) => {
+    const target =
+      id === "review-quarantine" ? batchRef.current : id === "resolve-conflict" ? mergeRef.current : lanesRef.current;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
   return (
     <div className="flex min-h-dvh">
       <AppSidebar />
 
-      <div className="flex-1 overflow-x-hidden">
-        {/* Top bar */}
+      <div className="min-w-0 flex-1 overflow-x-hidden">
         <div
-          className="sticky top-0 z-40 flex items-center gap-4 border-b px-6 py-3"
-          style={{ borderColor: "var(--color-ground-3)", background: "color-mix(in oklab, var(--color-ground-0) 82%, transparent)", backdropFilter: "blur(12px)" }}
+          className="sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b px-4 py-2 sm:px-6"
+          style={{
+            borderColor: "var(--color-ground-3)",
+            background: "color-mix(in oklab, var(--color-ground-0) 82%, transparent)",
+            backdropFilter: "blur(12px)",
+          }}
         >
-          <div
-            className="flex flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-            style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-lo)" }}
+          <label
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-3"
+            style={{ borderColor: "var(--color-ground-3)" }}
           >
-            <span aria-hidden>⌕</span> Search moves, referrals, providers…
-          </div>
-          <Link
-            href="/demo"
-            className="rounded-lg px-4 py-2 text-sm font-semibold"
-            style={{ background: "var(--color-state-verified)", color: "white" }}
+            <span aria-hidden style={{ color: "var(--color-text-lo)" }}>⌕</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter by reference, state, or id…"
+              aria-label="Filter moves"
+              className="min-h-11 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-[color:var(--color-text-lo)]"
+            />
+          </label>
+          <button
+            onClick={() => void refresh()}
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg border px-3 text-sm font-semibold"
+            style={{ borderColor: "var(--color-ground-3)" }}
           >
-            + Run a move
-          </Link>
+            Refresh
+          </button>
         </div>
 
-        <main className="px-6 py-6">
-          {/* Welcome + network */}
-          <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
-            <div>
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className="text-2xl font-bold tracking-tight"
+        <main className="min-w-0 px-4 py-6 sm:px-6">
+          <ControlRoomHero
+            headline={headline}
+            metrics={metrics}
+            brief={brief}
+            load={load}
+            onStartShift={runShift}
+            shiftRunning={false}
+          />
+
+          {shiftNote && (
+            <p
+              aria-live="polite"
+              className="mt-4 rounded-xl border px-4 py-2.5 text-xs"
+              style={{ borderColor: accentColor("internet", 0.35), color: "var(--color-text-mid)" }}
+            >
+              {shiftNote}
+            </p>
+          )}
+
+          <div ref={lanesRef} className="mt-8 min-w-0">
+            <DecisionLanes items={lanes} load={load} onAction={onLaneAction} />
+          </div>
+
+          <div ref={batchRef} className="mt-8 min-w-0">
+            <BatchOperation actor={ACTOR} onLanded={onBatchLanded} />
+          </div>
+
+          {/* ---------------- the map, from the selected move's projection ---------------- */}
+          <section aria-labelledby="map-heading" className="mt-8 min-w-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2
+                id="map-heading"
+                className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: "var(--color-text-lo)" }}
               >
-                Move Relay overview
-              </motion.h1>
-              <p className="mt-1 text-sm" style={{ color: "var(--color-text-mid)" }}>
-                {hasData
-                  ? "Live figures from the demo tenant — every number is a real database count."
-                  : "No moves yet. Run the live workflow to populate these figures with real data."}
-              </p>
-
-              {/* Stat cards — real counts */}
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <StatCard label="Active moves" value={stats?.activeMoves ?? 0} tone="verified" />
-                <StatCard label="Duplicates prevented" value={stats?.duplicatesPrevented ?? 0} tone="conflict" hint="retry.blocked events" />
-                <StatCard label="Orders recovered" value={stats?.ordersRecovered ?? 0} tone="verified" hint="via reconciliation" />
-                <StatCard label="Audit events" value={stats?.auditEvents ?? 0} tone="transit" hint="append-only" />
-              </div>
-
-              {!hasData && (
-                <Link
-                  href="/demo"
-                  className="mt-4 inline-block rounded-lg px-4 py-2 text-sm font-semibold"
-                  style={{ background: "var(--color-state-verified)", color: "white" }}
-                >
-                  Run the workflow →
-                </Link>
-              )}
+                Handoff map
+              </h2>
+              <span className="font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                {selected
+                  ? `${mapData.channels.length} channels · ${mapData.operations.length} provider operations`
+                  : "no move selected"}
+              </span>
             </div>
 
-            {/* 3D network */}
-            <div className="rounded-2xl border p-4" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-sm font-semibold">Handoff network</span>
-                <span className="text-xs" style={{ color: "var(--color-text-lo)" }}>live state</span>
+            {/*
+              Drawn wide, listed narrow. The map is the one element that cannot
+              usefully shrink: a 900-unit viewBox in a 280px column renders its
+              labels at four physical pixels, so a phone gets the same domain
+              path as an ordered list instead of an unreadable picture.
+            */}
+            <div
+              className="mt-3 hidden min-w-0 rounded-2xl border p-4 lg:block"
+              style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}
+            >
+              <div className="h-[300px] min-w-0">
+                <DomainMap data={mapData} />
               </div>
-              <Constellation3D
-                converged={hasData}
-                height={300}
-                sources={[
-                  { id: "1", label: "Partner API", state: "verified" },
-                  { id: "2", label: "CSV", state: hasData ? "verified" : "conflict" },
-                  { id: "3", label: "Customer form", state: "verified" },
-                  { id: "4", label: "Microsite", state: "transit" },
-                  { id: "5", label: "Concierge", state: "pending" },
-                ]}
+            </div>
+
+            <ol className="mt-3 space-y-2 lg:hidden">
+              {mapData.channels.map((c) => (
+                <PathStep key={c.name} label={c.name} kind="intake channel" tone={c.committed ? "verified" : "internet"} />
+              ))}
+              <PathStep
+                label={mapData.reference ?? "no move selected"}
+                kind="canonical move record"
+                tone={mapData.contestedFields > 0 ? "conflict" : "verified"}
+              />
+              {mapData.operator && <PathStep label={mapData.operator} kind="decided by" tone="security" />}
+              {mapData.operations.map((o) => (
+                <PathStep
+                  key={o.serviceType}
+                  label={`${o.serviceType}${o.orderId ? ` · ${o.orderId}` : ""}`}
+                  kind={o.state ?? "not submitted"}
+                  tone={o.state === "unknown" ? "conflict" : o.state === "reconciled" ? "recovered" : "verified"}
+                />
+              ))}
+            </ol>
+          </section>
+
+          {/* ---------------- queue and fulfilment ---------------- */}
+          <div className="mt-8 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+            <section
+              aria-labelledby="queue-heading"
+              className="min-w-0 rounded-2xl border p-4 sm:p-5"
+              style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}
+            >
+              <h2
+                id="queue-heading"
+                className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                style={{ color: "var(--color-text-lo)" }}
+              >
+                Move queue
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: "var(--color-text-lo)" }}>
+                Selecting a move re-reads its projection, so the map, the metrics and fulfilment all follow it.
+              </p>
+              <div className="mt-3 min-w-0">
+                <MovesTable
+                  moves={moves as unknown as TableRow[]}
+                  query={query}
+                  loading={load === "loading"}
+                  selectedId={selected?.id ?? null}
+                  onSelect={(row) => setSelected(row as unknown as MoveRow)}
+                />
+              </div>
+            </section>
+
+            <div className="min-w-0 space-y-4">
+              {(selected?.openConflicts ?? 0) > 0 && (
+                <div ref={mergeRef}>
+                  <MergeApproval
+                    moveId={selected?.id ?? null}
+                    actor={ACTOR}
+                    onCommitted={() => void refresh()}
+                  />
+                </div>
+              )}
+              <WorkflowRunner
+                moveId={selected?.id ?? null}
+                reference={selected?.reference ?? null}
+                onChanged={() => void refresh()}
               />
             </div>
           </div>
 
-          {/* Second row */}
-          <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1fr_1fr]">
-            {/* Recent referrals — synthetic cohort, labelled */}
-            <Panel title="Referral cohort" tag="synthetic">
-              {REFERRALS.map((r) => (
-                <div key={r.name} className="flex items-center gap-3 border-t py-2.5 first:border-0" style={{ borderColor: "var(--color-ground-3)" }}>
-                  <div className="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold" style={{ background: "var(--color-ground-3)" }}>
-                    {r.name.split(" ").map((w) => w[0]).join("")}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{r.name}</div>
-                    <div className="truncate text-xs" style={{ color: "var(--color-text-lo)" }}>{r.services} · {r.city}</div>
-                  </div>
-                  <StateBadge state={r.state} subtle />
-                </div>
-              ))}
-            </Panel>
-
-            {/* Move flow */}
-            <Panel title="Move flow" tag="live spine">
-              <ol className="space-y-2.5">
-                {FLOW.map((f, i) => (
-                  <li key={f} className="flex items-center gap-3 text-sm">
-                    <span
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold"
-                      style={{ background: "color-mix(in oklab, var(--color-state-verified) 16%, transparent)", color: "var(--color-state-verified)" }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span style={{ color: "var(--color-text-mid)" }}>{f}</span>
-                  </li>
-                ))}
-              </ol>
-            </Panel>
-
-            {/* AI assistant — grounded, honest */}
-            <Panel title="AI assistant" tag="grounded">
-              <p className="mb-3 text-xs" style={{ color: "var(--color-text-lo)" }}>
-                Suggests and explains. Never decides. Every claim cites a record.
-              </p>
-              {AI_ACTIONS.map((a) => (
-                <div
-                  key={a}
-                  className="mb-1.5 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
-                  style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}
-                >
-                  <span aria-hidden style={{ color: "var(--color-state-transit)" }}>✦</span>
-                  {a}
-                </div>
-              ))}
-              <div className="mt-2 rounded-lg px-3 py-2 text-xs" style={{ background: "var(--color-ground-0)", color: "var(--color-text-lo)" }}>
-                v1 briefings are deterministic and source-grounded — no LLM in the loop, so
-                no hallucinated facts. The model seam is documented, not faked.
-              </div>
-            </Panel>
+          <div className="mt-8 min-w-0">
+            <IntakeComposer onLanded={() => void refresh()} />
           </div>
+
+          {/*
+            The gap, stated on the page rather than only in a commit message.
+            Every other surface in this project labels what it is; a console
+            quietly sharing a tenant would be the one place that did not.
+          */}
+          <p className="mt-8 max-w-3xl text-[11px] leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
+            This console writes to one shared synthetic tenant. Two reviewers working at the same time will see each
+            other&rsquo;s rows, and there is no reset control here because resetting deletes that tenant for everyone.
+            Per-session isolation is not built.
+          </p>
         </main>
       </div>
     </div>
   );
 }
 
-function StatCard({ label, value, tone, hint }: { label: string; value: number; tone: "verified" | "conflict" | "transit"; hint?: string }) {
-  const color =
-    tone === "conflict" ? "var(--color-state-conflict)" : tone === "transit" ? "var(--color-state-transit)" : "var(--color-state-verified)";
+/** One step of the domain path, for screens too narrow to draw the map. */
+function PathStep({ label, kind, tone }: { label: string; kind: string; tone: Accent }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-xl border p-4"
-      style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}
+    <li
+      className="flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2.5"
+      style={{ borderColor: accentColor(tone, 0.35) }}
     >
-      <div className="text-3xl font-bold" style={{ color }}>{value}</div>
-      <div className="mt-0.5 text-xs font-medium">{label}</div>
-      {hint && <div className="text-[11px]" style={{ color: "var(--color-text-lo)" }}>{hint}</div>}
-    </motion.div>
-  );
-}
-
-function Panel({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border p-5" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold">{title}</span>
-        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "var(--color-ground-3)", color: "var(--color-text-lo)" }}>
-          {tag}
+      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: accentColor(tone, 1) }} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-mono text-xs text-white/85">{label}</span>
+        <span className="block text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--color-text-lo)" }}>
+          {kind}
         </span>
-      </div>
-      {children}
-    </div>
+      </span>
+    </li>
   );
 }
-
-const REFERRALS: Array<{ name: string; services: string; city: string; state: "verified" | "transit" | "conflict" | "pending" }> = [
-  { name: "Maya Patel", services: "Electric · Internet · Security", city: "Plano, TX", state: "verified" },
-  { name: "Sarah Johnson", services: "Electric · Internet", city: "San Francisco, CA", state: "transit" },
-  { name: "Michael Chen", services: "Water · Gas", city: "Austin, TX", state: "pending" },
-  { name: "Emily Rodriguez", services: "Electric · Security", city: "Miami, FL", state: "verified" },
-  { name: "David Thompson", services: "Internet · TV", city: "Seattle, WA", state: "transit" },
-];
-
-const FLOW = [
-  "Referral received",
-  "Information verified",
-  "Conflict resolved by human",
-  "Provider submission",
-  "Reconciled after timeout",
-];
-
-const AI_ACTIONS = [
-  "Summarize this move for the concierge",
-  "Explain the move-date conflict",
-  "Flag records missing consent",
-  "Surface unknown provider outcomes",
-];
