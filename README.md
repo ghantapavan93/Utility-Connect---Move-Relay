@@ -1,7 +1,7 @@
 # Move Relay
 
 [![verify](https://github.com/ghantapavan93/Utility-Connect---Move-Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/ghantapavan93/Utility-Connect---Move-Relay/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-229%20green-3da76a)](docs/ARCHITECTURE.md)
+[![tests](https://img.shields.io/badge/tests-364%20green-3da76a)](docs/ARCHITECTURE.md)
 [![database](https://img.shields.io/badge/database-real%20Postgres%2C%20no%20mocks-0087b5)](db/schema.sql)
 [![licence](https://img.shields.io/badge/licence-MIT-5c5e64)](LICENSE)
 
@@ -22,7 +22,7 @@ becomes the source of truth.
 npm install && npm run verify
 ```
 
-11 schema guarantees and 234 tests against a real Postgres — embedded, so there
+12 schema checks and 524 tests against a real Postgres — embedded, so there
 is no Docker step and no server to start. Every claim below is enforced by a
 constraint or a test that command runs.
 
@@ -30,7 +30,7 @@ constraint or a test that command runs.
 
 ```bash
 npm install
-npm run verify   # 11 schema guarantees + 234 tests — no Docker, no server needed
+npm run verify   # 12 schema checks + 524 tests — no Docker, no server needed
 npm run dev      # http://localhost:3000
 ```
 
@@ -114,7 +114,7 @@ run in one command:
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | The system in three honesty tiers: BUILT / DESIGNED / TARGET |
 | [EDGE_CASE_ATLAS](docs/EDGE_CASE_ATLAS.md) | The domain's failure catalogue, each row naming its test |
 | [AI_BUILD_LEDGER](docs/AI_BUILD_LEDGER.md) | Real entries: what AI proposed, what was wrong, the fix, the test |
-| [DECISIONS/](docs/DECISIONS/) | Nine ADRs, each naming its enforcing constraint |
+| [DECISIONS/](docs/DECISIONS/) | Eleven ADRs, each naming its enforcing constraint |
 | [BUSINESS_VALUE](docs/BUSINESS_VALUE.md) | Instrumentation, not invented metrics — every baseline stated unknown |
 | [FUTURE_VISION](docs/FUTURE_VISION.md) | The Continuum — labelled BUILT / CONCEPT / HYPOTHESIS, never blurred |
 | [DEMO_SCRIPT](docs/DEMO_SCRIPT.md) | 30-second, 2-minute, and 10-minute walkthroughs |
@@ -128,9 +128,13 @@ run in one command:
   simulation is labelled everywhere.
 - There is **no authentication**. Identity is an `X-Actor` header — a demo
   stand-in for a session, trivially forged, and labelled as such in the code.
-  Authorization is real: every gated request is decided server-side against
-  relationship tuples and returns its granting path. Swapping the header for a
-  verified session changes one function; the model does not move.
+  Authorization is real where it is applied: the audience projection route and
+  the canonical merge are both decided server-side against relationship tuples,
+  before any write, and return the granting path. The remaining routes —
+  ingestion, CSV upload, the operational sweeps, and the agent's read tools —
+  are **ungated** in this demo, which is a deliberate trade for a public
+  reviewer sandbox rather than a finished access-control surface. Swapping the
+  header for a verified session changes one function; the model does not move.
 - **Notifications are simulated.** The consent gate runs for real and both
   outcomes are audited, but no email, SMS or call is ever delivered — every
   notification audit row says so.

@@ -266,3 +266,121 @@ Seven of these eight entries are failures the AI's own first instinct would have
 shipped. Entries 6 and 7 were caught only by *running the code*, not reading it —
 which is the single most transferable lesson here, and the reason the proof is
 verified live rather than asserted.
+
+
+---
+
+## The test that passed against the defect
+
+**Component** `db.ts` · `withTransaction`
+**Risk** Silent loss of atomicity on every write path, on the deployed backend only.
+
+**What was proposed.** `withTransaction` issued `BEGIN`, the callback, and
+`COMMIT` as three independent calls on the shared database handle. Against
+PGlite that is a genuine transaction: one connection, nothing able to interleave.
+Against a real server behind a connection pool it is not a transaction at all —
+each call may be served by a different connection, so `BEGIN` opens a transaction
+on one, the writes autocommit on others, and `COMMIT` closes an empty transaction
+somewhere else.
+
+**Why it survived.** The whole suite passed. Sequentially the pool hands back the
+same idle connection every time, so the three statements happen to land together
+and behave correctly. The defect was reachable only under contention, and nothing
+in the project had ever created contention.
+
+**The correction.** The `pg` backend now checks out one client, runs
+`BEGIN`/callback/`COMMIT` on it, and releases it in `finally`. A client whose
+`ROLLBACK` also fails is destroyed rather than returned to the pool, since its
+transactional state is unknown. The application's error stays the primary thrown
+object; the rollback failure is attached as a non-enumerable `rollbackError`
+rather than overwriting `cause`, which belongs to the application.
+
+**The part worth recording.** Three tests were written for the repaired
+primitive — rollback atomicity, connection pinning, release-after-failure — and
+**all three passed against the original defect when it was deliberately restored.**
+They proved the fix worked and would not have caught its absence. Tests that
+cannot fail are not evidence, and the only reason this was discovered is that
+the old code path was restored and the tests re-run rather than assumed.
+
+A fourth test forces the condition the defect needs: twelve concurrent pool
+queries run *between* two writes inside one open transaction, with
+`pg_backend_pid()` recorded for both transactional writes and for the competing
+work. It asserts the two writes shared one backend PID, that at least one
+competitor used a different one — so a future `max: 1` pool cannot quietly make
+the test vacuous — and that neither write survives the rollback.
+
+Verified in both directions on PostgreSQL 17.8:
+
+```
+BROKEN:   × rolls back even while the pool is under contention
+            → expected [ 'tx-contended-b-1785147873054' ] to deeply equal []
+REPAIRED: ✓ rolls back even while the pool is under contention
+```
+
+Under the pool-level implementation the second write escaped the transaction and
+committed.
+
+**Test.** `src/lib/__tests__/transaction-primitive.test.ts` — four proofs, three
+of them PostgreSQL-only because PGlite is single-connection and cannot express
+the failure.
+
+**The lesson.** The code was not trusted, so tests were written. Then the tests
+were not trusted either, and restoring the defect is what turned three green
+assertions into one real proof.
+
+
+---
+
+## The tracing system that measured correctly and described wrongly
+
+**Component** `observability.ts` · `tracing.ts` · `trace_spans`
+**Risk** Silent. Nothing failed; the data simply meant something other than its labels.
+
+**What was proposed.** Instrument spans, persist them fire-and-forget so telemetry
+can never slow or fail the path it measures, and read them back ordered by
+`started_at`. Every part of that is defensible, and the implementation looked
+clean enough to pass review three times.
+
+**What was wrong.** Three things, none of which produced an error.
+
+*The duration was right and the start time was fiction.* `startSpan` captured
+the true start to compute `duration_ms`, then discarded it. The column named
+`started_at` was `DEFAULT now()` — the moment the row was inserted, which for a
+write that happens after the work completes lands *after* the span has already
+finished. Measured: a parent whose work began at +0ms and ran 316ms recorded a
+"start" of +353ms. Ordering a trace by it ordered by when writes happened to
+land.
+
+*Every trace had a dangling edge.* `newTrace()` minted a span id and never wrote
+a row for it, so the first persisted span always referenced a parent that did
+not exist. One orphan per trace, in a graph whose only purpose is to be walkable.
+
+*Failed writes left no evidence.* `.catch(() => {})` was correct about policy —
+telemetry must never fail a request — and wrong about consequence. During this
+work a diagnostic probe persisted nothing and reported success; the swallowed
+error was the reason it took three attempts to notice.
+
+**Correction.** `started_at` and `finished_at` now carry the real runtime values,
+`created_at` holds insertion time with a `CHECK (finished_at >= started_at)`.
+`newTrace()` returns `spanId: null`, so the first application span persists with
+`parent_span_id = NULL` and its children reference real rows. No foreign key was
+added — a child finishes and persists before its parent, so completeness is a
+property to verify after flush, not a per-row constraint. Failed writes increment
+a counter and emit one structured warning; `flushTracing({ timeoutMs })` waits
+for pending writes with a bounded timeout and is called from tests and controlled
+shutdown only, never from a request path.
+
+**The stated guarantee.** Trace persistence is best-effort and non-authoritative.
+A graceful flush attempts to persist pending spans; abrupt termination may lose
+in-flight telemetry.
+
+**Tests.** `trace-semantics.test.ts` — 11 assertions, each verified to fail
+against the old behaviour before being accepted. Restoring `started_at = write
+time` failed 2; restoring the invented root failed 2, including
+`expected [ …(4) ] to deeply equal []` for dangling edges.
+
+**The lesson.** A system can measure the right number, store it in the wrong
+column, reference something that does not exist, and hide its own failures — all
+while every test passes and every log line looks plausible. The defects were
+found by asking what a column *name* claimed and then checking whether the data
+supported the claim.
