@@ -46,3 +46,43 @@ const ACCENT_RGB: Record<Accent, string> = {
 
 export const accentRgb = (a: Accent) => ACCENT_RGB[a];
 export const accentColor = (a: Accent, alpha = 1) => `rgba(${ACCENT_RGB[a]},${alpha})`;
+
+/**
+ * The same accents, lightened enough to be read at small sizes.
+ *
+ * The design system already documents this trap for the brand cyan: `#0087b5`
+ * is 3.97:1 as text on navy, under the 4.5 it needs at the sizes actually used,
+ * which is why `--uc-cyan-ink` exists. Every other accent has the same problem
+ * and had no equivalent — so `accentColor(...)` was being used directly for
+ * 10px uppercase labels all over the cinematic pages.
+ *
+ * Measured on a module page, against the brightest composite the beams
+ * produce: verified 3.03, failed 3.17, security 3.50, recovered 4.10. All
+ * failing, and the amber ones passing only because amber is bright to begin
+ * with.
+ *
+ * Each value here is the accent mixed toward white by the smallest amount that
+ * clears 4.5:1 against three grounds at once — the page ground `#04070b`, and
+ * the two brightest composites the beams reach. Amber and gold needed nothing
+ * and are unchanged, which is the point of computing it rather than lightening
+ * everything by a fixed step: the hue keeps its identity, and only the ones
+ * that were failing move.
+ *
+ * Reserve this for small text. Fills, rules, dots and glows should stay on
+ * `accentColor` — they are not read, and lightening them would wash out the
+ * one saturated colour this palette owns.
+ */
+const ACCENT_INK: Record<Accent, string> = {
+  verified: "#4dabcb",
+  conflict: "#e8a33d", // already 5.75:1 — unchanged
+  unknown: "#da8e43",
+  recovered: "#54b27c",
+  failed: "#ed7f82",
+  electricity: "#f0b429", // already 6.65:1 — unchanged
+  internet: "#52abca",
+  security: "#a295e0",
+  solar: "#f5c451", // already 7.62:1 — unchanged
+};
+
+/** An accent at a size someone has to actually read. */
+export const accentInk = (a: Accent) => ACCENT_INK[a];
