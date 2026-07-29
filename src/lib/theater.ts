@@ -21,7 +21,16 @@ import { validateSubmission, quarantineSubmission } from "./contracts";
  * repeatedly.
  */
 
-async function theaterOrg(): Promise<string> {
+/**
+ * The throwaway tenant every scenario on this page runs inside.
+ *
+ * Exported because the signature incident composes the same fulfilment
+ * services against it. Sharing the accessor rather than the slug string is
+ * deliberate: two modules independently writing `'theater'` would drift the
+ * moment one of them changed, and the isolation claim in the hero depends on
+ * both of them meaning the same organisation.
+ */
+export async function theaterOrg(): Promise<string> {
   const existing = await query<{ id: string }>(
     `SELECT id FROM organizations WHERE slug = 'theater'`,
   );

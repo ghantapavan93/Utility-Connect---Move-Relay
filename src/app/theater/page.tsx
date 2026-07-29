@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { CineHero } from "@/components/cinematic/CineHero";
-import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
+import { ChapterMarker, FilmGrain, Pill, accentColor } from "@/components/cinematic";
+import { RouteDistinction } from "@/components/nav/RouteDistinction";
+import { RiskRail } from "@/components/theater/RiskRail";
+import { HandoffPreview, type HandoffState } from "@/components/theater/HandoffPreview";
+import { SignatureIncident } from "@/components/theater/SignatureIncident";
+import { AttackStage } from "@/components/theater/AttackStage";
+import { AttackBuilder } from "@/components/theater/AttackBuilder";
 import type { Accent } from "@/lib/accents";
 import type { TheaterResult } from "@/lib/theater-contract";
-import { held, violated, completedCount, type Slot } from "@/lib/theater-verdict";
+import { AnimatedGradientBackground } from "@/components/ui/animated-gradient-background";
+import { tally, completedCount, verdictAccent, type Slot } from "@/lib/theater-verdict";
+import { postTheater } from "@/lib/theater-request";
 
 /**
  * The Failure Theater — "go ahead, try to break it."
@@ -33,16 +41,24 @@ export default function TheaterPage() {
   const [attacking, setAttacking] = useState(false);
   const stopRef = useRef(false);
   const gridRef = useRef<HTMLDivElement>(null);
+  const signatureRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Run one attack and record what actually came back.
+   *
+   * Classification lives in `postTheater`, which puts a real deadline on the
+   * request and names every failure. The version this replaced wrote
+   * `{ error: "network error" }` for anything that threw, so a timeout, an
+   * abort and a malformed body arrived as the same string and the page had no
+   * way to say which.
+   */
   const run = useCallback(async (key: string) => {
     setResults((r) => ({ ...r, [key]: "running" }));
-    try {
-      const res = await fetch(`/api/v1/theater/${key}`, { method: "POST" });
-      const json = await res.json();
-      setResults((r) => ({ ...r, [key]: json.ok ? json : { error: json.error } }));
-    } catch {
-      setResults((r) => ({ ...r, [key]: { error: "network error" } }));
-    }
+    const res = await postTheater<TheaterResult>(`/api/v1/theater/${key}`);
+    setResults((r) => ({
+      ...r,
+      [key]: res.ok ? res.data : { error: res.failure.error, reason: res.failure.reason },
+    }));
   }, []);
 
   /**
@@ -51,8 +67,8 @@ export default function TheaterPage() {
    * Six identical cards that each need their own click is a page most reviewers
    * sample one of and leave. The claim being made here is about all six holding
    * together, so the page should be able to make that claim without asking
-   * anyone to click six times first. Any individual "Break it" stops the sweep
-   * and hands control back.
+   * anyone to click six times first. Any individual attack stops the sweep and
+   * hands control back.
    */
   const attackAll = useCallback(async () => {
     setAttacking(true);
@@ -66,14 +82,60 @@ export default function TheaterPage() {
     setAttacking(false);
   }, [run]);
 
-  const refused = SCENARIOS.filter((s) => held(results[s.key])).length;
-  const breached = SCENARIOS.filter((s) => violated(results[s.key])).length;
-  const ran = completedCount(SCENARIOS.map((s) => results[s.key]));
+  /** A single attack stops the sweep and hands control back to the reviewer. */
+  const runOne = useCallback(
+    (key: string) => {
+      stopRef.current = true;
+      setAttacking(false);
+      void run(key);
+    },
+    [run],
+  );
+
+  const slots = SCENARIOS.map((s) => results[s.key]);
+  const counts = tally(slots);
+  const refused = counts.held;
+  const breached = counts.violated;
+  const unresolved = counts.inconclusive;
+  const ran = completedCount(slots);
+
+  // What the whole page is currently wearing. Derived in `theater-verdict` so
+  // the branch that reports a breach can be tested without breaching anything.
+  const washAccent: Accent = verdictAccent(slots);
+
+  /*
+    The state of the handoff drawn inside the primary button.
+
+    It closes only when every scenario has run and every one held. Resolving on
+    `refused > 0` would let a single passing attack redraw the line as whole,
+    which is the shape of claim this page exists to refuse — a partial result
+    presented as a settled one.
+  */
+  const handoffState: HandoffState = breached > 0
+    ? "breached"
+    : attacking
+      ? "running"
+      : refused === SCENARIOS.length
+        ? "held"
+        : "idle";
+  // Inconclusive never closes the line: it is the absence of a result, and the
+  // strip may only join on a proven one.
 
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-[#04070b] text-white">
-      <div className="cine-aurora" aria-hidden />
+      {/*
+        The wash carries the verdict. Amber while the invariants are untested,
+        green once every attack has been refused, red the moment one is not.
+      */}
+      <AnimatedGradientBackground accent={washAccent} active={attacking} />
       <FilmGrain id="theater" />
+
+      {/*
+        Content gets its own stacking context above the wash. A fixed,
+        positioned element paints above non-positioned block content whatever
+        the source order.
+      */}
+      <div className="relative" style={{ zIndex: 1 }}>
 
       {/*
         A demo asks you to watch it succeed. This one hands you the controls and
@@ -87,54 +149,71 @@ export default function TheaterPage() {
         accent="conflict"
         pills={
           <>
-            <Pill accent="conflict">Failure theater</Pill>
-            <Pill accent="verified">Runs against the live database</Pill>
+            <Pill accent="verified">Live backend</Pill>
+            <Pill accent="conflict">Isolated synthetic tenant</Pill>
+            <Pill accent="recovered">Not scripted</Pill>
           </>
         }
+        /*
+          The emphasis is on the clause, not a word. "Must not guess" is the
+          whole claim: a system that guesses when the reply is lost is the one
+          that creates the second order. Colouring single words would make the
+          line decorative; colouring the clause makes it legible as a state.
+        */
         headline={
           <>
-            Anyone can demo
+            When the reply disappears,
             <br />
-            <span className="cine-shimmer">the happy path.</span>
+            <span style={{ color: accentColor("conflict", 1) }}>the system must not guess.</span>
           </>
         }
-        sub="Six buttons that push the real backend where it is supposed to hurt — a duplicate batch, a webhook delivered twice, a worker killed mid-workflow, a partner reaching across a boundary. Each one returns the database rows that prove the invariant held."
-        credibility={[
-          {
-            eyebrow: "Purpose",
-            accent: "conflict",
-            body: "Let a reviewer attack the system directly instead of taking a claim about it on trust.",
-          },
-            {
-            eyebrow: "Proof",
-            accent: "recovered",
-            body: "Every scenario runs in an isolated theater tenant against the live database, and returns the evidence rows — not a message saying it worked.",
-          },
-          {
-            eyebrow: "Code",
-            accent: "verified",
-            body: "The same functions execute in the automated suite. These buttons are not props; they are the tests, with a UI on them.",
-          },
-        ]}
+        sub="Anyone can demonstrate a successful order. This page shows what Move Relay believes, refuses, and proves when the handoff breaks."
         actions={
           <>
+            {/*
+              The primary action is the one that actually runs here. The button
+              carries the failure it is about to cause: a committed signal that
+              breaks short of the far side and stays broken until something
+              proves it can close.
+            */}
             <button
-              onClick={() => gridRef.current?.scrollIntoView({ behavior: "smooth" })}
-              className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-[#1a1207] transition-transform hover:-translate-y-0.5"
+              onClick={() => signatureRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="inline-flex min-h-11 flex-col items-start justify-center gap-1.5 rounded-2xl px-6 py-3 text-sm font-bold uppercase tracking-wide text-[#1a1207] transition-transform hover:-translate-y-0.5"
               style={{ background: accentColor("conflict", 1) }}
             >
-              Try to break it <ArrowDown className="h-4 w-4" />
+              <span className="inline-flex items-center gap-2">
+                Break the signature handoff <ArrowDown className="h-4 w-4" />
+              </span>
+              <HandoffPreview state={handoffState} />
             </button>
-            <MagneticLink
-              href="/demo"
-              className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
-              {...{ style: { borderColor: "rgba(255,255,255,0.26)" } }}
+            <button
+              onClick={() => {
+                gridRef.current?.scrollIntoView({ behavior: "smooth" });
+                void attackAll();
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border px-7 text-sm font-bold uppercase tracking-wide text-white/90"
+              style={{ borderColor: "rgba(255,255,255,0.26)" }}
             >
-              Back to the demo <ArrowRight className="h-4 w-4" />
-            </MagneticLink>
+              Launch all six attacks <ArrowRight className="h-4 w-4" />
+            </button>
           </>
         }
       />
+
+      {/*
+        Three doors onto one room, named.
+
+        Sits under the hero rather than over it: a reviewer should meet
+        the page's own claim first, then learn that two neighbouring
+        routes tell the same story a different way.
+      */}
+      <RouteDistinction />
+
+      <RiskRail />
+
+      <div ref={signatureRef}>
+        <SignatureIncident />
+      </div>
 
       <ChapterMarker n="01" label="Six ways to break it" />
       <div className="mx-auto max-w-[1400px] px-5 pb-8 sm:px-8">
@@ -206,12 +285,28 @@ export default function TheaterPage() {
                 {breached} invariant{breached === 1 ? "" : "s"} breached
               </span>
             )}
+            {/*
+              Counted separately and never folded into either column. An
+              inconclusive run is not a refusal and not a breach, and a
+              scoreboard that hid it would be reporting five-of-six as though
+              the sixth had passed.
+            */}
+            {unresolved > 0 && (
+              <span
+                className="text-sm font-bold uppercase tracking-[0.18em]"
+                style={{ color: accentColor("unknown", 1) }}
+              >
+                {unresolved} inconclusive
+              </span>
+            )}
           </div>
 
           <p className="mt-3 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg">
             {breached > 0
               ? "An invariant did not hold. That result is shown exactly as returned — this page does not get to hide the one outcome worth seeing."
-              : ran === SCENARIOS.length
+              : unresolved > 0
+                ? "One or more attacks returned no usable result. That is shown as inconclusive rather than counted either way — an unknown outcome is exactly what this system refuses to guess about."
+                : ran === SCENARIOS.length
                 ? "Six attacks, six refusals, and the database rows that prove each one. Nothing here was scripted; press any card again and it runs again."
                 : ran > 0
                   ? "Each refusal below is a real run against the live database, returning its evidence rows rather than a message saying it worked."
@@ -228,7 +323,7 @@ export default function TheaterPage() {
                   void attackAll();
                 }
               }}
-              className="rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wide transition-transform hover:-translate-y-px"
+              className="inline-flex min-h-11 items-center justify-center rounded-full px-6 text-sm font-bold uppercase tracking-wide transition-transform hover:-translate-y-px"
               style={
                 attacking
                   ? {
@@ -248,111 +343,26 @@ export default function TheaterPage() {
         </div>
       </div>
 
-      <div ref={gridRef} className="mx-auto grid max-w-[1400px] gap-4 px-5 pb-20 sm:px-8 md:grid-cols-2">
-        {SCENARIOS.map((s) => {
-          const result = results[s.key];
-          const done = result && result !== "running" && !("error" in result);
-          const ok = held(result);
-          const bad = violated(result);
-          const running = result === "running";
-
-          // Four states, four weights. Every card used to look identical
-          // whether it had held an invariant, breached one, or never run —
-          // which meant the outcome, the only thing on this page that carries
-          // information, was invisible until you read the small print.
-          // Red only for a genuine break. Amber is for things needing a
-          // person; a breached invariant needs a fix.
-          const edge: Accent = bad ? "failed" : "recovered";
-          return (
-            <div
-              key={s.key}
-              className="cine-glass rounded-2xl p-5 transition-all"
-              style={{
-                borderColor: done ? accentColor(edge, 0.5) : undefined,
-                boxShadow: running ? `0 0 0 3px ${accentColor("conflict", 0.16)}` : undefined,
-              }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span
-                      aria-hidden
-                      className="text-lg"
-                      style={{ color: accentColor(done ? edge : "conflict", 1) }}
-                    >
-                      {done ? (ok ? "✓" : "✕") : s.glyph}
-                    </span>
-                    <h3 className="text-sm font-semibold text-white/90">{s.title}</h3>
-                  </div>
-                  <p className="text-xs leading-relaxed text-white/55">{s.blurb}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    stopRef.current = true;
-                    setAttacking(false);
-                    void run(s.key);
-                  }}
-                  disabled={running}
-                  className="shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-transform hover:-translate-y-px disabled:opacity-50"
-                  style={{ background: "var(--color-state-conflict)", color: "#1a1207" }}
-                >
-                  {running ? "breaking…" : done ? "Break it again" : "Break it"}
-                </button>
-              </div>
-
-              <AnimatePresence>
-                {done && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                    className="overflow-hidden"
-                  >
-                    {/*
-                      The invariant leads now. It used to sit below the outcome
-                      in small italics, which inverted the hierarchy: the rule
-                      the system is defending is the interesting sentence, and
-                      the outcome is its confirmation.
-                    */}
-                    <div
-                      className="mt-4 rounded-lg border p-3"
-                      style={{
-                        borderColor: accentColor(edge, 0.8),
-                        background: accentColor(edge, 0.08),
-                      }}
-                    >
-                      <div
-                        className="text-[13px] font-semibold leading-snug"
-                        style={{ color: accentColor(edge, 1) }}
-                      >
-                        {(result as TheaterResult).invariant}
-                      </div>
-                      <div className="mt-1.5 text-xs" style={{ color: "var(--color-text-mid)" }}>
-                        <span style={{ color: accentColor(edge, 1) }}>{ok ? "✓" : "✕"}</span>{" "}
-                        {(result as TheaterResult).outcome}
-                      </div>
-                      <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
-                        Evidence, as returned
-                      </div>
-                      <pre className="mt-1 overflow-x-auto rounded p-2 font-mono text-[11px] leading-relaxed" style={{ background: "var(--color-ground-0)", color: "var(--color-text-mid)" }}>
-                        {JSON.stringify((result as TheaterResult).evidence, null, 2)}
-                      </pre>
-                    </div>
-                  </motion.div>
-                )}
-                {result && typeof result === "object" && "error" in result && (
-                  <div className="mt-3 text-xs" style={{ color: "var(--color-state-failed)" }}>
-                    {result.error}
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
+      {/*
+        One stage, six instruments — see `AttackStage`. The grid of six cards
+        this replaced expanded each result into its own permanently open wall of
+        JSON, so the least readable thing on the page was also the loudest, and
+        what any of it would have cost a customer appeared nowhere.
+      */}
+      <div ref={gridRef}>
+        <AttackStage scenarios={SCENARIOS} results={results} onRun={runOne} busy={attacking} />
       </div>
 
-      <ChapterMarker n="02" label="Why this is not a prop" />
+      {/*
+        The builder sits after the six. A reviewer who has watched the fixed
+        demonstrations is in a position to choose a fault themselves; offered
+        first, it would be a control panel for a system they had no reason yet
+        to be curious about.
+      */}
+      <ChapterMarker n="02" label="Choose the fault yourself" />
+      <AttackBuilder />
+
+      <ChapterMarker n="03" label="Why this is not a prop" />
       <section className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
         <blockquote
           className="max-w-3xl border-l-2 pl-6 text-[clamp(18px,2.3vw,28px)] font-medium leading-[1.35] tracking-tight text-white/90"
@@ -363,6 +373,7 @@ export default function TheaterPage() {
           <span style={{ color: accentColor("conflict", 1) }}>the tests, with a UI on them</span>.
         </blockquote>
       </section>
+      </div>
     </main>
   );
 }
