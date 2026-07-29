@@ -134,6 +134,36 @@ body {
   100% { background-position: 12% 8%, 8% 6%, 44% 92%; }
 }
 
+/*
+  The infinite marquee track.
+
+  Exactly -50%, because the track holds two identical copies of its children:
+  at the moment the animation restarts, the second copy is sitting precisely
+  where the first began, so the loop has no seam. Any other distance leaves a
+  visible jump, which is the usual reason a marquee looks cheap.
+
+  `transform` only, so it stays on the compositor for the lifetime of the page.
+*/
+@keyframes relay-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/*
+  The arc that travels around a button's edge on hover.
+
+  Spun rather than swept, because rotating one bright sector of a conic
+  gradient keeps the highlight the same shape the whole way round. Animating a
+  gradient's stops instead makes the arc stretch as it turns corners.
+
+  The element carrying this is centred and oversized, and the button's 1px
+  padding is what reduces it to a ring.
+*/
+@keyframes relay-border-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 /* Frosted instrument panel. */
 .cine-glass {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.014));

@@ -16,6 +16,7 @@ const NAV = [
   { href: "/dashboard", label: "Overview", glyph: "◇", live: true },
   { href: "/demo", label: "Live workflow", glyph: "⟐", live: true },
   { href: "/moves", label: "Move queue", glyph: "☰", live: true },
+  { href: "/agent", label: "Case agent", glyph: "⌥", live: true },
   { href: "/story", label: "The Living Move", glyph: "▶", live: true },
   { href: "/theater", label: "Failure Theater", glyph: "⚡", live: true },
   { href: "/views", label: "Audiences", glyph: "◈", live: true },
@@ -36,7 +37,16 @@ export function AppSidebar() {
 
   return (
     <aside
-      className="flex w-60 shrink-0 flex-col border-r"
+      /*
+        Hidden below `lg`, not shrunk.
+
+        A 240px rail inside a 320px viewport leaves 80px for the console, which
+        is how every panel on this page ended up clipped past the right edge and
+        how thirty-four navigation links ended up as 40px touch targets. The
+        routes are all reachable from the site header on small screens, so the
+        rail is a desktop affordance rather than the only way through.
+      */
+      className="hidden w-60 shrink-0 flex-col border-r lg:flex"
       style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}
     >
       <div className="flex items-center gap-2.5 px-5 py-5">
@@ -56,7 +66,7 @@ export function AppSidebar() {
             <Link
               key={item.href}
               href={item.href as never}
-              className="mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+              className="mb-0.5 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
               style={{
                 background: active ? "color-mix(in oklab, var(--color-state-verified) 14%, transparent)" : "transparent",
                 color: active ? "var(--color-state-verified)" : "var(--color-text-mid)",
@@ -74,7 +84,7 @@ export function AppSidebar() {
         {FUTURE.map((item) => (
           <div
             key={item.label}
-            className="mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-sm"
+            className="mb-0.5 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm"
             style={{ color: "var(--color-text-lo)" }}
           >
             <span className="text-base" aria-hidden>{item.glyph}</span>
