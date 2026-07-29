@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { newTrace, traced } from "./observability";
 import { installTracing } from "./tracing";
 import { query, withTransaction } from "./db";
+import { materialiseServices } from "./fulfillment";
 import { recordAudit } from "./audit";
 import { publish } from "./outbox";
 import { runProjector } from "./projector";
@@ -65,6 +66,43 @@ export interface IntakeResult {
 }
 
 const DUPLICATE_THRESHOLD = 0.6;
+
+/**
+ * Write a payload's consent grants to the ledger.
+ *
+ * One function called from both the create and the attach paths, because it was
+ * previously inlined in only one of them and the omission was invisible.
+ *
+ * Every (purpose, channel) pair is its own row. Consent is not a boolean —
+ * agreeing to be phoned about an appointment is not agreeing to be emailed
+ * about an account — and a single "granted: true" cannot answer the only
+ * question that matters later, which is whether *this* contact was permitted.
+ *
+ * The wording version travels with it, so a grant can be read back against the
+ * text the customer actually saw rather than whatever the current text says.
+ */
+async function recordConsentFrom(
+  c: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  organizationId: string,
+  moveId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const consent = payload["consent"] as
+    | { granted?: boolean; channels?: string[]; purposes?: string[]; text_version?: string }
+    | undefined;
+  if (!consent?.granted || !consent.text_version) return;
+
+  for (const purpose of consent.purposes ?? []) {
+    for (const channel of consent.channels ?? []) {
+      await c.query(
+        `INSERT INTO consent_events
+           (organization_id, move_id, purpose, channel, granted, consent_text_version)
+         VALUES ($1,$2,$3,$4,TRUE,$5)`,
+        [organizationId, moveId, purpose, channel, consent.text_version],
+      );
+    }
+  }
+}
 
 /**
  * Instrumented entry point.
@@ -179,10 +217,38 @@ async function ingestReferralImpl(input: IntakeInput): Promise<IntakeResult> {
     }
   }
 
+  /*
+    Which partner this referral is attributed to.
+
+    This was `null`, unconditionally. Every channel's contract carries
+    `referral.partner_slug` and the column exists on every field version, and
+    the value was dropped on the floor between them — so a brokerage that
+    referred a household through the API was never attributed to it, and their
+    own partner projection answered "No engagement attributed to this partner"
+    about a referral they had just sent.
+
+    Attribution is one of the guarantees this system is *for*: which partner
+    brought this move is the question the whole partner surface exists to
+    answer. Unresolved slugs stay null rather than guessing — a referral naming
+    a brokerage nobody has onboarded is attributed to nobody, which is the
+    honest answer and is visible as one.
+  */
+  const partnerSlug = (input.payload["referral"] as { partner_slug?: unknown } | undefined)
+    ?.partner_slug;
+  const partnerId =
+    typeof partnerSlug === "string"
+      ? ((
+          await query<{ id: string }>(
+            `SELECT id FROM partners WHERE organization_id = $1 AND slug = $2`,
+            [input.organizationId, partnerSlug],
+          )
+        )[0]?.id ?? null)
+      : null;
+
   const fieldCandidates: FieldCandidate[] = candidatesFromSubmission({
     id: submission.id,
     channel: input.channel as Channel,
-    partner_id: null,
+    partner_id: partnerId,
     payload: input.payload,
     received_at: new Date(submission.received_at).toISOString(),
   });
@@ -199,6 +265,29 @@ async function ingestReferralImpl(input: IntakeInput): Promise<IntakeResult> {
       await c.query(`UPDATE moves SET state = 'conflict_pending', version = version + 1 WHERE id = $1`, [
         attachTo.moveId,
       ]);
+      /*
+        A later source may name services the first one did not — the customer
+        adding home security on their own form is the demo's own scenario. The
+        insert is idempotent on (move, service, provider), so services both
+        sources agree on are not duplicated.
+      */
+      await materialiseServices(c, input.organizationId, attachTo.moveId, input.payload["services"]);
+
+      /*
+        Consent, on the attach path too.
+
+        This was only written when a referral *created* a move, and the customer
+        form is both the channel that carries consent and — because the customer
+        usually confirms a move a partner already referred — the channel that
+        most often attaches. So the commonest way a household grants consent was
+        the one path that discarded it.
+
+        Silently. The referral returned 200, the record showed the customer as a
+        source, and the consent ledger stayed empty, which on this system means
+        "they never agreed". Of everything that could be dropped here, this is
+        the one with legal weight.
+      */
+      await recordConsentFrom(c, input.organizationId, attachTo.moveId, input.payload);
       await recordAudit(c, {
         organizationId: input.organizationId,
         moveId: attachTo.moveId,
@@ -246,22 +335,87 @@ async function ingestReferralImpl(input: IntakeInput): Promise<IntakeResult> {
       fieldCandidates,
     );
 
-    // Consent from the customer's own form becomes ledger events.
-    const consent = input.payload["consent"] as
-      | { granted: boolean; channels: string[]; purposes: string[]; text_version: string }
-      | undefined;
-    if (consent?.granted) {
-      for (const purpose of consent.purposes) {
-        for (const channel of consent.channels) {
-          await c.query(
-            `INSERT INTO consent_events
-               (organization_id, move_id, purpose, channel, granted, consent_text_version)
-             VALUES ($1,$2,$3,$4,TRUE,$5)`,
-            [input.organizationId, move, purpose, channel, consent.text_version],
-          );
-        }
-      }
+    /*
+      The move's owner, in the authorization graph.
+
+      Authorization here is relationship-based: a concierge reaches a case by
+      being a member of an organization that owns it, and with no owning edge
+      there is no path at all. Only the demo orchestrator wrote these tuples, and
+      only for its one scripted move — so every move from the real intake path
+      was structurally unreachable. Not merely unfulfillable: a `GET` on it
+      returned 403 to the very operator who had just created it.
+
+      Written inside the same transaction as the move, because a move that
+      exists with nobody able to reach it is worse than no move at all.
+    */
+    await c.query(
+      `INSERT INTO auth_tuples (subject, relation, object)
+       SELECT 'org:' || o.slug, 'owner', 'move:' || $1
+         FROM organizations o WHERE o.id = $2
+       ON CONFLICT DO NOTHING`,
+      [move, input.organizationId],
+    );
+
+    /*
+      And the operator, as a member of the owning organization.
+
+      The edge above makes the organization the owner; it does not give any
+      human a path. `checkView` reaches a move through membership of an owning
+      org, and that membership was written only by the demo orchestrator — so a
+      move created through intake was owned by an organization nobody belonged
+      to, and the console returned 403 on the rows it had just created. The
+      comment above this one says a move nobody can reach is worse than no move
+      at all; this is the other half of meaning it.
+
+      `user:concierge-7` is the identity the console sends and the concierge
+      entry in `DEMO_ACTORS`. Naming it here is the same demo stand-in as the
+      `X-Actor` header: authorization is real, identity is not, and both are
+      stated wherever they appear.
+    */
+    await c.query(
+      `INSERT INTO auth_tuples (subject, relation, object)
+       SELECT 'user:concierge-7', 'member', 'org:' || o.slug
+         FROM organizations o WHERE o.id = $1
+       ON CONFLICT DO NOTHING`,
+      [input.organizationId],
+    );
+
+    /*
+      And the referring partner, where the referral named one.
+
+      Attribution and access are two halves of the same claim. Recording that a
+      brokerage referred a household while giving them no path to read it means
+      their own partner projection answers "no engagement attributed" about
+      their own referral — which was measurably the case: a partner-API referral
+      naming `ntr` returned 403 to `user:ntr-agent`.
+
+      Scoped to the move they actually referred, so this grants a path to that
+      record and to nothing else. A partner still sees only the partner
+      projection of it, which withholds provider internals and every other
+      partner's work.
+    */
+    if (partnerId) {
+      await c.query(
+        `INSERT INTO auth_tuples (subject, relation, object)
+         SELECT 'org:' || p.slug, 'owner', 'move:' || $1
+           FROM partners p WHERE p.id = $2
+         ON CONFLICT DO NOTHING`,
+        [move, partnerId],
+      );
     }
+
+    /*
+      The services this referral asked for become rows that can be fulfilled.
+
+      Without this a move created through the real intake path had no service
+      requests at all, so it could never be submitted to a provider, time out,
+      or be reconciled. The only code that created one lived inside the demo
+      workflow and hardcoded electricity — which meant every move outside the
+      one scripted narrative was silently a dead end.
+    */
+    await materialiseServices(c, input.organizationId, move, input.payload["services"]);
+
+    await recordConsentFrom(c, input.organizationId, move, input.payload);
 
     await recordAudit(c, {
       organizationId: input.organizationId,
