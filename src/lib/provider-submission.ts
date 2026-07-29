@@ -38,6 +38,35 @@ export type SubmissionState =
   | "reconciled"
   | "duplicate";
 
+/**
+ * The same operation key arrived carrying different content.
+ *
+ * `request_fingerprint` was stored from the first commit and never compared
+ * against anything, which made this case indistinguishable from an ordinary
+ * duplicate: a second caller submitting a *changed* move date received the
+ * first submission's confirmed result and had every reason to believe their
+ * change had been accepted. The provider had never been told.
+ *
+ * That is worse than either honest alternative. Rejecting is correct — the
+ * operation key names one logical intent, and an intent whose content has
+ * changed is a different intent that needs its own key or an explicit
+ * amendment path.
+ */
+export class IdempotencyConflictError extends Error {
+  constructor(
+    readonly operationKeyValue: string,
+    readonly storedFingerprint: string,
+    readonly incomingFingerprint: string,
+  ) {
+    super(
+      `Operation key ${operationKeyValue} was already submitted with different content. ` +
+        `Stored fingerprint ${storedFingerprint}, incoming ${incomingFingerprint}. ` +
+        `The stored request is unchanged and the provider was not called again.`,
+    );
+    this.name = "IdempotencyConflictError";
+  }
+}
+
 export interface SubmitInput {
   organizationId: string;
   moveId: string;
@@ -45,6 +74,21 @@ export interface SubmitInput {
   payload: Record<string, unknown>;
   correlationId: string;
   actor: string;
+  /**
+   * The identifier the provider will know this request by.
+   *
+   * Persisted so an UNKNOWN outcome can actually be reconciled later. Callers
+   * already had this value and were dropping it: the provider is asked with it,
+   * their ledger is indexed by it, and nothing on our side kept it — so the
+   * only way to look an order back up was a hardcoded constant that happened
+   * to match the one scripted move.
+   *
+   * Optional so existing callers keep compiling, but a submission without it
+   * cannot be reconciled by anything except a caller that already knows the
+   * key, and `reconcile` treats its absence as "ask a human" rather than as
+   * "no order exists".
+   */
+  providerRequestKey?: string;
 }
 
 export interface SubmitResult {
@@ -141,8 +185,8 @@ async function submitToProviderImpl(
     const inserted = await client.query<ProviderSubmissionRow>(
       `INSERT INTO provider_submissions
          (organization_id, service_request_id, operation_key,
-          request_fingerprint, state, request_payload)
-       VALUES ($1, $2, $3, $4, 'submitted', $5)
+          request_fingerprint, state, request_payload, provider_request_key)
+       VALUES ($1, $2, $3, $4, 'submitted', $5, $6)
        RETURNING *`,
       [
         input.organizationId,
@@ -150,6 +194,7 @@ async function submitToProviderImpl(
         key,
         fp,
         JSON.stringify(input.payload),
+        input.providerRequestKey ?? null,
       ],
     );
 
@@ -176,6 +221,23 @@ async function submitToProviderImpl(
   if (!claim.created) {
     const prior = claim.prior;
     const state = prior.state as SubmissionState;
+
+    /*
+      Before anything else: is this even the same request?
+
+      The fingerprint was written on the first commit and then never read, so a
+      second caller with *different* content took the ordinary duplicate path
+      and received the first submission's outcome. Someone correcting a move
+      date would have been told their correction succeeded while the provider
+      still held the original.
+
+      Checked ahead of the state branches deliberately. A conflicting payload is
+      a conflict whether the prior intent is confirmed, unknown or failed —
+      the answer never depends on how the first one turned out.
+    */
+    if (prior.request_fingerprint !== fp) {
+      throw new IdempotencyConflictError(key, prior.request_fingerprint, fp);
+    }
 
     if (state === "confirmed" || state === "reconciled") {
       return {

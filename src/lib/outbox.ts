@@ -1,4 +1,4 @@
-import { query, type Queryable } from "./db";
+import { query, withTransaction, type Queryable } from "./db";
 
 /**
  * Transactional outbox.
@@ -13,6 +13,18 @@ import { query, type Queryable } from "./db";
  * is at-least-once — crashes can cause redelivery — so consumers record what
  * they have processed, and the (consumer, event_id) primary key makes handling
  * exactly-once-per-consumer: a redelivered event conflicts and is skipped.
+ *
+ * That at-least-once claim was false for a while, and the way it was false is
+ * worth keeping written down. The claim row was committed in its own statement
+ * *before* the handler ran. A process that died in between left the event
+ * claimed forever: `dispatch` skipped it, `backlog` reported zero, and
+ * `deadLetters` never saw it. Delivery was in fact at-most-once, and the loss
+ * was silent — the worst combination available.
+ *
+ * The claim and the handler now share one transaction, so an incomplete handle
+ * takes its own claim down with it. Consumers must therefore do their work on
+ * the client they are given; a handler that opens its own connection is outside
+ * the transaction and reintroduces the gap.
  *
  * At demo scale the dispatcher is invoked directly; at production scale it runs
  * on a worker loop or LISTEN/NOTIFY. The correctness properties are identical,
@@ -53,53 +65,96 @@ export async function publish(
   );
 }
 
-export type Handler = (event: OutboxEvent) => Promise<void>;
+/**
+ * A consumer's handler.
+ *
+ * `client` is the transaction the claim was taken in. Writing through it is
+ * what makes the handle atomic with the claim — see the note at the top of this
+ * file about why that matters.
+ */
+export type Handler = (event: OutboxEvent, client: Queryable) => Promise<void>;
 
 /**
  * Deliver all unprocessed events to one named consumer.
  *
- * Exactly-once per consumer is enforced by claiming the (consumer, event_id)
- * row BEFORE running the handler: if the claim conflicts, another delivery
- * already handled it and this one skips. Returns how many events the handler
- * actually processed on this call.
+ * Each event is claimed and handled inside a single transaction. If the claim
+ * conflicts, another dispatcher reached it first and this one skips. If the
+ * handler throws — or the process dies — the transaction rolls back and the
+ * event stays eligible for redelivery. Returns how many events this call
+ * actually processed.
  */
 export async function dispatch(consumer: string, handler: Handler): Promise<number> {
+  /*
+    Two things make an event ineligible, and they are deliberately different.
+
+    A *claim* means it was handled — that is completion. A *dead letter* means
+    it failed and a human has not yet fixed the handler; suppression there is
+    what stops a permanently failing event from being retried on every single
+    dispatch, which is the hot loop the ops suite exists to catch.
+
+    Before the claim became transactional, one row did both jobs: the claim
+    survived a failed handle, so it recorded "handled" and "do not retry" at
+    once. That conflation is exactly what lost events on crash — an event that
+    was never handled looked identical to one that was. Separating them keeps
+    both properties: rollback makes an interrupted handle retryable, and the
+    dead-letter row makes a *failed* one wait for a person.
+  */
   const pending = await query<OutboxEvent>(
     `SELECT e.id, e.organization_id, e.event_type, e.aggregate_id, e.payload, e.created_at
        FROM outbox_events e
        LEFT JOIN outbox_consumers c
          ON c.event_id = e.id AND c.consumer = $1
-      WHERE c.event_id IS NULL
+       LEFT JOIN dead_letter_events d
+         ON d.event_id = e.id AND d.consumer = $1
+      WHERE c.event_id IS NULL AND d.event_id IS NULL
       ORDER BY e.id`,
     [consumer],
   );
 
   let processed = 0;
   for (const event of pending) {
-    const claimed = await query<{ event_id: number }>(
-      `INSERT INTO outbox_consumers (consumer, event_id)
-       VALUES ($1,$2)
-       ON CONFLICT (consumer, event_id) DO NOTHING
-       RETURNING event_id`,
-      [consumer, event.id],
-    );
-    if (!claimed[0]) continue; // another dispatcher got here first
+    let failure: unknown = null;
 
-    try {
-      await handler(event);
+    const handled = await withTransaction(async (client) => {
+      const claimed = await client.query<{ event_id: number }>(
+        `INSERT INTO outbox_consumers (consumer, event_id)
+         VALUES ($1,$2)
+         ON CONFLICT (consumer, event_id) DO NOTHING
+         RETURNING event_id`,
+        [consumer, event.id],
+      );
+      if (!claimed.rows[0]) return false; // another dispatcher got here first
+
+      try {
+        await handler(event, client);
+        return true;
+      } catch (err) {
+        /*
+          Remember the error, then abort the transaction by rethrowing. Both
+          halves matter: rolling back releases the claim so the event can be
+          retried once the handler is fixed, and the dead letter below is what
+          stops that retry from being a silent hot loop.
+        */
+        failure = err;
+        throw err;
+      }
+    }).catch(() => false);
+
+    if (handled) {
       processed++;
-    } catch (err) {
-      // A throwing handler must not strand its event invisibly. The claim
-      // stays (so normal dispatch skips it — no hot retry loop) and the event
-      // is recorded as a dead letter with its error, replayable once the
-      // handler is fixed. Failure is visible, never silent.
+      continue;
+    }
+
+    if (failure !== null) {
+      // Recorded outside the rolled-back transaction, or it would vanish with
+      // it. A failing handler must be visible to an operator, never silent.
       await query(
         `INSERT INTO dead_letter_events (consumer, event_id, error)
          VALUES ($1,$2,$3)
          ON CONFLICT (consumer, event_id)
            DO UPDATE SET attempts = dead_letter_events.attempts + 1,
                          error = EXCLUDED.error`,
-        [consumer, event.id, err instanceof Error ? err.message : String(err)],
+        [consumer, event.id, failure instanceof Error ? failure.message : String(failure)],
       );
     }
   }
