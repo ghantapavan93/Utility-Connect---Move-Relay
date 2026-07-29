@@ -16,7 +16,15 @@ import { createHash, randomUUID } from "node:crypto";
 
 export interface TraceContext {
   traceId: string;
-  spanId: string;
+  /**
+   * The span this context sits inside, or `null` at the root of a trace.
+   *
+   * It used to be a freshly minted id that no span ever wrote. Every first
+   * application span therefore recorded `parent_span_id` pointing at a row that
+   * did not exist — one dangling edge per trace, in a graph whose only job is
+   * to be walkable. `null` says the true thing: nothing came before this.
+   */
+  spanId: string | null;
   parentSpanId?: string;
   correlationId: string;
 }
@@ -24,7 +32,9 @@ export interface TraceContext {
 export function newTrace(correlationId?: string): TraceContext {
   return {
     traceId: randomUUID(),
-    spanId: randomUUID().slice(0, 16),
+    // No invented root. The first `traced()` call becomes the root span and
+    // persists with `parent_span_id = NULL`.
+    spanId: null,
     correlationId: correlationId ?? randomUUID(),
   };
 }
@@ -101,6 +111,16 @@ type SpanWriter = (row: {
   name: string;
   outcome: string;
   durationMs: number;
+  /**
+   * When the span actually began and ended, in wall-clock terms.
+   *
+   * Both were previously computed and thrown away: `startSpan` captured the
+   * start to derive `durationMs`, and the row carried neither. The database
+   * column named `started_at` then defaulted to the insertion time, which for
+   * a fire-and-forget write lands after the span has already finished.
+   */
+  startedAt: Date;
+  finishedAt: Date;
   attributes: Record<string, unknown>;
 }) => void;
 
@@ -124,13 +144,20 @@ export function startSpan(name: string, parent: TraceContext, monotonicNow: numb
   const ctx: TraceContext = {
     traceId: parent.traceId,
     spanId: randomUUID().slice(0, 16),
-    parentSpanId: parent.spanId,
+    // `undefined` at the root, which the writer turns into SQL NULL. A root
+    // span with no parent is the honest shape; the previous code pointed it at
+    // an id that was never written.
+    parentSpanId: parent.spanId ?? undefined,
     correlationId: parent.correlationId,
   };
+  // Captured once, here, and carried to the row. This is the value the column
+  // named `started_at` should always have held.
+  const startedAt = new Date(monotonicNow);
   log("debug", { event: "span.start", span_name: name, trace: ctx });
   return {
     ctx,
     end(outcome = "ok", extra = {}) {
+      const finishedAt = new Date();
       const duration = Math.max(0, Date.now() - monotonicNow);
       log(outcome === "error" ? "error" : "info", {
         event: "span.end",
@@ -147,13 +174,16 @@ export function startSpan(name: string, parent: TraceContext, monotonicNow: numb
         const { organizationId, ...attrs } = extra as { organizationId?: string };
         writeSpan?.({
           traceId: ctx.traceId,
-          spanId: ctx.spanId,
+          // Always a string for a real span — only a `TraceContext` root is null.
+          spanId: ctx.spanId!,
           parentSpanId: ctx.parentSpanId,
           correlationId: ctx.correlationId,
           organizationId,
           name,
           outcome,
           durationMs: duration,
+          startedAt,
+          finishedAt,
           attributes: scrub(attrs) as Record<string, unknown>,
         });
       } catch {

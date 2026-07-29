@@ -63,7 +63,24 @@ describe("a span survives as a row", () => {
     expect((ingest!.attributes as { channel?: string }).channel).toBe("customer_form");
   });
 
-  it("keeps every span of one trace together and in order", async () => {
+  it("keeps every span of one trace together, with parentage intact", async () => {
+    /*
+      This used to assert the retrieval order — child first, "because the child
+      ends first". That was never a guarantee the implementation made. Span
+      writes are fire-and-forget, so the two inserts race, and `started_at` is
+      the row's insert time rather than the span's start time. Whichever insert
+      reaches the server first gets the earlier timestamp.
+
+      It passed on PostgreSQL 17.8 and failed 2 runs in 5 on PostgreSQL 16 —
+      not a version behaviour difference, just different timing exposing a
+      test that had been relying on luck. `traceById` now has a deterministic
+      tiebreak so repeated reads are stable, but stable is not the same as
+      ordered-by-completion, and asserting the latter would put the flake back.
+
+      What a trace actually promises is structural: every span carries the same
+      trace id, and the child names its parent. That is what a reader needs to
+      reconstruct the tree, and it holds regardless of which insert lands first.
+    */
     const trace = newTrace();
     await traced("probe.parent", trace, { n: 1 }, async (ctx) => {
       await traced("probe.child", ctx, { n: 2 }, async () => undefined);
@@ -71,10 +88,19 @@ describe("a span survives as a row", () => {
     await new Promise((r) => setTimeout(r, 120));
 
     const spans = await traceById(trace.traceId);
-    const names = spans.map((s) => s.name);
-    // The child ends first — it is nested inside the parent's work.
-    expect(names).toEqual(["probe.child", "probe.parent"]);
-    expect(spans[0]!.parent_span_id).not.toBeNull();
+    expect(spans.map((s) => s.name).sort()).toEqual(["probe.child", "probe.parent"]);
+
+    const parent = spans.find((s) => s.name === "probe.parent")!;
+    const child = spans.find((s) => s.name === "probe.child")!;
+
+    /*
+      `newTrace()` establishes a root context whose span is never written — the
+      trace exists before any instrumented work happens — so `probe.parent`
+      legitimately carries a parent id pointing at it. The assertion that
+      matters is the link between the two spans that *were* recorded.
+    */
+    expect(child.parent_span_id, "the child must name its parent").toBe(parent.span_id);
+    expect(parent.span_id, "the two spans must be distinct").not.toBe(child.span_id);
   });
 
   it("records a failure instead of swallowing it", async () => {
