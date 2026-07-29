@@ -95,11 +95,41 @@ async function createPg(): Promise<DbHandle> {
   */
   const schema = process.env.RELAY_PG_SCHEMA;
 
+  /*
+    Pool size is per *process*, and on a serverless host there are many
+    processes.
+
+    Ten is right for one long-lived server on a local Postgres and wrong
+    everywhere else: each Vercel lambda instance opens its own pool, so ten
+    becomes ten times however many instances happen to be warm, and a Neon free
+    project runs out of connections long before the traffic justifies it. The
+    symptom is not a clean error either — it is intermittent
+    "remaining connection slots are reserved" under exactly the concurrency the
+    deployment was meant to handle.
+
+    Two on a serverless host, ten otherwise, and `RELAY_PG_MAX` overrides both
+    for anyone whose situation is neither. Neon's *pooled* endpoint is what
+    actually makes this safe — it multiplexes these onto far fewer Postgres
+    backends — so the connection string matters as much as this number.
+  */
+  const serverless = Boolean(process.env.VERCEL);
+  const max = Number(process.env.RELAY_PG_MAX ?? (serverless ? 2 : 10));
+
   const pool = new Pool({
     connectionString:
       process.env.DATABASE_URL ?? "postgres://relay:relay@localhost:5433/move_relay",
-    max: 10,
-    idleTimeoutMillis: 30_000,
+    max,
+    /*
+      Short idle timeout on serverless: an instance that is about to be frozen
+      should not be holding a connection open against a free-tier limit. Neon
+      also suspends a project after five idle minutes, so a connection held
+      across that boundary is dead anyway and only discovered on the next query.
+    */
+    idleTimeoutMillis: serverless ? 10_000 : 30_000,
+    // Fail fast rather than hanging a request behind a cold Neon compute that
+    // is still waking up. Neon's own guidance is that resume takes a few
+    // hundred milliseconds; ten seconds is generous and still bounded.
+    connectionTimeoutMillis: 10_000,
     /*
       Applied by the server at connection start, so it holds for every
       connection this pool opens — including ones created later under load.

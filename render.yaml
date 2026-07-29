@@ -1,0 +1,41 @@
+# Render Blueprint — the scheduler, and nothing else.
+#
+# Move Relay is one Next.js application. Its API routes are part of it, so there
+# is no separate backend to host here and running the app on Render as well as
+# Vercel would be deploying the same thing twice.
+#
+# What Render is here for is the one job Vercel's free tier cannot do. The
+# outbox needs draining on a timer, and:
+#
+#   * Vercel Hobby runs cron at most once per day. This wants every few minutes.
+#   * Vercel cron issues GET. `POST /api/v1/ops/drain` is what drains; GET is
+#     deliberately a read-only probe. A GET schedule would return 200 for ever
+#     and drain nothing, which is the worst kind of broken - it looks healthy.
+#
+# A Render cron job runs a real command, so it can POST, authenticate, and fail
+# loudly. On the free tier it costs nothing at this frequency.
+#
+# Setup: Render dashboard -> New -> Blueprint -> point at this repository.
+# Then set the two variables marked `sync: false` in the dashboard; they are not
+# in this file because one is a secret and the other is your deployment URL.
+
+services:
+  - type: cron
+    name: move-relay-outbox-drain
+    runtime: docker
+    dockerfilePath: ./render/drain.Dockerfile
+    plan: free
+    region: oregon
+    # Every five minutes. The interval is not arbitrary: it is the longest a
+    # committed-but-undelivered event should sit if the process that wrote it
+    # died before its inline drain ran. Nothing depends on it for correctness -
+    # `runProjector()` still runs inline on every write path - so this is the
+    # backstop for "nobody wrote again", not the delivery mechanism.
+    schedule: "*/5 * * * *"
+    envVars:
+      # https://your-app.vercel.app  — no trailing slash.
+      - key: MOVE_RELAY_URL
+        sync: false
+      # Must match CRON_SECRET in the Vercel project, or the POST returns 401.
+      - key: CRON_SECRET
+        sync: false

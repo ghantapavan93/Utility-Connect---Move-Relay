@@ -29,7 +29,34 @@ import { backlog, deadLetters } from "@/lib/outbox";
  * response of `{ dispatched: 0, backlog: 0 }` is the healthy steady state and
  * reads as one.
  */
-export async function POST() {
+/**
+ * Is this caller allowed to cause a drain?
+ *
+ * Enforced only when `CRON_SECRET` is set, which is deliberate: local
+ * development and the test suite call this with no configuration, and a route
+ * that 401s on a developer's machine gets commented out rather than
+ * understood. In any deployment the variable is set, and then it is required.
+ *
+ * The response reports which mode it is in, so "I thought I had set it" is a
+ * question a `curl` answers rather than an assumption someone carries.
+ */
+function authorized(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true;
+  return request.headers.get("authorization") === `Bearer ${secret}`;
+}
+
+export async function POST(request: Request) {
+  if (!authorized(request)) {
+    /*
+      A public URL with an unauthenticated write is a public URL somebody will
+      eventually find. Draining is idempotent and safe, so the risk is not
+      corruption — it is that anyone can make this database do work on demand,
+      on a free tier metered by exactly that.
+    */
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
   const dispatched = await runProjector();
 
   const [remaining, dead] = await Promise.all([
@@ -45,6 +72,9 @@ export async function POST() {
     // Stated on the response rather than only in a comment: a caller looking at
     // this in isolation should be able to tell what guarantee it carries.
     delivery: "exactly-once per consumer, enforced by a unique constraint",
+    // Whether CRON_SECRET was enforced on this call. Cheaper to read than to
+    // assume, and the assumption is the one that goes wrong quietly.
+    protected: Boolean(process.env.CRON_SECRET),
   });
 }
 
