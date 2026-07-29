@@ -428,11 +428,20 @@ describe("Act 4 — the audit trail explains everything", () => {
   });
 
   it("cannot be edited or deleted after the fact", async () => {
+    /*
+      The trail used to absorb these statements silently — they succeeded and
+      did nothing. It now refuses out loud, because a caller that believes it
+      corrected an audit row and is never contradicted stays wrong for as long
+      as nobody looks.
+    */
     const before = await query<Row>(`SELECT count(*)::int AS n FROM audit_events`);
-    await query(`UPDATE audit_events SET actor = 'tampered'`);
-    await query(`DELETE FROM audit_events`);
-    const after = await query<Row>(`SELECT count(*)::int AS n FROM audit_events`);
 
+    await expect(query(`UPDATE audit_events SET actor = 'tampered'`)).rejects.toThrow(
+      /append-only/i,
+    );
+    await expect(query(`DELETE FROM audit_events`)).rejects.toThrow(/append-only/i);
+
+    const after = await query<Row>(`SELECT count(*)::int AS n FROM audit_events`);
     expect(after[0]!.n).toBe(before[0]!.n);
     const tampered = await query<Row>(
       `SELECT count(*)::int AS n FROM audit_events WHERE actor = 'tampered'`,

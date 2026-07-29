@@ -136,15 +136,40 @@ describe("stated test counts cannot drift from the suite", () => {
    * quotable number be wrong in four different ways. So the claim is now
    * checked: any file stating "N tests" must state the real N.
    */
+  /*
+    `it(` and its modifier forms.
+
+    This counted only `^\s*it\(` and therefore missed every `it.skipIf(...)` —
+    five of them, in `harness-isolation-b` and `transaction-primitive`. So the
+    number published in the README, the meta description and the social card was
+    439 while the suite actually ran 444, and the guard whose entire purpose is
+    stopping this project from quoting a wrong test count was itself the reason
+    the count was wrong.
+
+    Conditionally-skipped tests are real cases: they run whenever their
+    condition holds, which for these is a Postgres backend rather than PGlite.
+    Counting them is what makes the published figure match `vitest`.
+  */
   const countTests = () => {
     const dir = join(root, "src/lib/__tests__");
     return readdirSync(dir)
       .filter((f) => f.endsWith(".ts"))
-      .reduce((n, f) => n + (read(`src/lib/__tests__/${f}`).match(/^\s*it\(/gm)?.length ?? 0), 0);
+      .reduce(
+        (n, f) => n + (read(`src/lib/__tests__/${f}`).match(/^\s*it(\.\w+)?\(/gm)?.length ?? 0),
+        0,
+      );
   };
 
   it("every stated count matches the number of tests that exist", () => {
     const actual = countTests();
+    /*
+      The two app-shell files were added after this guard found both of them
+      still claiming 234 while every listed file said 364. They are the worst
+      places for the number to be wrong: `layout.tsx` supplies the meta
+      description and `opengraph-image.tsx` the social card, so a stale count
+      there is the version that gets quoted in a link preview and never seen by
+      whoever could correct it.
+    */
     const files = [
       "README.md",
       "docs/ARCHITECTURE.md",
@@ -152,6 +177,8 @@ describe("stated test counts cannot drift from the suite", () => {
       "docs/BUSINESS_VALUE.md",
       "src/app/page.tsx",
       "src/app/demo/page.tsx",
+      "src/app/layout.tsx",
+      "src/app/opengraph-image.tsx",
     ];
 
     const wrong: string[] = [];

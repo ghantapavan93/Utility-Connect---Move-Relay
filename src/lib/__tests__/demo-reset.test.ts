@@ -66,11 +66,15 @@ describe("audit immutability survives the fix", () => {
     const rows = await query<{ id: string }>(`SELECT id FROM audit_events LIMIT 1`);
     if (rows.length === 0) return; // nothing written yet; nothing to assert
 
-    await query(`DELETE FROM audit_events WHERE id = $1`, [rows[0]!.id]);
+    // Dropping the foreign key must not have weakened the rule that matters —
+    // and the refusal is now explicit rather than a silently ignored statement.
+    await expect(
+      query(`DELETE FROM audit_events WHERE id = $1`, [rows[0]!.id]),
+    ).rejects.toThrow(/append-only/i);
+
     const still = await query<{ id: string }>(`SELECT id FROM audit_events WHERE id = $1`, [
       rows[0]!.id,
     ]);
-    // Dropping the foreign key must not have weakened the rule that matters.
     expect(still).toHaveLength(1);
   });
 });

@@ -112,6 +112,32 @@ export async function reset() {
        VALUES ($1,'North Texas Realty','ntr','move.northtexasrealty.com','#1F4E79')`,
       [org],
     );
+
+    /*
+      Who belongs to which organization, seeded with the organization itself.
+
+      These are facts about the tenant, not about any move, and they were being
+      written inside `create_move` as a side effect of a demo step. That meant a
+      tenant which had been reset but not walked through the scripted narrative
+      had no members at all — so a move created through the real intake path was
+      owned by an organization nobody was a member of, and every actor was
+      denied. Measured on the running console: `GET` on a freshly created move
+      returned 403 to the operator who had just created it.
+
+      Move-scoped tuples still belong to the step that creates the move. Only the
+      organizational ones moved here.
+    */
+    for (const [subject, relation, object] of [
+      ["user:concierge-7", "member", "org:uc-demo"],
+      ["org:ntr", "parent", "org:uc-demo"],
+      ["user:ntr-agent", "member", "org:ntr"],
+    ]) {
+      await c.query(
+        `INSERT INTO auth_tuples (subject, relation, object) VALUES ($1,$2,$3)
+         ON CONFLICT DO NOTHING`,
+        [subject, relation, object],
+      );
+    }
   });
 
   return { step: "reset", state: "ready", message: "Demo reset to pre-ingestion state." };
@@ -400,6 +426,10 @@ defineWorkflow({
             payload: { service: "electric", address: "1420 Windhaven Pkwy" },
             correlationId: CORRELATION,
             actor: "human:concierge-7",
+            // The same key handed to `callProvider` below, now also persisted
+            // on the submission — so anything reconciling later can ask the
+            // provider without already knowing this constant.
+            providerRequestKey: REQUEST_KEY,
           },
           (p) =>
             callProvider(p, {
