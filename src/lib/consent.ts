@@ -13,12 +13,31 @@ import { query } from "./db";
  * means no contact, not "probably fine".
  */
 
-export type ConsentChannel = "phone" | "sms" | "email";
-export type ConsentPurpose =
-  | "customer_care"
-  | "connection_status"
-  | "account_information"
-  | "appointment_details";
+/**
+ * The values, and the types derived from them.
+ *
+ * These were union types with no runtime counterpart, which meant nothing
+ * outside TypeScript could check a purpose before handing it to Postgres — and
+ * the column is a real enum, so a wrong value is not a validation failure, it is
+ * a transaction that throws mid-write. The console's own consent payload used
+ * `service_setup` and `provider_contact`, neither of which exists, and it went
+ * unnoticed because that referral always attached to an existing move and the
+ * attach path does not write consent. On a fresh tenant it would have created a
+ * move and then crashed.
+ *
+ * Derived with `as const` so the arrays are the single source and the types
+ * cannot drift from them.
+ */
+export const CONSENT_CHANNELS = ["phone", "sms", "email"] as const;
+export const CONSENT_PURPOSES = [
+  "customer_care",
+  "connection_status",
+  "account_information",
+  "appointment_details",
+] as const;
+
+export type ConsentChannel = (typeof CONSENT_CHANNELS)[number];
+export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
 export interface ConsentDecision {
   allowed: boolean;

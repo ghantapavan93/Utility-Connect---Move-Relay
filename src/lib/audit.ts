@@ -8,8 +8,11 @@ import type { Queryable } from "./db";
  * exact failure this product exists to prevent, so it must not be possible to
  * produce one by accident.
  *
- * `audit_events` also carries DO INSTEAD NOTHING rules on UPDATE and DELETE, so
- * the append-only property survives application bugs, not just discipline.
+ * `audit_events` also carries triggers that raise on UPDATE and DELETE, so the
+ * append-only property survives application bugs, not just discipline. They
+ * raise rather than discard: a rule that silently changed nothing still let the
+ * statement succeed, which meant code could believe it had corrected history
+ * and be wrong with no error to show for it.
  */
 export interface AuditInput {
   organizationId: string;

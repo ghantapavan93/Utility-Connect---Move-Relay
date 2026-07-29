@@ -38,6 +38,17 @@ export interface Actor {
 /** The demo identities, and the projection each is entitled to. */
 export const DEMO_ACTORS: Record<string, Actor> = {
   "user:concierge-7": { subject: "user:concierge-7", audience: "concierge", label: "Concierge 7" },
+  /*
+    The same role, named.
+
+    "Concierge 7" is what the scripted demo calls its operator, and it stays
+    because the console and its tests depend on it. The Views page needs a
+    person rather than a seat number — a reviewer understands "Jordan Lee is
+    responsible for resolving this move" and does not understand "concierge-7"
+    — so it seeds its own tenant under this identity. Same audience, same
+    entitlements, no additional privilege.
+  */
+  "user:jordan-lee": { subject: "user:jordan-lee", audience: "concierge", label: "Jordan Lee" },
   "user:maya-patel": { subject: "user:maya-patel", audience: "customer", label: "Maya Patel" },
   "user:ntr-agent": { subject: "user:ntr-agent", audience: "partner", label: "North Texas Realty agent" },
   // Deliberately present and deliberately entitled to nothing it does not own —
@@ -100,6 +111,20 @@ export async function requireView(
           // No relationship path existed. Saying so is more useful than a bare
           // 403, and it is safe: the caller learns nothing they did not supply.
           detail: "No relationship path from this actor to this resource.",
+          /*
+            Stated by the server, because a screen that asserted them itself
+            would be describing its own behaviour rather than reporting the
+            system's. Both are literally true of this branch: it returns above
+            `viewForActor`, so nothing was built and nothing was read.
+
+            Everything here is either the caller's own input or a fact about the
+            refusal. No field name, no value, and no hint about what the record
+            contains — a denial that leaked the shape of what was withheld would
+            be a disclosure dressed as a refusal.
+          */
+          relationship: null,
+          projectionGenerated: false,
+          returnedFields: 0,
         },
         { status: 403 },
       ),
@@ -111,3 +136,47 @@ export async function requireView(
 
 export const isDenial = (r: { actor: Actor } | Denial): r is Denial =>
   (r as Denial).response !== undefined;
+
+/**
+ * Gate a request that is about to *change* something.
+ *
+ * Two questions, and they are genuinely different. The relationship graph
+ * answers *is this your record* — it is resource scope, and `requireView`
+ * already asks it. This adds the second: *is this your job*. A customer can
+ * legitimately view their own move and must never be the one who selects the
+ * surviving value for a contested field; that is a concierge decision, and the
+ * schema already insists a canonical value name the human who chose it.
+ *
+ * Splitting them keeps each answer in the place that owns it, rather than
+ * inventing a `merge` relation in the tuple store and then having to keep it in
+ * step with every new kind of write.
+ *
+ * This is not authentication. `X-Actor` is a forgeable header and a demo
+ * stand-in for a session, stated wherever it appears. What it does provide is a
+ * real authorization decision on a real graph, applied before a write instead of
+ * after it — which is what was missing.
+ */
+export async function requireConciergeWrite(
+  request: Request,
+  object: string,
+): Promise<{ actor: Actor; via: string } | Denial> {
+  const gate = await requireView(request, object);
+  if (isDenial(gate)) return gate;
+
+  if (gate.actor.audience !== "concierge") {
+    return {
+      response: NextResponse.json(
+        {
+          error: "forbidden",
+          actor: gate.actor.subject,
+          object,
+          detail:
+            "This actor may view this record but may not change it. Selecting the surviving value for a contested field is a concierge decision.",
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return gate;
+}

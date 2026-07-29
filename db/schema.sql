@@ -188,6 +188,20 @@ CREATE TABLE provider_submissions (
   service_request_id  UUID NOT NULL REFERENCES service_requests(id) ON DELETE CASCADE,
   operation_key       TEXT NOT NULL,       -- stable across retries of one intent
   request_fingerprint TEXT NOT NULL,
+  -- The identifier we handed the *provider*, which is what their ledger is
+  -- indexed by. `operation_key` is ours and they have never seen it.
+  --
+  -- Without this column an UNKNOWN outcome is unrecoverable in principle: you
+  -- cannot ask "does an order exist for this request?" if you did not keep the
+  -- only handle the other side knows it by. Every caller here had the value at
+  -- submit time and threw it away, and the demo covered the gap with a module
+  -- constant — which works for one scripted move and for nothing else.
+  --
+  -- Nullable because rows written before this existed cannot have it, and a
+  -- lookup must be able to tell "no key recorded" apart from "no order found".
+  -- Those two are opposite instructions: the first means ask a human, the
+  -- second means resubmission is safe.
+  provider_request_key TEXT,
   state               submission_state NOT NULL DEFAULT 'pending',
   provider_order_id   TEXT,                -- populated on confirm or reconcile
   attempt             INT NOT NULL DEFAULT 1,
@@ -293,9 +307,35 @@ CREATE TABLE audit_events (
 CREATE INDEX audit_events_move_idx ON audit_events (move_id, occurred_at);
 CREATE INDEX audit_events_correlation_idx ON audit_events (correlation_id);
 
--- Audit rows are immutable. Enforced, not merely intended.
-CREATE RULE audit_events_no_update AS ON UPDATE TO audit_events DO INSTEAD NOTHING;
-CREATE RULE audit_events_no_delete AS ON DELETE TO audit_events DO INSTEAD NOTHING;
+-- Audit rows are immutable, and saying so out loud is the point.
+--
+-- This was two `DO INSTEAD NOTHING` rules. History was safe — an UPDATE or a
+-- DELETE changed nothing — but the statement *succeeded*, and that is a weaker
+-- guarantee than it looks. Code that believed it had corrected an audit row
+-- carried on believing it. Tests written against that code passed. The gap
+-- between what a component thought it recorded and what was recorded could
+-- persist indefinitely, because nothing ever contradicted it.
+--
+-- Refusing loudly makes the boundary teachable at the moment of the mistake,
+-- and names the sanctioned alternative: history here is not editable, it is
+-- extendable. A correction is a new event with its own actor and time, which is
+-- itself a fact worth keeping.
+CREATE FUNCTION audit_events_immutable() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION
+    'audit_events is append-only: % is not permitted. Append a correcting event instead.',
+    TG_OP
+    USING ERRCODE = 'restrict_violation';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_events_no_update
+  BEFORE UPDATE ON audit_events
+  FOR EACH ROW EXECUTE FUNCTION audit_events_immutable();
+
+CREATE TRIGGER audit_events_no_delete
+  BEFORE DELETE ON audit_events
+  FOR EACH ROW EXECUTE FUNCTION audit_events_immutable();
 
 -- ---------------------------------------------------------------------------
 -- Durable workflow execution
@@ -411,10 +451,40 @@ CREATE TABLE customer_timeline_entries (
   detail           TEXT,
   tone             TEXT NOT NULL DEFAULT 'info',   -- info | progress | done
   source_event_id  BIGINT,                          -- outbox event that produced this
+  -- What this entry *means*, stable across the events that can express it.
+  -- 'service.scheduled:electric', 'move.confirmed'. See the index below.
+  projection_key   TEXT,
   occurred_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX customer_timeline_move_idx ON customer_timeline_entries (move_id, occurred_at);
+
+-- One entry per *meaning* per move — not one entry per event.
+--
+-- The first version of this keyed on `source_event_id`, which closed the replay
+-- hole and left a subtler one open. Two different domain events map to the same
+-- customer sentence:
+--
+--   provider.confirmed   ─┐
+--                         ├─→  "Your electric service is scheduled"
+--   provider.reconciled  ─┘
+--
+-- Those are distinct outbox rows with distinct ids, so an event-keyed rule
+-- cannot see that they say the same thing, and the customer is told twice.
+--
+-- The two columns answer different questions and both are worth keeping.
+-- `source_event_id` is provenance: which event produced this row. Uniqueness
+-- belongs on `projection_key`, because "is this already on the timeline" is a
+-- question about meaning, not about cause.
+--
+-- The key carries its subject (`service.scheduled:electric`) so a household
+-- with electricity and internet hears about both. Scoped per move, because two
+-- customers are each entitled to their own copy of the same sentence. Partial,
+-- because a row written by any future non-projector path has no logical key and
+-- must stay unconstrained.
+CREATE UNIQUE INDEX customer_timeline_projection_key_idx
+  ON customer_timeline_entries (move_id, projection_key)
+  WHERE projection_key IS NOT NULL;
 
 -- ---------------------------------------------------------------------------
 -- Contract quarantine
@@ -462,10 +532,93 @@ CREATE TABLE trace_spans (
   outcome          TEXT NOT NULL,          -- 'ok' | 'error'
   duration_ms      INTEGER NOT NULL,
   attributes       JSONB,                  -- already PII-scrubbed by the caller
-  started_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+  -- Three timestamps, because they answer three different questions and one
+  -- column was previously pretending to answer all of them.
+  --
+  -- `started_at` used to be `DEFAULT now()` — the moment the row was inserted.
+  -- Spans are written after the work they measure completes, and the write is
+  -- fire-and-forget, so that value landed *after* the span had already
+  -- finished: a parent whose work began at +0ms and ran 316ms recorded a
+  -- "start" of +353ms. Ordering a trace by it ordered by when writes happened
+  -- to land, which for concurrent work is close to meaningless.
+  --
+  -- The true start was never missing — `traced()` captured it to compute the
+  -- duration and then discarded it. These columns keep it.
+  started_at       TIMESTAMPTZ NOT NULL,   -- when the span actually began
+  finished_at      TIMESTAMPTZ NOT NULL,   -- when it actually ended
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),  -- when the row landed
+  CONSTRAINT span_ends_after_it_starts CHECK (finished_at >= started_at)
 );
 
 CREATE INDEX trace_spans_trace_idx ON trace_spans (trace_id, started_at);
 CREATE INDEX trace_spans_recent_idx ON trace_spans (started_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- The concierge case agent — proposals and refusals, never decisions
+-- ---------------------------------------------------------------------------
+
+-- `ai_runs` records one generation: a briefing was produced, here is what it
+-- cited, here is what the human did with it. An agent run is a different shape
+-- — many steps, each one a tool call with an authority level and an outcome,
+-- pausing mid-run for a human and resuming afterwards. Squeezing that into
+-- `ai_runs.output` would make the interesting part (which tools were reached
+-- for, which were refused) invisible to SQL, which is the only place this
+-- project treats as true.
+--
+-- The load-bearing column is `agent_steps.authority`. The agent does not decide
+-- what it is allowed to do; the tool registry does, server-side, before any
+-- model output is consulted. A refusal is therefore a *recorded row*, not an
+-- absence — the proof that the boundary held is queryable rather than assumed.
+CREATE TABLE agent_runs (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  move_id          UUID NOT NULL REFERENCES moves(id) ON DELETE CASCADE,
+  goal             TEXT NOT NULL,          -- 'next_safe_action'
+  model            TEXT NOT NULL,          -- or 'deterministic' when no adapter is configured
+  -- 'running' | 'awaiting_approval' | 'completed' | 'rejected' | 'failed'
+  state            TEXT NOT NULL DEFAULT 'running',
+  -- The action the agent wants a human to authorise, and the one it refused to
+  -- take. Both are part of the answer; a proposal with no stated alternative
+  -- hides the reasoning that makes it safe.
+  proposed_tool    TEXT,
+  proposed_args    JSONB,
+  -- Why this action is the safe one. Persisted rather than recomputed, because
+  -- a run read back tomorrow must say what it said today — a reason rebuilt
+  -- from current code is a reason that quietly changes when the code does.
+  proposal_why     TEXT,
+  refused_tool     TEXT,
+  refused_reason   TEXT,
+  summary          TEXT,
+  human_actor      TEXT,
+  human_decision   TEXT,                   -- 'approved' | 'rejected'
+  decided_at       TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at     TIMESTAMPTZ
+);
+
+CREATE TABLE agent_steps (
+  id            BIGSERIAL PRIMARY KEY,
+  run_id        UUID NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  seq           INT NOT NULL,
+  tool          TEXT NOT NULL,
+  -- 'read_only' | 'requires_approval' | 'forbidden'. Copied from the registry
+  -- at call time so a later change to the registry cannot rewrite history.
+  authority     TEXT NOT NULL,
+  arguments     JSONB NOT NULL,
+  -- 'ok' | 'refused' | 'error'. A refused step is the interesting one.
+  outcome       TEXT NOT NULL,
+  observation   JSONB,
+  note          TEXT,
+  duration_ms   INTEGER,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (run_id, seq)
+);
+
+CREATE INDEX agent_runs_move_idx ON agent_runs (move_id, created_at DESC);
+CREATE INDEX agent_steps_run_idx ON agent_steps (run_id, seq);
+
+-- An agent step never sets domain state. Approved actions are executed by the
+-- same service functions a human button calls, inside the same transaction
+-- boundaries, with the same authorization checks.
 
 COMMIT;

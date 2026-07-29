@@ -151,24 +151,36 @@ await check("reconciliation may record the order id it recovered", async () => {
   );
 });
 
-await check("audit events cannot be updated", async () => {
+await check("an UPDATE against the audit trail is rejected", async () => {
+  // Previously these two statements were absorbed silently by a rule. They now
+  // raise, because a caller that thinks it edited history and is never
+  // contradicted stays wrong until somebody happens to look.
   await db.query(
     `INSERT INTO audit_events (organization_id, move_id, event_type, actor)
      VALUES ($1,$2,'provider.retry.blocked','system')`,
     [org, move],
   );
-  await db.query(`UPDATE audit_events SET actor = 'tampered'`);
+  await mustReject(`UPDATE audit_events SET actor = 'tampered'`);
   const { rows } = await db.query(
     `SELECT actor FROM audit_events WHERE event_type = 'provider.retry.blocked'`,
   );
   if (rows[0].actor !== "system") throw new Error("audit row was mutated");
 });
 
-await check("audit events cannot be deleted", async () => {
+await check("a DELETE against the audit trail is rejected", async () => {
   const before = (await db.query(`SELECT count(*)::int AS n FROM audit_events`)).rows[0].n;
-  await db.query(`DELETE FROM audit_events`);
+  await mustReject(`DELETE FROM audit_events`);
   const after = (await db.query(`SELECT count(*)::int AS n FROM audit_events`)).rows[0].n;
   if (before !== after) throw new Error(`audit rows deleted: ${before} → ${after}`);
+});
+
+await check("a correcting event may still be appended", async () => {
+  // The sanctioned path out. History is not editable; it is extendable.
+  await db.query(
+    `INSERT INTO audit_events (organization_id, move_id, event_type, actor, detail)
+     VALUES ($1,$2,'audit.correction','human:concierge-7','{"corrects":"provider.retry.blocked"}')`,
+    [org, move],
+  );
 });
 
 await check("identical payloads on one channel collapse to a single submission", async () => {
