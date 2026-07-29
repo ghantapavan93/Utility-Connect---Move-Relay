@@ -142,26 +142,35 @@ All footage must be original or licensed, and licensed material credited in
 [`CREDITS.md`](../../CREDITS.md). Never use Utility Connect's screen recordings
 or customer footage.
 
-### The one exception, and how it is contained
+### Utility Connect's own brand films
 
-Two of Utility Connect's own brand films play on the home page — the
-`brandFilm` and `channels` slots. That is a deliberate reversal of the rule this
-section used to state absolutely, made by the repository owner, and it is worth
-writing down rather than leaving the document contradicting the code.
+Two of them play on the home page — `uc-brand-film.mp4` behind the "same front
+door" section and `uc-product-film.mp4` behind "one move arrives through several
+channels". That is a deliberate reversal of the rule this section used to state
+absolutely, made by the repository owner so the sections survive a Vercel
+deploy, and both files are committed.
 
-What has not changed is that **their media is never published from here**. Both
-files match `public/videos/YTDown.com_*.mp4` in `.gitignore`, so this folder is
-committed and published *except* for those. A clone gets the page without them:
-the brand-film section does not render at all, and the channels section keeps
-its headline, its chips and its constellation and loses only a background.
+They are **re-encoded, never the raw download**. The sources were 8.5 MB / 55s
+at 720p and 19.8 MB / 60s at 1080p. Both sit under a scrim of 0.58–0.66 plus a
+cyan cast, so most of their detail is thrown away before a visitor sees it, and
+they encode to 2.6 MB and 3.4 MB with nothing visibly lost:
 
-`marketing-video.ts` marks those slots `bundled: false`, and
-`marketing-video.test.ts` asserts via `git check-ignore` that git would refuse
-to track them. If someone deletes the ignore rule, that test goes red rather
-than a company's marketing footage quietly shipping in a public repository.
+```
+ffmpeg -i INPUT.mp4 \
+  -vf "scale='min(960,iw)':-2:flags=lanczos" \
+  -c:v libx264 -preset slow -crf 31 -profile:v high -pix_fmt yuv420p \
+  -c:a aac -b:a 64k -ac 1 \
+  -movflags +faststart public/videos/OUTPUT.mp4
+```
 
-Everything else in this folder is generated for this project and committed
-normally.
+`ffmpeg-static` is a dev dependency, so `node -e "console.log(require('ffmpeg-static'))"`
+gives you a binary without installing anything system-wide.
+
+The raw downloads stay ignored — `YTDown.com_*`, `*_720p.mp4`, `*_1080p.mp4` —
+and a test asserts `git check-ignore` still covers that pattern. Dropping a
+twenty-megabyte source file in here and wiring a slot at it is the obvious
+shortcut when a re-cut is needed in a hurry, and git keeps every version of a
+binary forever.
 
 Git keeps every version of a binary forever, and this repository has already
 had to purge 143 MB of media out of its own history. Replace a clip rather than

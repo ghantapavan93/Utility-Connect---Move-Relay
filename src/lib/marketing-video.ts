@@ -39,23 +39,33 @@ export interface MarketingVideoSlot {
   /**
    * Does this slot's footage ship in the repository?
    *
-   * `true` for clips generated for this project: they are committed, so a
-   * missing one is a broken build and the manifest test says so. They also
-   * carry the weight ceilings, because git keeps every version of a binary
-   * forever.
+   * Everything is `true` today: every slot is committed, so a missing file is a
+   * broken build and the manifest test says so.
    *
-   * `false` for Utility Connect's own brand films. Those play from a local
-   * `public/videos/` and are gitignored, because this repository is not
-   * affiliated with them and republishing a company's marketing footage is not
-   * something a portfolio piece gets to do quietly. A clone without them
-   * renders the page with those sections absent, which is the same graceful
-   * path a not-yet-delivered cut already takes.
-   *
-   * The distinction is not cosmetic: it decides which assertions in the
-   * manifest test apply, so "the file is missing" is a failure for one kind of
-   * footage and an expected state for the other.
+   * The flag stays because the alternative is real. It briefly carried the two
+   * Utility Connect films while they were gitignored, and it is what a slot
+   * would use again for footage that cannot be redistributed. An unbundled slot
+   * is exempt from the presence check and from the weight ceilings, because a
+   * file this project neither encoded nor publishes is not one it can be held
+   * to. Nothing is exempt from the fast-start check: a clip that cannot begin
+   * streaming is broken for the visitor whoever made it.
    */
   bundled: boolean;
+  /**
+   * Is the visitor asked to watch this, or is it the room they read in?
+   *
+   * `clip` — the film is the content. It gets a duration ceiling, because a
+   * marketing clip past about twelve seconds has stopped being a clip and
+   * become something a visitor has to decide whether to sit through.
+   *
+   * `backdrop` — an ambient loop behind text. The duration ceiling is
+   * meaningless here: it loops, nobody is asked to reach the end, and trimming
+   * a minute of footage to fourteen seconds would only make the repeat more
+   * obvious. What matters instead is weight, and more than for a clip: this
+   * autoplays underneath a section the visitor came to *read*, so it gets the
+   * tighter byte ceiling rather than a looser one.
+   */
+  role: "clip" | "backdrop";
   /**
    * Does the film restart when it finishes?
    *
@@ -99,6 +109,7 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
     caption: null,
     loop: false,
     bundled: true,
+    role: "clip",
     intent:
       "A house being moved into with its services already live, resolving onto the mark — the product's subject and its signature in one pass.",
   },
@@ -121,6 +132,7 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
     caption: null,
     loop: false,
     bundled: true,
+    role: "clip",
     intent: "The whole story in eight seconds, ending on the two things a visitor can do next.",
   },
 
@@ -141,10 +153,11 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
    */
   brandFilm: {
     key: "brandFilm",
-    files: ["YTDown.com_YouTube_Utility-Connect-The-Ultimate-Utility-Con_Media_o5u5wPUJc5I_002_720p.mp4"],
+    files: ["uc-brand-film.mp4"],
     caption: null,
     loop: true,
-    bundled: false,
+    bundled: true,
+    role: "backdrop",
     intent:
       "Utility Connect in their own footage, running behind the one sentence that says what this build is — atmosphere, not a clip to be watched to the end.",
   },
@@ -165,10 +178,11 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
    */
   channels: {
     key: "channels",
-    files: ["YTDown.com_YouTube_Utility-Connect-Product-Video_Media_v8HamZUIvVE_001_1080p.mp4"],
+    files: ["uc-product-film.mp4"],
     caption: null,
     loop: true,
-    bundled: false,
+    bundled: true,
+    role: "backdrop",
     intent:
       "The service itself, playing quietly under the claim that one move arrives through several channels and no two agree.",
   },

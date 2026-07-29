@@ -123,19 +123,18 @@ describe("the marketing video manifest", () => {
 
   it("keeps unbundled footage out of git, so the ignore cannot quietly lapse", () => {
     /*
-      The assertion that makes `bundled: false` mean something. Without it the
-      flag is a comment: someone adds the file to git, every other test still
-      passes, and a company's marketing footage ships in a public repository
-      because a rule lived only in prose.
+      Currently vacuous by design — every slot is bundled — and kept because the
+      moment a slot is marked unbundled, this is the assertion that makes the
+      flag mean something. Without it the flag is a comment: someone adds the
+      file to git, every other test still passes, and footage that was declared
+      un-redistributable ships anyway.
 
-      `git check-ignore` is the authority here rather than reading .gitignore,
+      `git check-ignore` is the authority rather than reading .gitignore,
       because the question is what git actually does with the path.
     */
     const unbundled = Object.values(MARKETING_VIDEO_SLOTS)
       .filter((slot) => !slot.bundled)
       .flatMap((slot) => slot.files);
-
-    expect(unbundled.length, "no unbundled slots left to check").toBeGreaterThan(0);
 
     for (const file of unbundled) {
       const ignored = spawnSync("git", ["check-ignore", "-q", `public/videos/${file}`], {
@@ -144,9 +143,31 @@ describe("the marketing video manifest", () => {
       // Exit 0 means git ignores the path; 1 means it would happily track it.
       expect(
         ignored.status,
-        `public/videos/${file} is declared unbundled but git would track it — it belongs to Utility Connect and must not be redistributed`,
+        `public/videos/${file} is declared unbundled but git would track it`,
       ).toBe(0);
     }
+  });
+
+  it("refuses to commit a raw download straight from the source", () => {
+    /*
+      The guard that survives the brand films becoming bundled.
+
+      Those two now ship, re-encoded from 8.5 MB and 19.8 MB down to 2.6 and
+      3.4. What must never ship is the untouched download the encode came from:
+      dropping a `YTDown.com_*.mp4` into this folder and wiring a slot at it
+      would put twenty megabytes into a repository that keeps every version of a
+      binary forever, and it is the obvious shortcut when a new cut is needed in
+      a hurry.
+    */
+    const raw = spawnSync(
+      "git",
+      ["check-ignore", "-q", "public/videos/YTDown.com_Example_720p.mp4"],
+      { cwd: root },
+    );
+    expect(
+      raw.status,
+      "raw source downloads must stay ignored — encode them into public/videos/ under a real name instead",
+    ).toBe(0);
   });
 
   it("resolves a slot to real URLs, in the order the film plays", () => {
@@ -258,6 +279,15 @@ describe("committed footage is fit to serve", () => {
   */
   const OPENER_CEILING = 3 * 1024 * 1024;
   const BELOW_FOLD_CEILING = 8 * 1024 * 1024;
+  /*
+    A backdrop is held tighter than a clip, which looks backwards until you ask
+    who is paying. A clip is the thing the visitor came to that part of the page
+    for; a backdrop autoplays underneath a section they came to *read*, so its
+    bytes buy atmosphere rather than content. Both brand films encode to under
+    3.5 MB from 8.5 and 19.8, so the ceiling is a real constraint that the
+    current files clear rather than a number drawn around them.
+  */
+  const BACKDROP_CEILING = 4 * 1024 * 1024;
   const MAX_SECONDS = 14;
 
   const openerFiles = new Set(MARKETING_VIDEO_SLOTS.opener.files);
@@ -281,12 +311,24 @@ describe("committed footage is fit to serve", () => {
     return mediaFiles().filter((name) => bundled.has(name));
   };
 
+  /** Every filename a backdrop slot plays. */
+  const backdropFiles = new Set(
+    Object.values(MARKETING_VIDEO_SLOTS)
+      .filter((slot) => slot.role === "backdrop")
+      .flatMap((slot) => slot.files),
+  );
+
+  const ceilingFor = (name: string) =>
+    backdropFiles.has(name)
+      ? BACKDROP_CEILING
+      : openerFiles.has(name)
+        ? OPENER_CEILING
+        : BELOW_FOLD_CEILING;
+
   it("keeps every committed clip under its ceiling", () => {
     const oversized = committed()
       .map((name) => ({ name, bytes: statSync(join(videosDir, name)).size }))
-      .filter(({ name, bytes }) =>
-        bytes > (openerFiles.has(name) ? OPENER_CEILING : BELOW_FOLD_CEILING),
-      )
+      .filter(({ name, bytes }) => bytes > ceilingFor(name))
       .map(({ name, bytes }) => `${name} (${(bytes / 1024 / 1024).toFixed(1)} MB)`);
 
     expect(oversized, "re-encode these — see the ffmpeg recipe in public/videos/README.md").toEqual(
@@ -295,8 +337,18 @@ describe("committed footage is fit to serve", () => {
   });
 
   it("keeps every committed clip short enough to be watched rather than sat through", () => {
+    /*
+      Backdrops are exempt, and the exemption is the rule's own logic rather
+      than an escape from it. The ceiling exists because a clip past twelve
+      seconds becomes something a visitor has to decide whether to sit through.
+      Nobody sits through a loop playing behind a paragraph — there is no end to
+      reach — and cutting a minute of footage down to fourteen seconds would
+      only make the repeat obvious. What a backdrop can do badly is cost too
+      much, and that is checked above, more tightly than for a clip.
+    */
     const tooLong = committed()
       .filter((name) => name.toLowerCase().endsWith(".mp4"))
+      .filter((name) => !backdropFiles.has(name))
       .map((name) => ({ name, meta: readMp4Meta(readFileSync(join(videosDir, name))) }))
       .filter(({ meta }) => meta.seconds !== null && meta.seconds > MAX_SECONDS)
       .map(({ name, meta }) => `${name} (${meta.seconds!.toFixed(1)}s)`);

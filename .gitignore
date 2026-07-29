@@ -25,16 +25,17 @@ notes/
 src/Photos/
 src/Videos/
 
-# Utility Connect's own brand films, played by the `brand-film` and `channels`
-# slots. Same rule as above, one step further in: these are referenced by the
-# page rather than only by the audit, so the ignore has to be by filename.
+# Raw source downloads, never the thing that ships.
 #
-# They play locally and the slots resolve to nothing without them, which is the
-# behaviour `marketing-video.server.ts` already guarantees - a missing file
-# renders no section at all, never a black frame. Anyone cloning this sees the
-# page without them and nothing broken. See `bundled: false` in
-# src/lib/marketing-video.ts.
+# The two Utility Connect brand films on the home page ARE committed - they are
+# re-encoded from 8.5MB and 19.8MB down to 2.6 and 3.4, and they live in
+# public/videos/ under real names. What must never be committed is the untouched
+# download an encode came from: git keeps every version of a binary forever, and
+# this repository has already had to purge 143MB of media out of its own
+# history. Encode it, name it, then commit it.
 public/videos/YTDown.com_*.mp4
+public/videos/*_720p.mp4
+public/videos/*_1080p.mp4
 
 # Working notes for the AI assistant on this repository.
 #
