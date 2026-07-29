@@ -5,7 +5,6 @@ import { Reveal } from "@/components/Reveal";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { HowItWorks } from "@/components/HowItWorks";
 import { Industries } from "@/components/Industries";
-import { FrontDoor } from "@/components/FrontDoor";
 import { HomeScene } from "@/components/HomeScene";
 import { PhotoBand } from "@/components/PhotoBand";
 import { BlurReveal } from "@/components/BlurReveal";
@@ -15,6 +14,8 @@ import { TrustStrip } from "@/components/TrustStrip";
 import { CountUp } from "@/components/CountUp";
 import { ScrollExpandMedia } from "@/components/blocks/scroll-expansion-hero";
 import { MarketingVideoBand } from "@/components/MarketingVideoBand";
+import { AmbientVideoStage } from "@/components/AmbientVideoStage";
+import { Typewriter } from "@/components/ui/typewriter";
 import { RevealHeadline } from "@/components/RevealHeadline";
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import { ConvergeText } from "@/components/ui/converge-text";
@@ -51,6 +52,13 @@ export default async function Home({
   */
   const openerMedia = resolveMarketingVideo("opener");
   const invitationMedia = resolveMarketingVideo("invitation");
+  /*
+    Utility Connect's own films. Gitignored, so these resolve to nothing in a
+    clone and both sections simply do not render — no black frame, no gap that
+    reads as a mistake. See the `bundled: false` note in marketing-video.ts.
+  */
+  const brandFilm = resolveMarketingVideo("brandFilm");
+  const channels = resolveMarketingVideo("channels");
 
   return (
     <div className="theme-light">
@@ -220,105 +228,154 @@ export default async function Home({
         */}
         <section className="relative overflow-hidden" style={{ background: "var(--uc-navy-2, #12181e)" }}>
           {/*
-            Constrained tracks at EVERY breakpoint, not just `lg`.
+            The grid this section used to be is gone, and with it the track
+            blowout that needed constraining at every breakpoint: a track sizes
+            to max-content, the constellation canvas reports a wide intrinsic
+            size, and a phone ended up with `grid-template-columns: 555px`
+            inside a 375px box. One centred column cannot reproduce it.
 
-            A grid track sizes to max-content by default, so a child reporting a
-            wide intrinsic size — the constellation canvas does — stretches its
-            column past the container. The section clips, so nothing scrolls
-            sideways to give it away: the heading just ends mid-word.
-
-            This was fixed once and only at `lg`. Below that the grid had no
-            explicit columns at all, the single implicit track sized to
-            max-content, and a phone still got `grid-template-columns: 555px`
-            inside a 375px box. `min-w-0` on the child could not help, because
-            the blowout is on the *track*.
-
-            It also survived a sweep that reported the page clean, because that
-            sweep compared each element's own scrollWidth to its clientWidth —
-            and here the whole box is oversized while its text fits inside it
-            exactly. The measurement has to be the bounding rect against the
-            viewport.
+            The measurement lesson survives the layout, and the mobile spec
+            still enforces it: an element's own scrollWidth against its
+            clientWidth reports this page clean while the box is oversized and
+            its text fits inside it exactly. It has to be the bounding rect
+            against the viewport.
           */}
-          <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] items-center gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <Reveal>
-              <div className="min-w-0">
+          {/*
+            The section is now centred on a film of the service itself.
+
+            It used to be a two-column split: prose and three photographs on the
+            left, the constellation on the right. That layout gave equal billing
+            to a claim and its illustration, and the reader's eye had to choose.
+            Centring resolves it — one column, one axis, the sentence first and
+            the evidence beneath it — and the footage carries the width the
+            second column used to occupy.
+
+            The three photographs are gone. They were the single real house that
+            three channels were each describing, which is a good idea that
+            needed a caption to land; the channel names now do that work
+            directly, in the brand's colour, sitting on the record they
+            disagree about.
+          */}
+          <AmbientVideoStage media={channels} scrim={0.66} tint={0.2} minHeight="min-h-[680px]">
+            <div className="mx-auto flex max-w-4xl flex-col items-center px-6 py-24 text-center">
+              <Reveal>
                 {/*
                   The label performs what the section says. Its letters start
                   scattered across the three states a field can arrive in and
                   settle onto one colour, which is the same claim the prose
-                  makes and the constellation beside it draws.
+                  makes and the constellation below it draws.
                 */}
                 <ConvergeText
                   text={lang === "es" ? "Una sola ficha" : "One record"}
                   className="text-[11px] font-bold uppercase tracking-[0.2em]"
                 />
-                <h2 className="mt-3 text-[clamp(26px,3.4vw,42px)] font-semibold leading-[1.1] tracking-tight text-white">
-                  {lang === "es"
-                    ? "Una mudanza llega por varios canales. Ninguno coincide."
-                    : "One move arrives through several channels. No two agree."}
-                </h2>
-                <p className="mt-4 max-w-lg text-base leading-relaxed text-white/65">
+              </Reveal>
+
+              {/*
+                The headline types itself, once, when it is looked at.
+
+                This is the one place on the page that earns the effect: the
+                sentence is about a record being assembled from sources arriving
+                one at a time, so the words assembling one at a time is the same
+                claim in the same grammar rather than an ornament laid over it.
+                Everything below holds still while it runs.
+              */}
+              <h2
+                className="mt-4 max-w-3xl text-[clamp(28px,4vw,50px)] font-semibold leading-[1.08] tracking-tight text-white"
+                style={{ textShadow: "0 2px 30px rgba(9,14,19,0.85)" }}
+              >
+                <Typewriter
+                  text={
+                    lang === "es"
+                      ? "Una mudanza llega por varios canales. Ninguno coincide."
+                      : "One move arrives through several channels. No two agree."
+                  }
+                  speed={26}
+                />
+              </h2>
+
+              <Reveal delay={0.1}>
+                <p
+                  className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-white/[0.88]"
+                  style={{ textShadow: "0 1px 18px rgba(9,14,19,0.9)" }}
+                >
                   {lang === "es"
                     ? "Cada valor conserva quién lo aportó, por qué canal y cuándo. Cuando las fuentes no coinciden, decide una persona con nombre. Nunca el sistema, y nunca en silencio."
                     : "Every value keeps who supplied it, through which channel, and when. Where sources disagree, a named person decides. Never the system, and never silently."}
                 </p>
+              </Reveal>
 
-                {/*
-                  One address, described three ways.
+              {/*
+                The channels, named rather than illustrated.
 
-                  These are not decoration and they are not a gallery. The
-                  paragraph above is abstract about "channels"; the photographs
-                  are the single real house that the partner feed, the spreadsheet
-                  and the customer form are all trying to describe, which is what
-                  makes their disagreement matter.
+                Cyan is this system's only saturated colour and it means
+                verified, so these are deliberately *not* state chips — they name
+                the routes a value can arrive by, which is channel identity, not
+                a verdict on any field. The verdicts stay where they have always
+                been: in the constellation below, where a source can be amber and
+                contested without the label lying about it.
 
-                  Licensed photography from `public/photos`, credited in
-                  CREDITS.md. Stock imagery pulled from an image search would be
-                  someone else's copyright with no licence attached.
-                */}
-                <ul className="mt-8 flex list-none gap-3">
+                `--uc-cyan-ink` rather than the raw brand blue: the design system
+                records that #0087B5 is 3.97:1 on this navy, under the 4.5 these
+                sizes need.
+
+                The chip's own background is 0.82 rather than a tasteful wash,
+                and that number is measured, not chosen. Contrast over video has
+                to hold against the *brightest frame the clip can produce*, not
+                the frame that happens to be showing — this film cuts to near
+                white. At 0.55 the cyan measured 3.84:1 composited over a white
+                frame and would have been unreadable for exactly as long as that
+                shot lasts, which is the kind of defect no screenshot catches.
+                At 0.82 it is 5.12:1 at its worst.
+              */}
+              <Reveal delay={0.16}>
+                <ul className="mt-9 flex list-none flex-wrap items-center justify-center gap-2.5">
                   {[
-                    { src: "/photos/suburban-house.jpg", label: lang === "es" ? "API del socio" : "Partner API" },
-                    { src: "/photos/moving-boxes.jpg", label: lang === "es" ? "Carga CSV" : "CSV upload" },
-                    { src: "/photos/kitchen-island.jpg", label: lang === "es" ? "Formulario" : "Customer form" },
-                  ].map((channel) => (
-                    <li key={channel.label} className="min-w-0 flex-1">
-                      <div className="relative aspect-4/3 overflow-hidden rounded-lg">
-                        <Image
-                          src={channel.src}
-                          alt=""
-                          fill
-                          sizes="(max-width: 1024px) 30vw, 160px"
-                          className="object-cover"
-                          /* Same grade as every other photograph on the page, so
-                             three stock frames read as one brand's photography. */
-                          style={{ filter: "saturate(0.5) contrast(1.1) brightness(0.82)" }}
-                        />
-                      </div>
-                      <div className="mt-2 truncate text-[11px] font-semibold uppercase tracking-wider text-white/45">
-                        {channel.label}
-                      </div>
+                    lang === "es" ? "API del socio" : "Partner API",
+                    lang === "es" ? "Carga CSV" : "CSV upload",
+                    lang === "es" ? "Formulario del cliente" : "Customer form",
+                  ].map((label) => (
+                    <li
+                      key={label}
+                      className="rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] backdrop-blur-sm"
+                      style={{
+                        color: "var(--uc-cyan-ink)",
+                        borderColor: "rgba(36,152,191,0.55)",
+                        background: "rgba(9,14,19,0.82)",
+                        // Offset and blur, so this reads as the chip sitting
+                        // above the film rather than as a halo drawn around it.
+                        boxShadow: "0 2px 18px rgba(9,14,19,0.55), 0 0 26px rgba(0,135,181,0.2)",
+                      }}
+                    >
+                      {label}
                     </li>
                   ))}
                 </ul>
-              </div>
-            </Reveal>
-            <Reveal delay={0.12}>
-              <div className="min-w-0 overflow-hidden">
-              <Constellation3D
-                converged
-                height={420}
-                sources={[
-                  { id: "1", label: "Partner API", state: "verified" },
-                  { id: "2", label: "CSV", state: "conflict" },
-                  { id: "3", label: "Customer form", state: "verified" },
-                  { id: "4", label: "Microsite", state: "transit" },
-                  { id: "5", label: "Concierge", state: "pending" },
-                ]}
-              />
-              </div>
-            </Reveal>
-          </div>
+              </Reveal>
+
+              {/*
+                The constellation, lifted out of the old right-hand column and
+                given the full measure. It is the part that shows the
+                disagreement rather than stating it, so it reads better wide —
+                and on the film it needs no panel of its own.
+              */}
+              <Reveal delay={0.22}>
+                <div className="mt-10 w-full min-w-0 overflow-hidden">
+                  <Constellation3D
+                    converged
+                    height={380}
+                    sources={[
+                      { id: "1", label: "Partner API", state: "verified" },
+                      { id: "2", label: "CSV", state: "conflict" },
+                      { id: "3", label: "Customer form", state: "verified" },
+                      { id: "4", label: "Microsite", state: "transit" },
+                      { id: "5", label: "Concierge", state: "pending" },
+                    ]}
+                  />
+                </div>
+              </Reveal>
+            </div>
+          </AmbientVideoStage>
         </section>
 
         {/*
@@ -439,7 +496,7 @@ export default async function Home({
             <Reveal>
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>The platform · built and functioning</span>
               <h2 className="mt-3 max-w-3xl text-3xl font-extrabold uppercase tracking-tight text-white sm:text-4xl">Every move becomes a living, <Accent>verified</Accent> record.</h2>
-              <p className="mt-3 max-w-2xl text-lg text-white/70">Behind the concierge is a working system: a move arrives from many channels, conflicts are resolved by a human, and a provider timeout is recovered without ever creating a duplicate order. Real code, real database, 524 tests.</p>
+              <p className="mt-3 max-w-2xl text-lg text-white/70">Behind the concierge is a working system: a move arrives from many channels, conflicts are resolved by a human, and a provider timeout is recovered without ever creating a duplicate order. Real code, real database, 527 tests.</p>
             </Reveal>
             {/*
               These four are the only cards on the page that open something
@@ -457,10 +514,71 @@ export default async function Home({
           </div>
         </section>
 
-        {/* ── Front door modernization (added) — white ─────────── */}
-        <section className="bg-white">
-          <div className="mx-auto max-w-6xl px-6 py-20"><FrontDoor /></div>
-        </section>
+        {/*
+          ── The brand film, where the front-door comparison used to be ──
+
+          `FrontDoor` argued by diagram: the same front door on the old stack
+          and on this one, side by side. The argument was fair and it was in the
+          wrong place. A comparison is a closing statement, and this sits a
+          third of the way down a page where the visitor is still deciding
+          whether any of it is for them — so it asked them to evaluate an
+          architecture claim before they had a reason to care about the
+          architecture.
+
+          What replaces it is quieter and does more: the company's own film,
+          full bleed, with one sentence over it, handing off to /architecture
+          for anyone who now wants the detail.
+
+          `src/components/FrontDoor.tsx` is retained and unmounted rather than
+          deleted — the section may come back, and the reasoning written into it
+          is worth keeping legible. Nothing imports it today, so read it as
+          parked, not as wiring you have missed.
+        */}
+        {hasMarketingMedia(brandFilm) && (
+          <section>
+          <AmbientVideoStage media={brandFilm} scrim={0.58} tint={0.14} minHeight="min-h-[560px]">
+            <div className="mx-auto flex max-w-3xl flex-col items-center px-6 py-28 text-center">
+              <Reveal>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.28em]"
+                  style={{ color: "var(--uc-cyan-ink)" }}
+                >
+                  {lang === "es" ? "La misma puerta" : "The same front door"}
+                </p>
+              </Reveal>
+              <Reveal delay={0.08}>
+                <h2
+                  className="mt-5 text-[clamp(28px,4.2vw,54px)] font-semibold leading-[1.06] tracking-tight text-white"
+                  style={{ textShadow: "0 2px 34px rgba(9,14,19,0.9)" }}
+                >
+                  {lang === "es" ? (
+                    <>El servicio es real. Lo que hay <span style={{ color: "var(--color-state-verified)" }}>debajo</span> es lo que se reconstruyó.</>
+                  ) : (
+                    <>The service is real. What was rebuilt is <span style={{ color: "var(--color-state-verified)" }}>everything underneath it</span>.</>
+                  )}
+                </h2>
+              </Reveal>
+              <Reveal delay={0.14}>
+                <p
+                  className="mt-6 max-w-xl text-base leading-relaxed text-white/[0.88]"
+                  style={{ textShadow: "0 1px 18px rgba(9,14,19,0.9)" }}
+                >
+                  {lang === "es"
+                    ? "Este es el material de Utility Connect. La plataforma que corre debajo de esta página es una reconstrucción independiente: mismo trabajo, con cada traspaso atribuible y demostrable."
+                    : "This footage is Utility Connect's own. The platform running beneath this page is an independent rebuild of the work it describes — same job, with every handoff attributable and provable."}
+                </p>
+              </Reveal>
+              <Reveal delay={0.2}>
+                <div className="mt-8">
+                  <HoverBorderGradient href="/architecture">
+                    {lang === "es" ? "Ver la arquitectura" : "See the architecture"}
+                  </HoverBorderGradient>
+                </div>
+              </Reveal>
+            </div>
+          </AmbientVideoStage>
+          </section>
+        )}
 
         {/*
           The partner side, given a face.
