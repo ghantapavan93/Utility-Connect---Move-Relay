@@ -34,7 +34,7 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      - name: Schema guarantees (11 constraints that must reject)
+      - name: Schema guarantees
         run: node scripts/verify-constraints.mjs
 
       - name: Test suite
@@ -46,3 +46,59 @@ jobs:
         run: npx next build
         env:
           RELAY_DB: embedded
+
+  # The same suite against a real server.
+  #
+  # Everything above runs on PGlite — Postgres compiled to WebAssembly, and
+  # genuinely Postgres, but single-connection and in-process. That is exactly
+  # the property that hides the failures worth catching: a transaction opened
+  # on a pooled connection and committed on another looks correct when there is
+  # only ever one connection, and a test that assumes it is the only publisher
+  # is never contradicted when every file gets a private database for free.
+  #
+  # This job is where those assumptions are allowed to break. It is pinned to
+  # PostgreSQL 16 rather than tracking latest, so a red build means a change in
+  # this repository rather than a change in the image.
+  postgres:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: relay
+          POSTGRES_PASSWORD: relay
+          POSTGRES_DB: move_relay_test
+        ports: ["5432:5432"]
+        # Without this the suite starts before the server accepts connections
+        # and fails for a reason that has nothing to do with the code.
+        options: >-
+          --health-cmd "pg_isready -U relay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Apply the production schema
+        run: node scripts/migrate.mjs
+        env:
+          DATABASE_URL: postgres://relay:relay@localhost:5432/move_relay_test
+
+      - name: Test suite against PostgreSQL 16
+        # Each test file creates and drops its own schema — see
+        # src/lib/__tests__/setup-pg-schema.ts. No shared-database truncation,
+        # so a misconfigured connection string destroys nothing.
+        run: npx vitest run
+        env:
+          RELAY_DB: pg
+          DATABASE_URL: postgres://relay:relay@localhost:5432/move_relay_test
