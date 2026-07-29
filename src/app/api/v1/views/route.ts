@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { conciergeView, customerView, partnerView } from "@/lib/projections";
 import { demoConstants } from "@/lib/demo-orchestrator";
 import { isDenial, requireView } from "@/lib/actor";
+import { viewForActor } from "@/lib/audience-view";
 
 /**
  * GET /api/v1/views
@@ -38,31 +38,12 @@ export async function GET(request: Request) {
 
   const gate = await requireView(request, `move:${move.id}`);
   if (isDenial(gate)) return gate.response;
-  const { actor, via } = gate;
 
-  // The granting path travels with the response. An authorization decision the
-  // system cannot explain is one nobody can review, and the engineering view
-  // renders this directly.
-  const authorization = { actor: actor.subject, audience: actor.audience, via };
-
-  if (actor.audience === "customer") {
-    return NextResponse.json({ exists: true, authorization, ...(await customerView(move.id)) });
-  }
-
-  if (actor.audience === "partner") {
-    const partner = (
-      await query<{ id: string }>(
-        `SELECT id FROM partners WHERE organization_id = $1 AND slug = 'ntr'`,
-        [org.id],
-      )
-    )[0];
-    if (!partner) return NextResponse.json({ exists: false }, { status: 200 });
-    return NextResponse.json({
-      exists: true,
-      authorization,
-      ...(await partnerView(move.id, partner.id)),
-    });
-  }
-
-  return NextResponse.json({ exists: true, authorization, ...(await conciergeView(org.id, move.id)) });
+  /*
+    Everything that decides *what* an actor may see now lives in
+    `viewForActor`, shared with the move-scoped route. Two copies of this logic
+    would answer the same question differently the moment either was edited
+    alone, and the question is which fields a partner is allowed to read.
+  */
+  return NextResponse.json(await viewForActor(move.id, gate.actor, gate.via));
 }
