@@ -24,7 +24,21 @@ import { SERVICE_CATALOGUE } from "@/lib/service-catalogue";
   that silently stops offering six services is a form that loses six services
   worth of intent, and nothing would have failed to tell us.
 */
-const SERVICES = SERVICE_CATALOGUE.map((s) => s.label);
+/*
+  The catalogue entries, not their labels.
+
+  This was `SERVICE_CATALOGUE.map((s) => s.label)`, and the payload sent
+  `label.toLowerCase()`. That is correct for every single-word service and
+  silently wrong for the rest: "Home Warranty" went out as `home warranty`
+  against an id of `home_warranty`, "Solar Energy" as `solar energy` against
+  `solar`. Unknown service names are dropped by design at intake, so a customer
+  who asked for a home warranty got a move with no home warranty on it, no
+  error, and a confirmation screen.
+
+  Selection now carries the id and renders the label, so the two cannot part
+  company again.
+*/
+const SERVICES = SERVICE_CATALOGUE.map((s) => ({ id: s.id, label: s.label }));
 
 interface IntakeResponse {
   status: string;
@@ -38,7 +52,7 @@ interface IntakeResponse {
 
 export default function ConnectFlow() {
   const [step, setStep] = useState(0);
-  const [selected, setSelected] = useState<Set<string>>(new Set(["Electric", "Internet"]));
+  const [selected, setSelected] = useState<Set<string>>(new Set(["electric", "internet"]));
   const [address, setAddress] = useState("1420 Windhaven Pkwy, Plano, TX 75093");
   const [date, setDate] = useState("2026-08-16");
   const [name, setName] = useState("Maya Patel");
@@ -66,7 +80,8 @@ export default function ConnectFlow() {
         phone,
       },
       move: { date, to_address: address },
-      services: [...selected].map((s) => s.toLowerCase()),
+      // Already catalogue ids. No case-mangling on the way out.
+      services: [...selected],
       consent: {
         granted: true,
         channels: ["phone", "sms", "email"],
@@ -120,11 +135,24 @@ export default function ConnectFlow() {
             <Step key="svc" title="Which services do you need?">
               <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {SERVICES.map((s) => {
-                  const on = selected.has(s);
+                  const on = selected.has(s.id);
                   return (
+                    /*
+                      `aria-pressed` is what makes this a toggle rather than a
+                      button that happens to change colour. Without it the only
+                      signal that a service is chosen was a tick glyph and a
+                      colour, so a screen reader announced eighteen identical
+                      buttons and a colour-blind user had one cue instead of two.
+
+                      The tick is then decorative — it repeats what the pressed
+                      state already says — so it is hidden from the accessibility
+                      tree to stop every selected service reading as "tick".
+                    */
                     <button
-                      key={s}
-                      onClick={() => toggle(s)}
+                      key={s.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggle(s.id)}
                       className="rounded-lg border px-3 py-3 text-sm font-medium transition-colors"
                       style={{
                         borderColor: on ? "var(--color-state-verified)" : "var(--color-ground-3)",
@@ -132,7 +160,8 @@ export default function ConnectFlow() {
                         color: on ? "var(--color-state-verified)" : "var(--color-text-mid)",
                       }}
                     >
-                      {on ? "✓ " : ""}{s}
+                      {on && <span aria-hidden>✓ </span>}
+                      {s.label}
                     </button>
                   );
                 })}

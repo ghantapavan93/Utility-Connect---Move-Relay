@@ -6,6 +6,7 @@ import { useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { CineHero } from "@/components/cinematic/CineHero";
+import { InvariantsBackdrop } from "@/components/reliability/InvariantsBackdrop";
 import { ChapterMarker, FilmGrain, MagneticLink, Pill, accentColor } from "@/components/cinematic";
 
 /**
@@ -55,8 +56,15 @@ export default function ReliabilityPage() {
         move rather than take them on faith.
       */}
       <CineHero
-        image="/renders/spine.webp"
-        alt="The full length of the residence, seen from the utility threshold"
+        /*
+          The invariants, not a photograph of a house.
+
+          This was `/renders/spine.webp` — a render of the residence — on the
+          page that measures what happens when things break. A picture of a home
+          says nothing about a blocked retry, and it was the largest element on
+          a screen whose entire subject is failure.
+        */
+        backdrop={<InvariantsBackdrop />}
         accent="recovered"
         pills={
           <>
@@ -119,7 +127,7 @@ export default function ReliabilityPage() {
 
       <div ref={tableRef} className="mx-auto max-w-[1400px] px-5 pb-24 sm:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Reliability</h1>
+        <h2 className="text-3xl font-semibold tracking-tight">Objectives, computed now</h2>
         <div className="flex gap-2">
           <button
             onClick={async () => {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { Reveal } from "@/components/Reveal";
 import { INDUSTRIES, getIndustry } from "@/lib/industries-data";
+import { RelayForIndustry } from "@/components/industries/RelayForIndustry";
 
 /**
  * A dedicated page per industry, mirroring Utility Connect's own "Who we work
@@ -37,7 +38,16 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
       <main className="mx-auto max-w-5xl px-6 pb-24 pt-16">
         {/* Hero */}
         <Reveal>
-          <Link href="/#industries" className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+          {/*
+            As a bare line of text this was 16px tall — the smallest tap target
+            on the page and the first one a phone user reaches for.
+
+            `py-3.5` grows the hit area to 44px (16px line box plus 14px each
+            side) and the matching `-my-3.5` cancels it out of the flow, so the
+            target triples without the hero moving a pixel. The area it claims
+            above and below is empty space, not another control.
+          */}
+          <Link href="/#industries" className="-my-3.5 inline-block py-3.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
             ← Who we work with
           </Link>
           <div className="mt-4 flex items-center gap-4">
@@ -157,6 +167,18 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
             </div>
           </Reveal>
         </section>
+
+        {/*
+          The engine, in this industry's words. It sits after the microsite and
+          before the cross-links: the reader has seen what they get, and this is
+          why it can be trusted.
+        */}
+        <RelayForIndustry
+          moment={industry.relay.moment}
+          risk={industry.relay.risk}
+          guarantee={industry.relay.guarantee}
+          actor={industry.name}
+        />
 
         {/* Other industries */}
         <section className="mt-16">
