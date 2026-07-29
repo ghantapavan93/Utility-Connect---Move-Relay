@@ -19,7 +19,7 @@
  * This module is free of `node:fs` so it can be imported by client components.
  */
 
-export const MARKETING_VIDEO_KEYS = ["opener", "invitation"] as const;
+export const MARKETING_VIDEO_KEYS = ["opener", "invitation", "brandFilm", "channels"] as const;
 
 export type MarketingVideoKey = (typeof MARKETING_VIDEO_KEYS)[number];
 
@@ -36,6 +36,26 @@ export interface MarketingVideoSlot {
   backdrop?: string;
   /** One line shown under the frame, or null when the footage speaks for itself. */
   caption: string | null;
+  /**
+   * Does this slot's footage ship in the repository?
+   *
+   * `true` for clips generated for this project: they are committed, so a
+   * missing one is a broken build and the manifest test says so. They also
+   * carry the weight ceilings, because git keeps every version of a binary
+   * forever.
+   *
+   * `false` for Utility Connect's own brand films. Those play from a local
+   * `public/videos/` and are gitignored, because this repository is not
+   * affiliated with them and republishing a company's marketing footage is not
+   * something a portfolio piece gets to do quietly. A clone without them
+   * renders the page with those sections absent, which is the same graceful
+   * path a not-yet-delivered cut already takes.
+   *
+   * The distinction is not cosmetic: it decides which assertions in the
+   * manifest test apply, so "the file is missing" is a failure for one kind of
+   * footage and an expected state for the other.
+   */
+  bundled: boolean;
   /**
    * Does the film restart when it finishes?
    *
@@ -78,6 +98,7 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
     backdrop: "/photos/modern-house-exterior.jpg",
     caption: null,
     loop: false,
+    bundled: true,
     intent:
       "A house being moved into with its services already live, resolving onto the mark — the product's subject and its signature in one pass.",
   },
@@ -99,9 +120,66 @@ export const MARKETING_VIDEO_SLOTS: Record<MarketingVideoKey, MarketingVideoSlot
     files: ["Generated Video July 26, 2026 - 2_50AM.mp4"],
     caption: null,
     loop: false,
+    bundled: true,
     intent: "The whole story in eight seconds, ending on the two things a visitor can do next.",
   },
+
+  /**
+   * The brand film, where the front-door comparison used to be.
+   *
+   * That section argued by diagram: two stacks side by side, the old one and
+   * this one. It was the weakest thing on the page for a reason worth naming —
+   * it asked a visitor to evaluate a claim about architecture at the exact
+   * point in the scroll where they were still deciding whether the product was
+   * for them. A comparison is a closing argument delivered in the opening.
+   *
+   * The company's own film says the same thing in the register the section was
+   * reaching for, and says it about *them* rather than about a stack. It runs
+   * long for a marketing clip, which is why it plays as an ambient full-bleed
+   * field with the page's own words over it rather than as a thing to sit
+   * through: the visitor reads, and the film is the room they read in.
+   */
+  brandFilm: {
+    key: "brandFilm",
+    files: ["YTDown.com_YouTube_Utility-Connect-The-Ultimate-Utility-Con_Media_o5u5wPUJc5I_002_720p.mp4"],
+    caption: null,
+    loop: true,
+    bundled: false,
+    intent:
+      "Utility Connect in their own footage, running behind the one sentence that says what this build is — atmosphere, not a clip to be watched to the end.",
+  },
+
+  /**
+   * Behind "one move arrives through several channels".
+   *
+   * The section's whole subject is a single real move described three
+   * incompatible ways. Its previous illustration was three stock photographs of
+   * a house, which is honest but static — the disagreement was asserted in
+   * prose and drawn in the constellation, and the imagery just sat there.
+   *
+   * Running the product film behind it puts the actual subject underneath the
+   * claim: the service being sold, while the page explains what it takes to
+   * make the handoff underneath it provable. Muted by default with a real
+   * control, because a page that makes noise without being asked has taken
+   * something from the visitor.
+   */
+  channels: {
+    key: "channels",
+    files: ["YTDown.com_YouTube_Utility-Connect-Product-Video_Media_v8HamZUIvVE_001_1080p.mp4"],
+    caption: null,
+    loop: true,
+    bundled: false,
+    intent:
+      "The service itself, playing quietly under the claim that one move arrives through several channels and no two agree.",
+  },
 };
+
+/** Filenames this repository commits, and therefore must find on disk. */
+export function bundledMarketingFiles(): string[] {
+  return Object.values(MARKETING_VIDEO_SLOTS)
+    .filter((slot) => slot.bundled)
+    .flatMap((slot) => (slot.poster ? [...slot.files, slot.poster] : slot.files));
+}
 
 /**
  * The public URL for a file in `public/videos/`.

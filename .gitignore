@@ -25,6 +25,17 @@ notes/
 src/Photos/
 src/Videos/
 
+# Utility Connect's own brand films, played by the `brand-film` and `channels`
+# slots. Same rule as above, one step further in: these are referenced by the
+# page rather than only by the audit, so the ignore has to be by filename.
+#
+# They play locally and the slots resolve to nothing without them, which is the
+# behaviour `marketing-video.server.ts` already guarantees - a missing file
+# renders no section at all, never a black frame. Anyone cloning this sees the
+# page without them and nothing broken. See `bundled: false` in
+# src/lib/marketing-video.ts.
+public/videos/YTDown.com_*.mp4
+
 # Working notes for the AI assistant on this repository.
 #
 # Kept out of the published tree deliberately. It is a planning document, not

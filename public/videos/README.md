@@ -139,10 +139,29 @@ guessed. Every clip should be the product doing the thing the section beside it
 claims.
 
 All footage must be original or licensed, and licensed material credited in
-[`CREDITS.md`](../../CREDITS.md). **Never** use Utility Connect's own video,
-screen recordings, logos, or customer footage — theirs live in `src/Videos/`,
-which is gitignored for exactly that reason. This folder is committed and
-published.
+[`CREDITS.md`](../../CREDITS.md). Never use Utility Connect's screen recordings
+or customer footage.
+
+### The one exception, and how it is contained
+
+Two of Utility Connect's own brand films play on the home page — the
+`brandFilm` and `channels` slots. That is a deliberate reversal of the rule this
+section used to state absolutely, made by the repository owner, and it is worth
+writing down rather than leaving the document contradicting the code.
+
+What has not changed is that **their media is never published from here**. Both
+files match `public/videos/YTDown.com_*.mp4` in `.gitignore`, so this folder is
+committed and published *except* for those. A clone gets the page without them:
+the brand-film section does not render at all, and the channels section keeps
+its headline, its chips and its constellation and loses only a background.
+
+`marketing-video.ts` marks those slots `bundled: false`, and
+`marketing-video.test.ts` asserts via `git check-ignore` that git would refuse
+to track them. If someone deletes the ignore rule, that test goes red rather
+than a company's marketing footage quietly shipping in a public repository.
+
+Everything else in this folder is generated for this project and committed
+normally.
 
 Git keeps every version of a binary forever, and this repository has already
 had to purge 143 MB of media out of its own history. Replace a clip rather than

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 import {
@@ -8,6 +9,7 @@ import {
   marketingVideoUrl,
   isMarketingVideoKey,
   declaredMarketingFiles,
+  bundledMarketingFiles,
 } from "../marketing-video";
 import { resolveMarketingVideo, hasMarketingMedia } from "../marketing-video.server";
 import { readMp4Meta } from "../mp4-meta";
@@ -88,8 +90,17 @@ describe("the marketing video manifest", () => {
     );
   });
 
-  it("points every slot at a file that is really on disk", () => {
-    const missing = declaredMarketingFiles().filter(
+  it("points every bundled slot at a file that is really on disk", () => {
+    /*
+      Scoped to `bundled` footage, and the distinction is load-bearing rather
+      than a loosening. A clip this project generated is committed, so its
+      absence is a broken build. Utility Connect's own brand films are
+      gitignored — this repository is not affiliated with them and does not
+      republish their marketing — so on a fresh clone they are *expected* to be
+      missing and the page renders without those sections. Asserting presence
+      for those would make a correctly-behaving clone fail.
+    */
+    const missing = bundledMarketingFiles().filter(
       (file) => !existsSync(join(videosDir, file)),
     );
     expect(
@@ -99,12 +110,43 @@ describe("the marketing video manifest", () => {
   });
 
   it("plays every file that is on disk", () => {
+    // Unchanged, and still checked against *every* declared file including the
+    // unbundled ones: footage sitting in the folder that no slot plays is dead
+    // weight whether or not git tracks it.
     const declared = new Set(declaredMarketingFiles());
     const orphans = mediaFiles().filter((name) => !declared.has(name));
     expect(
       orphans,
       "these sit in public/videos/ but no slot plays them — wire them up or delete them",
     ).toEqual([]);
+  });
+
+  it("keeps unbundled footage out of git, so the ignore cannot quietly lapse", () => {
+    /*
+      The assertion that makes `bundled: false` mean something. Without it the
+      flag is a comment: someone adds the file to git, every other test still
+      passes, and a company's marketing footage ships in a public repository
+      because a rule lived only in prose.
+
+      `git check-ignore` is the authority here rather than reading .gitignore,
+      because the question is what git actually does with the path.
+    */
+    const unbundled = Object.values(MARKETING_VIDEO_SLOTS)
+      .filter((slot) => !slot.bundled)
+      .flatMap((slot) => slot.files);
+
+    expect(unbundled.length, "no unbundled slots left to check").toBeGreaterThan(0);
+
+    for (const file of unbundled) {
+      const ignored = spawnSync("git", ["check-ignore", "-q", `public/videos/${file}`], {
+        cwd: root,
+      });
+      // Exit 0 means git ignores the path; 1 means it would happily track it.
+      expect(
+        ignored.status,
+        `public/videos/${file} is declared unbundled but git would track it — it belongs to Utility Connect and must not be redistributed`,
+      ).toBe(0);
+    }
   });
 
   it("resolves a slot to real URLs, in the order the film plays", () => {
@@ -155,16 +197,27 @@ describe("every slot is wired into the home page", () => {
     }
   });
 
-  it("guards every slot so an absent file leaves no trace on the page", () => {
+  it("guards every slot whose section is only the film", () => {
     /*
       The load-bearing guarantee. An ungated slot whose file is missing is a
       black 16:9 box on the live site, and the only person who would find it is
       the one whose opinion matters.
+
+      `channels` is deliberately exempt and is the one case the rule has to
+      admit: there the film is a *backdrop* behind a headline, three channel
+      names and the constellation. Guarding it would delete the section's
+      content along with its wallpaper on any clone that lacks the file, which
+      is a worse failure than the one the guard prevents. `AmbientVideoStage`
+      renders no video element at all when the source is absent, so the missing
+      file costs a background and nothing else.
     */
     const src = homePage();
+    const BACKDROP_ONLY = new Set(["channels"]);
+    const mustGuard = MARKETING_VIDEO_KEYS.filter((key) => !BACKDROP_ONLY.has(key));
+
     const guards = [...src.matchAll(/hasMarketingMedia\((\w+)\)/g)].map((m) => m[1]!);
-    expect(guards.length, "each slot needs its own hasMarketingMedia guard").toBe(
-      MARKETING_VIDEO_KEYS.length,
+    expect(guards.length, "each film-only slot needs its own hasMarketingMedia guard").toBe(
+      mustGuard.length,
     );
     for (const variable of guards) {
       expect(
@@ -172,6 +225,21 @@ describe("every slot is wired into the home page", () => {
         `${variable} is guarded but never resolved`,
       ).toBe(true);
     }
+  });
+
+  it("renders a backdrop slot's own content without its film", () => {
+    /*
+      The other half of the exemption above. `channels` is allowed to skip the
+      guard only because its section stands up without the footage — so that is
+      checked rather than asserted: the stage receives the media, and the words
+      the section exists to say are siblings of it, not children of a condition.
+    */
+    const src = homePage();
+    expect(src).toContain("<AmbientVideoStage media={channels}");
+    expect(src).not.toMatch(/hasMarketingMedia\(channels\)/);
+    expect(src, "the section's claim must not be conditional on the film").toContain(
+      "One move arrives through several channels. No two agree.",
+    );
   });
 });
 
@@ -194,8 +262,27 @@ describe("committed footage is fit to serve", () => {
 
   const openerFiles = new Set(MARKETING_VIDEO_SLOTS.opener.files);
 
+  /*
+    The weight and length ceilings exist because git keeps every version of a
+    binary forever, and because a committed clip is one this project chose to
+    encode. Neither reason reaches Utility Connect's brand films: they are not
+    committed, and they are not ours to re-cut. Judging someone else's
+    minute-long film against a fourteen-second marketing-clip budget would fail
+    on a decision nobody here gets to make.
+
+    They are not unexamined — `AmbientVideoStage` gives them `preload="none"`
+    and starts them on intersection, so a visitor who never scrolls that far
+    pays nothing, and the faststart check below still covers them because a
+    clip that cannot begin streaming is broken for the visitor no matter who
+    encoded it.
+  */
+  const committed = () => {
+    const bundled = new Set(bundledMarketingFiles());
+    return mediaFiles().filter((name) => bundled.has(name));
+  };
+
   it("keeps every committed clip under its ceiling", () => {
-    const oversized = mediaFiles()
+    const oversized = committed()
       .map((name) => ({ name, bytes: statSync(join(videosDir, name)).size }))
       .filter(({ name, bytes }) =>
         bytes > (openerFiles.has(name) ? OPENER_CEILING : BELOW_FOLD_CEILING),
@@ -207,8 +294,8 @@ describe("committed footage is fit to serve", () => {
     );
   });
 
-  it("keeps every clip short enough to be watched rather than sat through", () => {
-    const tooLong = mediaFiles()
+  it("keeps every committed clip short enough to be watched rather than sat through", () => {
+    const tooLong = committed()
       .filter((name) => name.toLowerCase().endsWith(".mp4"))
       .map((name) => ({ name, meta: readMp4Meta(readFileSync(join(videosDir, name))) }))
       .filter(({ meta }) => meta.seconds !== null && meta.seconds > MAX_SECONDS)
