@@ -66,6 +66,20 @@ export interface AgentStepRecord {
   outcome: string;
   note: string | null;
   durationMs: number | null;
+  /**
+   * What the tool actually returned.
+   *
+   * Already persisted — `recordStep` has always written it — and until now it
+   * was write-only, readable in psql and nowhere else. Returning it is what
+   * lets a surface state the case in business language ("the partner said
+   * August 14, the customer confirmed August 16") instead of listing tool
+   * names, and derive that sentence from the row the agent stored rather than
+   * from a second query that could disagree with it.
+   *
+   * `null` for a refused or failed step, which is the honest value: there was
+   * no observation, and an empty object would read as "nothing was found".
+   */
+  observation: unknown;
 }
 
 export interface AgentRun {
@@ -144,6 +158,7 @@ export async function runCaseAgent(input: {
       outcome: call.outcome,
       note: call.note ?? null,
       durationMs: call.durationMs,
+      observation: call.outcome === "ok" ? (call.observation ?? null) : null,
     });
     return call;
   };
@@ -222,6 +237,19 @@ export async function runCaseAgent(input: {
     await step("get_audit_history");
 
     /*
+      Consent, read before anything customer-facing is prepared.
+
+      `get_consent_status` sat in the registry unused, which made it a tool the
+      agent advertised and never exercised. It matters here specifically: this
+      branch ends with a proposal to contact the provider about the customer's
+      order, and a surface built on this run drafts a message to that customer.
+      Reading the consent record is what lets the draft state its own basis
+      instead of assuming one. The tool reports the record and never judges
+      validity — that judgement stays on the forbidden list.
+    */
+    await step("get_consent_status");
+
+    /*
       The refusal, executed rather than described.
 
       The agent genuinely calls the tool. The registry refuses it, and the
@@ -260,6 +288,18 @@ export async function runCaseAgent(input: {
   const view = (record.observation ?? {}) as { openConflicts?: string[] };
   if (view.openConflicts && view.openConflicts.length > 0) {
     await step("list_field_conflicts");
+    /*
+      The history, on this branch too. It was read only on the unknown-outcome
+      path, which meant a conflict case reached its conclusion without knowing
+      what had already been attempted — the exact omission the unknown branch's
+      own comment warns about. A merge surfaced to a person should arrive with
+      the events that led to it, and the depth view renders that trail.
+    */
+    await step("get_audit_history");
+    // The competing values mean little without knowing what the customer was
+    // told and agreed to, and a merge recommendation that ignores it is a
+    // recommendation made with one eye shut.
+    await step("get_consent_status");
     const refused = await step("merge_canonical_record", { fields: view.openConflicts });
 
     return finish(
@@ -443,8 +483,9 @@ export async function getAgentRun(runId: string): Promise<AgentRun | null> {
     outcome: string;
     note: string | null;
     duration_ms: number | null;
+    observation: unknown;
   }>(
-    `SELECT seq, tool, authority, outcome, note, duration_ms
+    `SELECT seq, tool, authority, outcome, note, duration_ms, observation
        FROM agent_steps WHERE run_id = $1 ORDER BY seq`,
     [runId],
   );
@@ -467,6 +508,7 @@ export async function getAgentRun(runId: string): Promise<AgentRun | null> {
       outcome: s.outcome,
       note: s.note,
       durationMs: s.duration_ms,
+      observation: s.observation ?? null,
     })),
   };
 }

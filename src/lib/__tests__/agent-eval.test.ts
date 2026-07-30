@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
 import { query } from "../db";
+import { getAgentRun } from "../agent/case-agent";
+import { conflictDetailFor, providerDetailFor, evidenceFor } from "../agent/narrative";
 import { runAgentEval, AGENT_EVAL_CASES, type AgentEvalMetrics } from "../agent/eval";
 
 /**
@@ -101,5 +103,48 @@ describe("the suite itself", () => {
     for (const testCase of AGENT_EVAL_CASES) {
       expect(testCase.hypothesis.length, `${testCase.name} needs a hypothesis`).toBeGreaterThan(30);
     }
+  });
+});
+
+describe("the narrative layer reads the shapes the database actually stores", () => {
+  /*
+    The pure tests in agent-narrative.test.ts run against literal fixtures, and
+    a fixture can be written in the wrong shape — that has already happened
+    once: `list_field_conflicts` returns `{ move, conflicts }`, the fixture was
+    a bare array, and the conflict evidence silently vanished from every real
+    run while the unit tests stayed green. This suite closes that gap by
+    feeding the extractors runs the evaluation genuinely executed and stored.
+  */
+  it("extracts competing values from a real conflict run", async () => {
+    const conflictCase = metrics.caseResults.find((c) => /conflict/i.test(c.name));
+    expect(conflictCase).toBeDefined();
+
+    const run = await getAgentRun(conflictCase!.runId);
+    expect(run).not.toBeNull();
+
+    const detail = conflictDetailFor(run!);
+    expect(detail.length).toBeGreaterThan(0);
+    // Two competing values with their channels — the disagreement itself, not
+    // a count of it.
+    expect(detail[0]!.candidates.length).toBeGreaterThanOrEqual(2);
+    for (const cand of detail[0]!.candidates) {
+      expect(cand.value.length).toBeGreaterThan(0);
+      expect(cand.channel.length).toBeGreaterThan(0);
+    }
+    // And the evidence list must carry the conflict claim built from it.
+    expect(evidenceFor(run!).some((e) => e.source === "Field conflicts")).toBe(true);
+  });
+
+  it("extracts the operation identity from a real unknown-outcome run", async () => {
+    const unknownCase = metrics.caseResults.find((c) => /unknown outcome — the case/i.test(c.name));
+    expect(unknownCase).toBeDefined();
+
+    const run = await getAgentRun(unknownCase!.runId);
+    const ops = providerDetailFor(run!);
+    const unknown = ops.find((o) => o.state === "unknown");
+    expect(unknown).toBeDefined();
+    // The identity reconciliation will look the order up by. A stored run that
+    // lost it would make the safe path unauditable.
+    expect(unknown!.operationKey).toBeTruthy();
   });
 });
