@@ -276,3 +276,44 @@ describe("the shift brief", () => {
     expect(b.recommendation).toMatch(/reconcile/i);
   });
 });
+
+describe("an unread operations list is never a counted zero", () => {
+  /*
+    Null services means the per-move fulfillment read failed. The page used to
+    collapse that to [], and every function downstream then manufactured
+    certainty from it: the metric printed 0, the lanes dropped the retry-safety
+    item silently, and the brief called itself fully supported. Each assertion
+    here fails against that collapse.
+  */
+  it("prints a dash, not zero, for the unknown-outcome metric", () => {
+    const m = metricsFor(stats(), [move()], null);
+    const tile = m.find((x) => x.label === "Provider outcome unknown")!;
+    expect(tile.value).toBeNull();
+    expect(tile.scope).toMatch(/not read/i);
+
+    // And a genuinely empty read still counts to zero — the two states must
+    // stay distinguishable in both directions.
+    const empty = metricsFor(stats(), [move()], []);
+    expect(empty.find((x) => x.label === "Provider outcome unknown")!.value).toBe(0);
+  });
+
+  it("surfaces the failed read in the authority lane instead of dropping items silently", () => {
+    const items = lanesFor({
+      load: "ready",
+      stats: stats(),
+      moves: [move()],
+      services: null,
+      selected: move(),
+    });
+    const unread = items.find((i) => i.id === "ops-unread")!;
+    expect(unread).toBeDefined();
+    expect(unread.lane).toBe("authority");
+    expect(unread.detail).toMatch(/whether a retry would be safe/i);
+  });
+
+  it("never lets the brief claim full support over a failed read", async () => {
+    const { shiftBriefFor } = await import("../control-room");
+    const b = shiftBriefFor({ load: "ready", stats: stats(), moves: [move()], services: null });
+    expect(b.evidenceState).not.toBe("fully");
+  });
+});

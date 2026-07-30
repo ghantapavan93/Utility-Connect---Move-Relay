@@ -23,6 +23,8 @@ import {
   type Stats,
 } from "@/lib/control-room";
 import { accentColor, type Accent } from "@/lib/accents";
+import { auditLabel, type AuditEntry } from "@/lib/agent/narrative";
+import { AuditTimeline } from "@/components/agent/CaseDepth";
 
 /**
  * The move operations control room.
@@ -64,7 +66,19 @@ interface ConciergeProjection {
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [moves, setMoves] = useState<MoveRow[]>([]);
-  const [services, setServices] = useState<ServiceRow[]>([]);
+  /*
+    Null = the read failed or has not run; [] = read fine, genuinely empty.
+    Collapsing the two was how a thrown fetch became "Provider outcome
+    unknown: 0" on the hero and three calm lanes underneath it.
+  */
+  const [services, setServices] = useState<ServiceRow[] | null>([]);
+  /*
+    The selected move's own history. The lanes summarise ("1 blind retry
+    refused"); this is the openable material behind the summary, read from the
+    same record endpoint the workspace uses. Null carries the same meaning as
+    everywhere else on this page: not read is not the same fact as empty.
+  */
+  const [auditTrail, setAuditTrail] = useState<AuditEntry[] | null>(null);
   const [projection, setProjection] = useState<ConciergeProjection | null>(null);
   const [batch, setBatch] = useState<BatchResult | null>(null);
   const [load, setLoad] = useState<LoadState>("loading");
@@ -120,14 +134,16 @@ export default function Dashboard() {
     if (!selected) {
       setServices([]);
       setProjection(null);
+      setAuditTrail(null);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const [f, v] = await Promise.all([
+        const [f, v, rec] = await Promise.all([
           fetch(`/api/v1/moves/${selected.id}/fulfillment`, { headers: { "X-Actor": ACTOR } }),
           fetch(`/api/v1/moves/${selected.id}/views`, { headers: { "x-actor": ACTOR } }),
+          fetch(`/api/v1/moves/${selected.id}`, { headers: { "x-actor": ACTOR } }),
         ]);
         if (cancelled) return;
 
@@ -144,13 +160,31 @@ export default function Dashboard() {
             ),
           );
         } else {
-          setServices([]);
+          // A non-ok read is an unread list, not an empty one.
+          setServices(null);
         }
         setProjection(v.ok ? ((await v.json()) as ConciergeProjection) : null);
+
+        if (rec.ok) {
+          const record = (await rec.json()) as {
+            audit?: Array<{ eventType: string; actor: string; occurredAt: string }>;
+          };
+          setAuditTrail(
+            (record.audit ?? []).map((a) => ({
+              label: auditLabel(a.eventType),
+              event: a.eventType,
+              actor: a.actor,
+              at: a.occurredAt ?? null,
+            })),
+          );
+        } else {
+          setAuditTrail(null);
+        }
       } catch {
         if (!cancelled) {
-          setServices([]);
+          setServices(null);
           setProjection(null);
+          setAuditTrail(null);
         }
       }
     })();
@@ -187,7 +221,7 @@ export default function Dashboard() {
         contested: (selected?.openConflicts ?? 0) > 0 && !canonicalSources.has(name),
       })),
       operator: (projection?.verified ?? []).map((f) => f.by).find((b): b is string => !!b) ?? null,
-      operations: services.map((s) => ({
+      operations: (services ?? []).map((s) => ({
         serviceType: s.serviceType,
         state: s.state,
         orderId: s.providerOrderId ?? null,
@@ -326,6 +360,32 @@ export default function Dashboard() {
             >
               <div className="h-[300px] min-w-0">
                 <DomainMap data={mapData} />
+
+                {/* ── The history behind the counts ── */}
+                <section aria-labelledby="dash-history" className="mt-6 min-w-0">
+                  <h3
+                    id="dash-history"
+                    className="text-[11px] font-bold uppercase tracking-[0.2em]"
+                    style={{ color: "var(--color-text-lo)" }}
+                  >
+                    What already happened on {selected?.reference ?? "this move"}
+                  </h3>
+                  <div className="mt-3 max-w-2xl">
+                    {auditTrail === null ? (
+                      <p className="text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+                        {selected
+                          ? "The move's history could not be read — the counts above stand alone until it can."
+                          : "Select a move to read its history."}
+                      </p>
+                    ) : auditTrail.length === 0 ? (
+                      <p className="text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+                        No events recorded yet.
+                      </p>
+                    ) : (
+                      <AuditTimeline trail={auditTrail} />
+                    )}
+                  </div>
+                </section>
               </div>
             </div>
 

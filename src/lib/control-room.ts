@@ -87,9 +87,10 @@ export function headlineFor(input: {
   stats: Stats | null;
   moves: MoveRow[];
   batch?: BatchResult | null;
-  services?: ServiceRow[];
+  services?: ServiceRow[] | null;
 }): Headline {
-  const { load, stats, moves, batch, services = [] } = input;
+  const { load, stats, moves, batch } = input;
+  const services = input.services ?? [];
 
   if (load === "loading") {
     return { lead: "Reading the tenant.", follow: "Nothing is claimed until the server answers.", tone: "neutral" };
@@ -105,7 +106,7 @@ export function headlineFor(input: {
     return { lead: "No moves are active.", follow: "Start the synthetic shift.", tone: "neutral" };
   }
 
-  const unknown = services.filter((s) => s.state === "unknown").length;
+  const unknown = (services ?? []).filter((s) => s.state === "unknown").length;
   if (unknown > 0) {
     return {
       lead: "The provider may have acted.",
@@ -182,13 +183,34 @@ export function lanesFor(input: {
   stats: Stats | null;
   moves: MoveRow[];
   batch?: BatchResult | null;
-  services?: ServiceRow[];
+  services?: ServiceRow[] | null;
   selected?: MoveRow | null;
 }): LaneItem[] {
-  const { load, stats, moves, batch, services = [], selected } = input;
+  const { load, stats, moves, batch, selected } = input;
+  const services = input.services ?? null;
   if (load !== "ready" || !stats) return [];
 
   const items: LaneItem[] = [];
+
+  /*
+    An unreadable operations list, surfaced in the lane that owns retry
+    safety. The old behaviour dropped the reconcile recommendation and the
+    retry-safety item silently when this read failed — three calm lanes over a
+    move whose operations nobody had seen. Whether a retry is safe cannot be
+    assessed from an unread list, and that is an authority-lane sentence, not
+    an empty one.
+  */
+  if (services === null && selected) {
+    items.push({
+      id: "ops-unread",
+      lane: "authority",
+      headline: "This move's operations could not be read",
+      subject: selected.reference,
+      detail:
+        "The fulfillment read failed, so nothing about provider state — including whether a retry would be safe — is known. Nothing below this line speaks for this move.",
+      evidence: "GET /api/v1/moves/:id/fulfillment did not return",
+    });
+  }
 
   /* ---------- automation: already done, deterministically ---------- */
 
@@ -258,7 +280,7 @@ export function lanesFor(input: {
     });
   }
 
-  const unknownServices = services.filter((s) => s.state === "unknown");
+  const unknownServices = (services ?? []).filter((s) => s.state === "unknown");
   if (unknownServices.length > 0) {
     items.push({
       id: "propose-reconcile",
@@ -345,15 +367,31 @@ export interface Metric {
   kind: "action" | "evidence";
 }
 
-export function metricsFor(stats: Stats | null, moves: MoveRow[], services: ServiceRow[]): Metric[] {
+export function metricsFor(
+  stats: Stats | null,
+  moves: MoveRow[],
+  /*
+    Null means the per-move read failed or has not happened — a different fact
+    from an empty list. The page used to collapse both to `[]`, and this
+    function then printed "Provider outcome unknown: 0" over a fetch that
+    threw: a counted zero manufactured from an uncounted case, on the tile
+    whose whole job is refusing exactly that move.
+  */
+  services: ServiceRow[] | null,
+): Metric[] {
   const known = !!stats;
   const v = (n: number) => (known ? n : null);
   const needsDecision = moves.filter((m) => m.openConflicts > 0).length;
-  const unknown = services.filter((s) => s.state === "unknown").length;
+  const unknown = services === null ? null : services.filter((s) => s.state === "unknown").length;
 
   return [
     { label: "Needs a human decision", value: v(needsDecision), scope: "moves with a contested canonical field", kind: "action" },
-    { label: "Provider outcome unknown", value: v(unknown), scope: "service operations on the selected move", kind: "action" },
+    {
+      label: "Provider outcome unknown",
+      value: known && unknown !== null ? unknown : null,
+      scope: services === null ? "this move's operations were not read" : "service operations on the selected move",
+      kind: "action",
+    },
     { label: "Orders recovered", value: v(stats?.ordersRecovered ?? 0), scope: "submissions reconciled against the provider", kind: "action" },
     { label: "Moves confirmed", value: v(stats?.canonicalMoves ?? 0), scope: "moves in state canonical", kind: "action" },
 
@@ -399,9 +437,11 @@ export function shiftBriefFor(input: {
   stats: Stats | null;
   moves: MoveRow[];
   batch?: BatchResult | null;
-  services?: ServiceRow[];
+  services?: ServiceRow[] | null;
 }): ShiftBrief {
-  const { load, stats, moves, batch, services = [] } = input;
+  const { load, stats, moves, batch } = input;
+  const services = input.services ?? null;
+  const servicesUnread = services === null;
 
   if (load !== "ready" || !stats) {
     return {
@@ -415,7 +455,7 @@ export function shiftBriefFor(input: {
 
   const sources = ["GET /api/v1/stats", "GET /api/v1/moves"];
   if (batch) sources.push("POST /api/v1/upload/csv");
-  if (services.length) sources.push("GET /api/v1/moves/:id/fulfillment");
+  if (services && services.length) sources.push("GET /api/v1/moves/:id/fulfillment");
 
   const observations: string[] = [];
 
@@ -451,7 +491,7 @@ export function shiftBriefFor(input: {
   if (stats.duplicatesPrevented > 0) {
     observations.push(`${stats.duplicatesPrevented} blind provider retries were refused while an outcome was unknown.`);
   }
-  const unknown = services.filter((s) => s.state === "unknown").length;
+  const unknown = (services ?? []).filter((s) => s.state === "unknown").length;
   if (unknown > 0) {
     observations.push(`${unknown} provider operation${unknown === 1 ? " is" : "s are"} in state unknown.`);
   }
@@ -499,9 +539,15 @@ export function shiftBriefFor(input: {
       ? "insufficient"
       : unknown > 0 && contested > 0
         ? "conflicting"
-        : batch || services.length > 0
-          ? "fully"
-          : "partially";
+        : servicesUnread
+          ? /*
+              A brief assembled while one of its reads failed can never call
+              itself fully supported, whatever the other sources returned.
+            */
+            "partially"
+          : batch || services.length > 0
+            ? "fully"
+            : "partially";
 
   return { observations, sourcesInspected: sources, whyItMatters, recommendation, evidenceState };
 }

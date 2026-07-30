@@ -72,6 +72,12 @@ export default function MoveWorkspace() {
   const [actor, setActor] = useState("user:concierge-7");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  /* Distinguishes "still fetching" from "fetched and failed" — the two states
+     the old single-null `data` flattened into one eternal spinner. */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /* True only when the server said 401/403 — the one case the empty state may
+     describe as an authorization decision. */
+  const [recordDenied, setRecordDenied] = useState(false);
 
   const load = useCallback(async () => {
     /*
@@ -86,14 +92,45 @@ export default function MoveWorkspace() {
       authorization graph — switching to Maya and seeing her own record load,
       then seeing the merge refused, is the demonstration.
     */
-    const [conflictsRes, recordRes] = await Promise.all([
-      fetch(`/api/v1/moves/${id}/conflicts`),
-      fetch(`/api/v1/moves/${id}`, { headers: { "x-actor": actor } }),
-    ]);
+    let conflictsRes: Response, recordRes: Response;
+    try {
+      [conflictsRes, recordRes] = await Promise.all([
+        fetch(`/api/v1/moves/${id}/conflicts`),
+        fetch(`/api/v1/moves/${id}`, { headers: { "x-actor": actor } }),
+      ]);
+    } catch {
+      setLoadError("The server could not be reached. Nothing on this page is current.");
+      return;
+    }
 
-    setRecord(recordRes.ok ? ((await recordRes.json()) as MoveRecord) : null);
+    /*
+      A non-ok record read is not automatically a denial.
 
-    if (!conflictsRes.ok) return;
+      The page used to collapse every failure to `record = null`, and the empty
+      state below captioned null as "the selected actor has no path to this
+      record" — so a 500 was rendered as an authorization statement about a
+      person. Status decides the sentence: 401/403 really is the relationship
+      gate speaking; anything else is a read that failed and must say so.
+    */
+    if (recordRes.ok) {
+      setRecord((await recordRes.json()) as MoveRecord);
+      setRecordDenied(false);
+    } else {
+      setRecord(null);
+      setRecordDenied(recordRes.status === 401 || recordRes.status === 403);
+    }
+
+    if (!conflictsRes.ok) {
+      /*
+        Returning early here used to leave `data` null for ever, which rendered
+        the permanent "loading…" screen — over a record that had loaded fine.
+        An unreadable conflicts panel is a fact to display, not a spinner to
+        hide behind.
+      */
+      setLoadError(`The conflicts could not be read (HTTP ${conflictsRes.status}).`);
+      return;
+    }
+    setLoadError(null);
     const d = (await conflictsRes.json()) as ConflictsResponse;
     setData(d);
     // Preselect the deterministic recommendation; the human can override.
@@ -163,7 +200,35 @@ export default function MoveWorkspace() {
         <div className="cine-aurora" aria-hidden />
         <ParticleCanvas phase="idle" />
         <div className="relative mx-auto max-w-4xl" style={{ zIndex: 1 }}>
-          <p className="text-sm" style={{ color: "var(--color-text-lo)" }}>loading…</p>
+          {loadError ? (
+            /*
+              Fetched and failed, which is not the same state as fetching. The
+              old page kept the spinner for both, so a 500 from the conflicts
+              route looked like a page that had merely not finished yet — for
+              ever.
+            */
+            <div
+              className="rounded-2xl border p-5"
+              style={{ borderColor: "var(--color-state-failed)", background: "rgba(229,72,77,0.06)" }}
+            >
+              <p className="text-sm font-semibold" style={{ color: "var(--color-state-failed)" }}>
+                This page could not be read.
+              </p>
+              <p className="mt-1 text-sm" style={{ color: "var(--color-text-lo)" }}>
+                {loadError} An unread page is not a quiet one — nothing below would have been
+                trustworthy.
+              </p>
+              <button
+                onClick={() => { setLoadError(null); void load(); }}
+                className="mt-3 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+                style={{ borderColor: "rgba(255,255,255,0.3)", color: "var(--color-text-mid)" }}
+              >
+                Read it again
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--color-text-lo)" }}>loading…</p>
+          )}
         </div>
       </main>
     );
@@ -371,13 +436,22 @@ export default function MoveWorkspace() {
       {record ? (
         <RecordPanels record={record} />
       ) : (
-        <p className="mt-8 rounded-2xl border p-5 text-sm" style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-lo)" }}>
+        <p
+          className="mt-8 rounded-2xl border p-5 text-sm"
+          style={{
+            borderColor: recordDenied ? "var(--color-ground-3)" : "var(--color-state-failed)",
+            color: "var(--color-text-lo)",
+          }}
+        >
           {/*
-            A denial, not an error. Reading the record is gated on the
-            authorization graph, and an actor with no path to this move is told
-            so rather than shown an empty panel that looks like a bug.
+            Two different absences. A 401/403 is the relationship gate speaking,
+            and saying so is the demonstration. Anything else is a read that
+            failed — and captioning a 500 as "this actor has no path" would be
+            the page inventing an authorization decision the server never made.
           */}
-          The selected actor has no path to this record, so none of it is readable to them.
+          {recordDenied
+            ? "The selected actor has no path to this record, so none of it is readable to them."
+            : "The record could not be read. This is a failed read, not a denial — nothing is known about this actor's access."}
         </p>
       )}
       </div>

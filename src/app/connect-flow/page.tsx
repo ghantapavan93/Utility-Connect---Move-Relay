@@ -204,18 +204,51 @@ export default function ConnectFlow() {
           )}
 
           {step === 3 && result && (
-            <Step key="result" title={result.status === "quarantined" ? "The contract caught it" : "The engine answered"}>
+            <Step
+              key="result"
+              /*
+                The title follows the outcome. "The engine answered" over a
+                network error was captioning a request that never arrived as a
+                response, and an error is the one case where the engine said
+                nothing at all.
+              */
+              title={
+                result.status === "quarantined"
+                  ? "The contract caught it"
+                  : result.status === "error"
+                    ? "The engine could not be reached"
+                    : "The engine answered"
+              }
+            >
               <div
                 className="rounded-2xl border p-6"
                 style={{
                   borderColor:
                     result.status === "created" ? "var(--color-state-verified)"
-                    : result.status === "attached" ? "var(--color-state-conflict)"
+                    : result.status === "attached" || result.status === "quarantined" ? "var(--color-state-conflict)"
+                    : result.status === "error" ? "var(--color-state-failed)"
                     : "var(--color-ground-3)",
                   background: "var(--color-ground-1)",
                 }}
               >
-                <div className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
+                {/*
+                  The chip wears the outcome's own colour. It was hardcoded to
+                  the verified green, which dressed "quarantined" and a network
+                  failure in the one colour this design system reserves for
+                  verified state — a semantic lie in the exact vocabulary the
+                  rest of the site teaches a reader to trust.
+                */}
+                <div
+                  className="text-xs font-bold uppercase tracking-widest"
+                  style={{
+                    color:
+                      result.status === "created"
+                        ? "var(--color-state-verified)"
+                        : result.status === "attached" || result.status === "quarantined"
+                          ? "var(--color-state-conflict)"
+                          : "var(--color-state-failed)",
+                  }}
+                >
                   {result.status}
                   {result.reference && <> · {result.reference}</>}
                 </div>

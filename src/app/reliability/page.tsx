@@ -30,13 +30,31 @@ interface Objective {
 export default function ReliabilityPage() {
   const [data, setData] = useState<{ label: string; computedAt: string; allMet: boolean; objectives: Objective[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  /*
+    A page whose hero promises "if something is broken, this page will say so"
+    must apply that promise to itself. The first version had no failure branch:
+    a dead endpoint left `data` null, the objectives simply did not render, and
+    the caption still read "computed live from the database" — asserting live
+    computation over a read that never happened.
+  */
+  const [loadError, setLoadError] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
     setLoading(true);
     fetch("/api/v1/slo")
-      .then((r) => r.json())
-      .then(setData)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        setData(d);
+        setLoadError(null);
+      })
+      .catch((e) => {
+        setData(null);
+        setLoadError(e instanceof Error ? e.message : String(e));
+      })
       .finally(() => setLoading(false));
   };
 
@@ -131,9 +149,23 @@ export default function ReliabilityPage() {
         <div className="flex gap-2">
           <button
             onClick={async () => {
-              // The scheduled worker, as a button: drain every UNKNOWN through
-              // provider lookup, then recompute the objectives from rows.
-              await fetch("/api/v1/ops/sweep", { method: "POST" });
+              /*
+                The scheduled worker, as a button — and its response is read,
+                not assumed. The old handler discarded it, which made a failed
+                sweep indistinguishable from a successful one: the page
+                recomputed and quietly showed the same numbers, and the button
+                looked like it had worked.
+              */
+              try {
+                const res = await fetch("/api/v1/ops/sweep", { method: "POST" });
+                if (!res.ok) {
+                  setLoadError(`The sweep failed (HTTP ${res.status}). The figures below predate it.`);
+                  return;
+                }
+              } catch {
+                setLoadError("The sweep could not reach the server. The figures below predate it.");
+                return;
+              }
               load();
             }}
             className="rounded-full px-4 py-1.5 text-xs font-semibold"
@@ -151,8 +183,27 @@ export default function ReliabilityPage() {
         </div>
       </div>
       <p className="mt-2 max-w-2xl text-sm" style={{ color: "var(--color-text-lo)" }}>
-        {data?.label ?? "Prototype SLOs — project targets computed live from the database."}
+        {data
+          ? data.label
+          : loading
+            ? "Reading the live tables…"
+            : "Not yet read — no figure below is current."}
       </p>
+
+      {loadError && (
+        <div
+          className="mt-4 max-w-2xl rounded-2xl border p-4"
+          style={{ borderColor: "var(--color-state-failed)", background: "rgba(229,72,77,0.06)" }}
+        >
+          <p className="text-sm font-semibold" style={{ color: "var(--color-state-failed)" }}>
+            This page could not compute its objectives.
+          </p>
+          <p className="mt-1 text-sm" style={{ color: "var(--color-text-lo)" }}>
+            {loadError} — which this page reports rather than hides, because a reliability page
+            that renders calm over a failed read is measuring nothing.
+          </p>
+        </div>
+      )}
 
       {data && (
         <>

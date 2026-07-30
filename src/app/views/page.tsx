@@ -61,6 +61,7 @@ export default function ViewsPage() {
   const [audience, setAudience] = useState<Audience>("concierge");
   const [all, setAll] = useState<Record<Audience, Record<string, unknown>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   /*
@@ -178,20 +179,35 @@ export default function ViewsPage() {
    */
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     /*
       Falls back to `/api/v1/views` when no move is selected, which is the
       scripted move by reference. That keeps the page meaningful on a tenant
       where the demo has been run but nothing else has.
     */
     const url = moveId ? `/api/v1/moves/${moveId}/views` : "/api/v1/views";
-    const entries = await Promise.all(
-      (Object.keys(ACTOR) as Audience[]).map(async (a) => {
-        const res = await fetch(url, { headers: { "x-actor": ACTOR[a] } });
-        return [a, (await res.json()) as Record<string, unknown>] as const;
-      }),
-    );
-    setAll(Object.fromEntries(entries) as Record<Audience, Record<string, unknown>>);
-    setLoading(false);
+    try {
+      const entries = await Promise.all(
+        (Object.keys(ACTOR) as Audience[]).map(async (a) => {
+          const res = await fetch(url, { headers: { "x-actor": ACTOR[a] } });
+          // A denial body is a legitimate payload here — the page renders it
+          // as the demonstration. A body that fails to parse is not.
+          return [a, (await res.json()) as Record<string, unknown>] as const;
+        }),
+      );
+      setAll(Object.fromEntries(entries) as Record<Audience, Record<string, unknown>>);
+    } catch {
+      /*
+        The old version had no failure branch: a thrown fetch left `loading`
+        true and the panel said "Loading…" for ever — an unread comparison
+        rendered as a patient one. This page's whole argument is that absences
+        must be demonstrated from received responses, so a failure to receive
+        any is a first-class state.
+      */
+      setLoadError("The three projections could not be fetched. No comparison below is current.");
+    } finally {
+      setLoading(false);
+    }
   }, [moveId]);
 
   useEffect(() => {
@@ -579,6 +595,14 @@ export default function ViewsPage() {
           className="mt-6"
         >
           {loading && <p style={{ color: "var(--color-text-lo)" }}>Loading…</p>}
+          {loadError && (
+            <p
+              className="rounded-xl border p-4 text-sm"
+              style={{ borderColor: "var(--color-state-failed)", color: "var(--color-state-failed)" }}
+            >
+              {loadError}
+            </p>
+          )}
 
           {/*
             A denial is a result, and the most instructive one on this page.
