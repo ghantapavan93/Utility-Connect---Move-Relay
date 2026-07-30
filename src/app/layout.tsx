@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     template: "%s — Move Relay",
   },
   description:
-    "One move arrives on three channels, no two agree, and the provider's reply is lost. The system holds UNKNOWN, refuses the blind retry, and reconciles. Real Postgres, 532 tests, no mocks.",
+    "One move arrives on three channels, no two agree, and the provider's reply is lost. The system holds UNKNOWN, refuses the blind retry, and reconciles. Real Postgres, 565 tests, no mocks.",
   applicationName: "Move Relay",
   authors: [{ name: "Pavan Kalyan Ghanta" }],
   keywords: [
