@@ -1,159 +1,173 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { Loader2 } from "lucide-react";
 
 import { useStillness } from "@/lib/use-stillness";
-import { AgentConstellation } from "@/components/AgentConstellation";
+import { accentColor, accentInk, type Accent } from "@/lib/accents";
+import type { AgentRun } from "@/lib/agent/case-agent";
+import type { AgentEvalMetrics } from "@/lib/agent/eval";
+import {
+  stagesFor,
+  evidenceFor,
+  decisionFor,
+  customerDraftFor,
+  caseKindFor,
+  stageLabel,
+  conflictDetailFor,
+  providerDetailFor,
+  auditTrailFor,
+  consentDetailFor,
+} from "@/lib/agent/narrative";
+import { CaseRibbon, type CaseFacts } from "@/components/agent/CaseRibbon";
+import { Investigation } from "@/components/agent/Investigation";
+import { ControlBoundary } from "@/components/agent/ControlBoundary";
+import { DecisionPackageCard } from "@/components/agent/DecisionPackage";
+import { CustomerDraftCard } from "@/components/agent/CustomerDraftCard";
+import { AuthorityMatrix, type RegistryTool } from "@/components/agent/AuthorityMatrix";
+import { BreakTheAgent } from "@/components/agent/BreakTheAgent";
+import {
+  ConflictValues,
+  ProviderIdentity,
+  ConsentLine,
+  AuditTimeline,
+} from "@/components/agent/CaseDepth";
 
 /**
- * The agent inspector.
+ * The Move Operations Copilot.
  *
- * The agent already worked before this page existed; it was simply invisible
- * unless you read the database or curled the API. That is a real problem for
- * the thing it is meant to demonstrate, because the interesting event is a
- * *refusal* — and a refusal that nobody can see is indistinguishable from a
- * feature that was never built.
+ * The protagonist of this page is the selected move, not the agent. A move
+ * enters uncertainty — a lost provider response, two sources that disagree —
+ * and the page shows a governed capability doing every part of the work it can
+ * safely own: reconstructing the evidence, refusing the dangerous shortcut,
+ * preparing a decision-ready package, and stopping at the line where authority,
+ * not intelligence, is required.
  *
- * So the page is built around the refused step rather than around the outcome.
- * The reads are quiet, the refusal is the loudest thing on screen, and the
- * proposal sits beside it with the reason it is the safe alternative. The
- * design system's line language carries the meaning: a locked node is one
- * requiring human approval, and both the refusal and the pending proposal are
- * locked.
+ * ## The rendering rule
  *
- * Everything rendered here comes from `agent_runs` and `agent_steps`. Nothing
- * is computed in the browser, because a screen that recomputes its own evidence
- * is a screen that can disagree with the database and look more convincing
- * while doing it.
+ * Everything below the hero is a function of server data. The run and its
+ * steps come from `agent_runs`/`agent_steps`; the business language is derived
+ * from stored observations by `narrative.ts`, which is pure and separately
+ * tested; the authority matrix is the same registry the planner is checked
+ * against; the adversarial lab renders per-case verdicts the evaluation
+ * actually executed. The page holds no policy text of its own and no state the
+ * database does not.
+ *
+ * ## Progressive disclosure
+ *
+ * Three altitudes, deliberately ordered: the business situation first (what is
+ * this case, why does it matter), the operating surface second (what the
+ * copilot did, what it prepared, what a person decides), and the technical
+ * layer last (tool names inline as secondary evidence, raw payloads behind
+ * explicit disclosure). A leader can stop after the first altitude and have
+ * been told the truth.
  */
-
-interface AgentStep {
-  seq: number;
-  tool: string;
-  authority: string;
-  outcome: string;
-  note: string | null;
-  durationMs: number | null;
-}
-
-interface AgentRun {
-  id: string;
-  state: string;
-  goal: string;
-  proposal: { tool: string; args: Record<string, unknown>; why: string } | null;
-  refusal: { tool: string; reason: string } | null;
-  summary: string;
-  steps: AgentStep[];
-}
 
 interface MoveRow {
   id: string;
   reference: string;
   state: string;
+  openConflicts: number;
 }
 
-interface ToolRow {
-  name: string;
-  authority: string;
-  description: string;
-  refusal: string | null;
+type EvalState = { metrics: AgentEvalMetrics | null; running: boolean };
+
+/** A decided action, exactly as the backend reported it. */
+interface DecisionResult {
+  state: string;
+  outcome?: string;
+  providerOrderId?: string | null;
 }
 
-interface EvalMetrics {
-  cases: number;
-  forbiddenAttempts: number;
-  forbiddenBlocked: number;
-  forbiddenBlockRate: number;
-  refusalsExplained: number;
-  refusalsTotal: number;
-  proposalAccuracy: number;
-  falseAllClearRate: number;
-  injectionInfluence: number;
-  failures: string[];
+/** The actor this console decides as. Sent as X-Actor and displayed verbatim. */
+const CONSOLE_ACTOR = "concierge:dana";
+
+/** Pull a named field's value out of the concierge view, if the case has it. */
+function fieldValue(
+  view:
+    | {
+        verified?: Array<{ field: string; value: unknown }>;
+        unconfirmed?: Array<{ field: string; value: unknown }>;
+      }
+    | undefined,
+  path: string,
+): string | null {
+  const hit =
+    view?.verified?.find((f) => f.field === path) ??
+    view?.unconfirmed?.find((f) => f.field === path);
+  return hit ? String(hit.value) : null;
 }
 
-const AUTHORITY_LABEL: Record<string, { label: string; colour: string; note: string }> = {
-  read_only: {
-    label: "Runs immediately",
-    colour: "var(--color-state-verified)",
-    note: "Nothing it can do is observable outside this process.",
-  },
-  requires_approval: {
-    label: "Needs a person",
-    colour: "var(--color-state-conflict)",
-    note: "The agent may propose it. A named human executes it.",
-  },
-  forbidden: {
-    label: "Never",
-    colour: "var(--color-state-locked)",
-    note: "Defined here on purpose, so a refusal is a recorded row rather than an absence.",
-  },
-};
+export default function MoveOperationsCopilot() {
+  const still = useStillness();
 
-/** The colour a step carries, and why. Meaning first, decoration never. */
-function stepTone(step: AgentStep): { colour: string; label: string } {
-  if (step.outcome === "refused" && step.authority === "forbidden") {
-    return { colour: "var(--color-state-locked)", label: "refused — above its authority" };
-  }
-  if (step.outcome === "refused") {
-    return { colour: "var(--color-state-locked)", label: "held for human approval" };
-  }
-  if (step.outcome === "error") {
-    return { colour: "var(--color-state-failed)", label: "tool error" };
-  }
-  return { colour: "var(--color-state-verified)", label: "read" };
-}
-
-export default function AgentInspectorPage() {
   const [moves, setMoves] = useState<MoveRow[]>([]);
   const [moveId, setMoveId] = useState("");
   const [run, setRun] = useState<AgentRun | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [investigating, setInvestigating] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+  const [decided, setDecided] = useState<DecisionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [decided, setDecided] = useState<{ outcome?: string; providerOrderId?: string | null } | null>(null);
-  const [tools, setTools] = useState<ToolRow[]>([]);
-  const [evaluation, setEvaluation] = useState<EvalMetrics | null>(null);
-  const [evaluating, setEvaluating] = useState(false);
-  const still = useStillness();
+  const [tools, setTools] = useState<RegistryTool[]>([]);
+  const [evaluation, setEvaluation] = useState<EvalState>({ metrics: null, running: false });
+  const [rawOpen, setRawOpen] = useState(false);
 
+  /*
+    Reload reconstructs, rather than forgets.
+
+    The run id rides in the URL, so a refresh — or a link pasted to a colleague
+    — rebuilds the whole surface from `agent_runs` instead of presenting a
+    blank console that quietly implies nothing ever happened. The steps were
+    persisted precisely so the reasoning could be read back later; a page that
+    lost them on F5 would be storing evidence and refusing to show it.
+  */
   useEffect(() => {
+    const runId = new URLSearchParams(window.location.search).get("run");
+    if (runId) {
+      fetch(`/api/v1/agent/runs/${runId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          if (body) setRun(body);
+        })
+        .catch(() => {
+          /* A stale link renders the pre-run page, which is the honest fallback. */
+        });
+    }
+
     fetch("/api/v1/moves")
       .then((r) => r.json())
-      .then((d) => {
-        const rows: MoveRow[] = d.moves ?? [];
-        setMoves(rows);
-        if (rows[0]) setMoveId(rows[0].id);
+      .then((body: { moves: MoveRow[] }) => {
+        setMoves(body.moves ?? []);
+        if (body.moves?.[0]) setMoveId(body.moves[0].id);
       })
-      .catch(() => setError("Could not load the move queue."));
+      .catch(() => setError("Could not load the case list."));
 
     fetch("/api/v1/agent/runs")
       .then((r) => r.json())
-      .then((d) => setTools(d.tools ?? []))
+      .then((body: { tools: RegistryTool[] }) => setTools(body.tools ?? []))
       .catch(() => {
-        /* The catalogue is context, not the point of the page. */
+        /* The matrix section renders its absence honestly. */
       });
   }, []);
 
-  const evaluate = async () => {
-    setEvaluating(true);
+  const selectCase = (id: string) => {
+    setMoveId(id);
+    // A new case invalidates everything derived from the old one. Keeping the
+    // previous run on screen would caption one move with another's evidence —
+    // and the URL must stop claiming the old run for the same reason.
+    setRun(null);
+    setDecided(null);
     setError(null);
-    try {
-      const response = await fetch("/api/v1/agent/evals", { method: "POST" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "The evaluation failed.");
-      setEvaluation(body.metrics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setEvaluating(false);
-    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("run");
+    window.history.replaceState(null, "", url);
   };
 
-  const ask = async () => {
-    if (!moveId) return;
-    setBusy(true);
+  const investigate = useCallback(async () => {
+    if (!moveId || investigating) return;
+    setInvestigating(true);
     setError(null);
     setDecided(null);
     setRun(null);
@@ -164,508 +178,664 @@ export default function AgentInspectorPage() {
         body: JSON.stringify({ moveId }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "The run failed.");
+      if (!response.ok) throw new Error(body.error ?? "The investigation failed.");
       setRun(body);
+      const url = new URL(window.location.href);
+      url.searchParams.set("run", body.id);
+      window.history.replaceState(null, "", url);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setBusy(false);
+      setInvestigating(false);
     }
-  };
+  }, [moveId, investigating]);
 
-  const decide = async (decision: "approved" | "rejected") => {
-    if (!run) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/v1/agent/runs/${run.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Actor": "concierge:dana" },
-        body: JSON.stringify({ decision }),
-      });
-      const body = await response.json();
+  const decide = useCallback(
+    async (decision: "approved" | "rejected") => {
+      if (!run || deciding) return;
+      setDeciding(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/v1/agent/runs/${run.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Actor": CONSOLE_ACTOR },
+          body: JSON.stringify({ decision }),
+        });
+        const body = await response.json();
 
-      if (!response.ok) {
-        /*
-          The run may be gone rather than merely un-decidable.
-
-          `agent_runs` cascade-deletes with its move, so resetting the demo
-          while this page is open leaves the browser holding a run id the
-          database no longer has — and the page went on offering an Approve
-          button for it, then surfaced the raw string "No agent run <uuid>".
-          Both halves were wrong: the button should not have been there, and a
-          reviewer should never be shown an internal identifier as an
-          explanation.
-
-          Distinguishing the two cases matters. "Already decided" means the
-          work happened and the page is stale; "no longer exists" means the
-          case itself was reset underneath us. They call for different sentences
-          and only one of them should clear the run.
-        */
-        if (/no agent run/i.test(body.error ?? "")) {
-          setRun(null);
-          setDecided(null);
-          throw new Error(
-            "That run no longer exists — the demo was reset while this page was open. Ask again to start a fresh one.",
-          );
+        if (!response.ok) {
+          /*
+            The run may be gone rather than merely un-decidable — the demo
+            reset cascade-deletes agent runs with their move. The two cases
+            need different sentences, and only one should clear the run.
+          */
+          if (/no agent run/i.test(body.error ?? "")) {
+            setRun(null);
+            setDecided(null);
+            throw new Error(
+              "That run no longer exists — the demo was reset while this page was open. Investigate again to start fresh.",
+            );
+          }
+          throw new Error(body.error ?? "The decision failed.");
         }
-        throw new Error(body.error ?? "The decision failed.");
+
+        setDecided(body);
+        // Read the run back rather than patching local state. A page that
+        // narrates its own success can be wrong and persuasive at once.
+        const fresh = await fetch(`/api/v1/agent/runs/${run.id}`).then((r) => r.json());
+        setRun(fresh);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setDeciding(false);
       }
+    },
+    [run, deciding],
+  );
 
-      setDecided(body);
-
-      // Read the run back rather than patching local state. The database is
-      // the source of truth here as everywhere else; a page that narrates its
-      // own success can be wrong and persuasive at the same time.
-      const fresh = await fetch(`/api/v1/agent/runs/${run.id}`).then((r) => r.json());
-      setRun(fresh);
+  const runEvaluation = useCallback(async () => {
+    if (evaluation.running) return;
+    setEvaluation((s) => ({ ...s, running: true }));
+    try {
+      const response = await fetch("/api/v1/agent/evals", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "The evaluation failed.");
+      setEvaluation({ metrics: body.metrics, running: false });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+      setEvaluation((s) => ({ ...s, running: false }));
     }
-  };
+  }, [evaluation.running]);
+
+  // ── Everything below derives from server data ─────────────────────────
+  const selectedMove = moves.find((m) => m.id === moveId) ?? null;
+  const stages = useMemo(() => (run ? stagesFor(run) : []), [run]);
+  const decision = useMemo(() => (run ? decisionFor(run) : null), [run]);
+  const evidence = useMemo(() => (run ? evidenceFor(run) : []), [run]);
+  const draft = useMemo(() => (run ? customerDraftFor(run) : null), [run]);
+  const kind = run ? caseKindFor(run) : null;
+  // The depth layer: the material the conclusions were formed from.
+  const conflictDetail = useMemo(() => (run ? conflictDetailFor(run) : []), [run]);
+  const providerDetail = useMemo(() => (run ? providerDetailFor(run) : []), [run]);
+  const auditTrail = useMemo(() => (run ? auditTrailFor(run) : []), [run]);
+  const consentDetail = useMemo(() => (run ? consentDetailFor(run) : []), [run]);
+
+  const attempted = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const s of run?.steps ?? []) map[s.tool] = s.outcome;
+    return map;
+  }, [run]);
+
+  const facts: CaseFacts | null = useMemo(() => {
+    if (!selectedMove) return null;
+    const view = run?.steps.find((s) => s.tool === "get_move_record" && s.outcome === "ok")
+      ?.observation as
+      | {
+          verified?: Array<{ field: string; value: unknown; by: string | null }>;
+          unconfirmed?: Array<{ field: string; value: unknown }>;
+          openConflicts?: string[];
+          services?: Array<{ submission_state?: string | null }>;
+        }
+      | undefined;
+
+    const services = view?.services ?? [];
+    const unknowns = services.filter((s) => s.submission_state === "unknown").length;
+    const canonicalBy = view?.verified?.find((f) => f.by)?.by ?? null;
+    const conflicts = view?.openConflicts?.length ?? selectedMove.openConflicts;
+
+    /*
+      Pre-run, the ribbon knows only what the moves list carries: the conflict
+      count. Everything else is null — rendered as "not yet read" — because a
+      counted zero and an uncounted case are different facts, and the first
+      version of this printed "no unknowns" on a case whose whole problem was
+      an unknown outcome it had not read yet.
+    */
+    return {
+      reference: selectedMove.reference,
+      customer: fieldValue(view, "customer.name"),
+      moveDate: fieldValue(view, "move.date"),
+      openConflicts: conflicts,
+      services: view ? services.length : null,
+      unknownOutcomes: view ? unknowns : null,
+      canonicalBy,
+      objective: !view
+        ? conflicts > 0
+          ? "Sources disagree — a canonical value needs a named decision"
+          : "Not yet investigated"
+        : unknowns > 0
+          ? "A provider outcome is unknown — establish what exists before anything else"
+          : conflicts > 0
+            ? "Sources disagree — a canonical value needs a named decision"
+            : "No open question on this case",
+    };
+  }, [selectedMove, run]);
+
+  const chip = (label: string, accent: Accent) => (
+    <li
+      key={label}
+      className="rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]"
+      style={{ borderColor: accentColor(accent, 0.4), color: accentInk(accent) }}
+    >
+      {label}
+    </li>
+  );
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-14">
+    <main className="mx-auto min-w-0 max-w-6xl px-6 py-14">
       <Link href="/demo" className="text-sm" style={{ color: "var(--color-state-verified)" }}>
         ← Back to the demo
       </Link>
 
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight">Concierge case agent</h1>
-      <p className="mt-3 max-w-3xl text-lg" style={{ color: "var(--color-text-mid)" }}>
-        The agent reads a case through a governed tool interface, works out what should happen
-        next, and stops for a person before anything consequential happens. Its plan is ordinary
-        code; its authority is data, checked server-side before any model output is consulted.
-      </p>
-      <p className="mt-3 max-w-3xl text-sm" style={{ color: "var(--color-text-lo)" }}>
-        <strong style={{ color: "var(--color-text-mid)" }}>BUILT AND FUNCTIONING.</strong>{" "}
-        Every step below is a row in <code>agent_steps</code>. The refusal is recorded, not
-        described — the tool is genuinely called and genuinely declined.
-      </p>
-
-      {/* ── Pick a case ────────────────────────────────────────── */}
-      <div className="mt-8 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span style={{ color: "var(--color-text-mid)" }}>Case</span>
-          <select
-            value={moveId}
-            onChange={(e) => setMoveId(e.target.value)}
-            className="min-w-[18rem] rounded-lg border px-3 py-2.5"
-            style={{
-              borderColor: "var(--color-ground-3)",
-              background: "var(--color-ground-1)",
-              color: "var(--color-text-hi)",
-            }}
-          >
-            {moves.length === 0 && <option value="">No moves yet — run the demo first</option>}
-            {moves.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.reference} · {m.state}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="button"
-          onClick={ask}
-          disabled={busy || !moveId}
-          className="rounded-full px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:hover:translate-y-0"
-          style={{ background: "var(--uc-cyan-fill)" }}
-        >
-          {busy ? "Working…" : "What should happen next?"}
-        </button>
-      </div>
-
-      {error && (
-        <p className="mt-6 rounded-lg border px-4 py-3 text-sm" style={{ borderColor: "var(--color-state-failed)", color: "var(--color-state-failed)" }}>
-          {error}
+      {/* ════════════════ HERO ════════════════ */}
+      <header className="mt-6 min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em]" style={{ color: accentInk("security") }}>
+          Move operations copilot
         </p>
-      )}
+        <h1 className="mt-3 max-w-3xl text-[clamp(30px,4.4vw,52px)] font-semibold leading-[1.05] tracking-tight text-white">
+          From scattered evidence
+          <br />
+          <span style={{ color: accentInk("internet") }}>to the next safe action.</span>
+        </h1>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+          The copilot investigates the move, reconstructs what happened, explains the business
+          risk, prepares the best next action — and stops only where authority, not intelligence,
+          is required.
+        </p>
 
-      {/*
-        The boundary, drawn rather than described.
+        {/*
+          Each chip is a checkable claim about this implementation. Tools and
+          authority live in a server registry; every step is a persisted row;
+          refusals come from policy checked before any model output; every
+          record on the tenant is synthetic.
+        */}
+        <ul className="mt-5 flex flex-wrap gap-1.5">
+          {chip("Built and functioning", "verified")}
+          {chip("Server-owned tools", "internet")}
+          {chip("Persisted agent steps", "internet")}
+          {chip("Policy enforced", "security")}
+          {chip("Synthetic case data", "conflict")}
+        </ul>
 
-        It renders before any run exists — the shape of the authority model is
-        the first thing worth understanding, and it is true whether or not
-        anyone has pressed the button. Once a run happens the same diagram
-        carries it: the strands the agent used light up, the severed one shows
-        which refusal occurred, and approving turns the gate green.
-      */}
-      {tools.length > 0 && (
-        <AgentConstellation
-          tools={tools}
-          steps={run?.steps ?? []}
-          proposalTool={run?.proposal?.tool ?? null}
-          approved={decided !== null && run?.state === "completed"}
-        />
-      )}
+        {/* ── Case selection + the persistent ribbon ── */}
+        <div className="mt-8 flex flex-wrap items-end gap-3">
+          <label className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+              Selected case
+            </span>
+            <select
+              value={moveId}
+              onChange={(e) => selectCase(e.target.value)}
+              className="mt-1 min-h-11 rounded-lg border bg-transparent px-3 text-sm text-white focus:outline-none focus-visible:ring-2"
+              style={{ borderColor: "rgba(255,255,255,0.2)" }}
+            >
+              {moves.length === 0 && <option value="">No moves yet — run the demo first</option>}
+              {moves.map((m) => (
+                <option key={m.id} value={m.id} style={{ color: "#111" }}>
+                  {m.reference} · {m.state.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      {run && (
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1.15fr_1fr]">
-          {/* ── The path it took ─────────────────────────────── */}
-          <section>
-            <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-text-mid)" }}>
-              What it did
-            </h2>
+          <button
+            type="button"
+            onClick={investigate}
+            disabled={!moveId || investigating}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full px-6 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-px disabled:opacity-60"
+            style={{ background: accentColor("verified", 1) }}
+          >
+            {investigating && <Loader2 size={14} className="animate-spin" aria-hidden />}
+            {investigating ? "Investigating…" : "Investigate and prepare the next action"}
+          </button>
+        </div>
 
-            <ol className="mt-5">
-              {run.steps.map((step, i) => {
-                const tone = stepTone(step);
-                const refused = step.outcome === "refused";
-                return (
-                  <motion.li
-                    key={step.seq}
-                    initial={still ? false : { opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.22, delay: still ? 0 : i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                    className="relative pb-5 pl-8"
-                  >
-                    {/*
-                      The connecting line, in the constellation language: solid
-                      between completed reads, and stopping at a locked node —
-                      the run does not simply continue past a refusal, and the
-                      line should not imply that it did.
-                    */}
-                    {i < run.steps.length - 1 && (
-                      <span
-                        aria-hidden
-                        className="absolute left-[7px] top-4 h-full w-px"
-                        style={{
-                          background: refused ? "transparent" : "var(--color-ground-3)",
-                          borderLeft: refused ? "1px dashed var(--color-ground-3)" : undefined,
-                        }}
-                      />
-                    )}
-                    <span
-                      aria-hidden
-                      className="absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-2"
-                      style={{
-                        borderColor: tone.colour,
-                        background: refused ? tone.colour : "transparent",
-                      }}
-                    />
+        {facts && (
+          <div className="mt-4">
+            <CaseRibbon facts={facts} />
+          </div>
+        )}
 
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <code className="text-sm font-semibold" style={{ color: "var(--color-text-hi)" }}>
-                        {step.tool}
-                      </code>
-                      <span
-                        className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                        style={{ background: "var(--color-ground-2)", color: tone.colour }}
-                      >
-                        {tone.label}
-                      </span>
-                      {step.durationMs !== null && (
-                        <span className="text-xs" style={{ color: "var(--color-text-lo)" }}>
-                          {step.durationMs}ms
-                        </span>
-                      )}
-                    </div>
+        {error && (
+          <p
+            role="alert"
+            className="mt-4 rounded-lg border p-3 text-sm"
+            style={{ borderColor: accentColor("failed", 0.5), color: accentInk("failed") }}
+          >
+            {error}
+          </p>
+        )}
+      </header>
 
-                    {step.note && (
-                      <p
-                        className="mt-2 max-w-prose text-sm leading-relaxed"
-                        style={{ color: refused ? "var(--color-text-mid)" : "var(--color-text-lo)" }}
-                      >
-                        {step.note}
-                      </p>
-                    )}
-                  </motion.li>
-                );
-              })}
-            </ol>
-          </section>
+      {/* ════════════════ THE OPERATING ROOM ════════════════ */}
+      <section aria-labelledby="room-heading" className="mt-14 min-w-0">
+        <h2 id="room-heading" className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--color-text-lo)" }}>
+          The operating room
+        </h2>
 
-          {/* ── What it wants, and what it would not do ──────── */}
-          <section className="space-y-5">
-            <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-text-mid)" }}>
-              What it concluded
-            </h2>
-
-            <p className="text-base leading-relaxed" style={{ color: "var(--color-text-hi)" }}>
-              {run.summary}
-            </p>
-
-            {run.refusal && (
-              <div
-                className="rounded-xl border p-5"
-                style={{ borderColor: "var(--color-state-locked)", background: "var(--color-ground-1)" }}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--color-state-locked)" }}>
-                  Refused
-                </div>
-                <code className="mt-1.5 block text-sm font-semibold" style={{ color: "var(--color-text-hi)" }}>
-                  {run.refusal.tool}
-                </code>
-                <p className="mt-2.5 text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                  {run.refusal.reason}
+        <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
+          {/* ── Panel A: the case, in business language ── */}
+          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("conflict") }}>
+              The case
+            </h3>
+            {decision ? (
+              <>
+                <p className="mt-2 text-[15px] font-semibold leading-snug text-white">
+                  {kind === "provider_unknown" && "A provider outcome is unknown"}
+                  {kind === "field_conflict" && "Sources disagree about this move"}
+                  {kind === "settled" && "Nothing is waiting on a decision"}
+                  {kind === "unreadable" && "The case could not be read"}
                 </p>
-              </div>
-            )}
-
-            {run.proposal && (
-              <div
-                className="rounded-xl border p-5"
-                style={{ borderColor: "var(--color-state-verified)", background: "var(--color-ground-1)" }}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--color-state-verified)" }}>
-                  Proposed instead
-                </div>
-                <code className="mt-1.5 block text-sm font-semibold" style={{ color: "var(--color-text-hi)" }}>
-                  {run.proposal.tool}
-                </code>
-                <p className="mt-2.5 text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                  {run.proposal.why}
-                </p>
-
-                {run.state === "awaiting_approval" && (
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={() => decide("approved")}
-                      disabled={busy}
-                      className="rounded-full px-5 py-2.5 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
-                      style={{ background: "var(--uc-cyan-fill)" }}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => decide("rejected")}
-                      disabled={busy}
-                      className="rounded-full border px-5 py-2.5 text-sm font-bold uppercase tracking-wide disabled:opacity-50"
-                      style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}
-                    >
-                      Reject
-                    </button>
+                {/*
+                  Deliberately not `decision.situation` — the decision package
+                  below opens with that exact paragraph, and reading the same
+                  sentences twice on one screen teaches a reader to skim. This
+                  panel's job is the material: the headline names the trouble,
+                  the depth cards below show it.
+                */}
+                {/*
+                  The disagreement itself, not a count of it. "Sources disagree"
+                  is a conclusion; the two values side by side, each wearing its
+                  channel and verification, is what a person actually weighs —
+                  and it is read from the same stored observation the agent
+                  reasoned over.
+                */}
+                {kind === "field_conflict" && conflictDetail.length > 0 && (
+                  <div className="mt-3">
+                    <ConflictValues conflicts={conflictDetail} />
                   </div>
                 )}
-              </div>
-            )}
-
-            {decided && (
-              <div
-                className="rounded-xl border p-5"
-                style={{
-                  borderColor:
-                    decided.outcome === "found_existing"
-                      ? "var(--color-state-recovered)"
-                      : "var(--color-ground-3)",
-                  background: "var(--color-ground-1)",
-                }}
-              >
-                <div
-                  className="text-[11px] font-bold uppercase tracking-widest"
-                  style={{
-                    color:
-                      decided.outcome === "found_existing"
-                        ? "var(--color-state-recovered)"
-                        : "var(--color-text-mid)",
-                  }}
-                >
-                  {decided.outcome === "found_existing" ? "Recovered" : "Decided"}
-                </div>
-                <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
-                  {decided.outcome === "found_existing" ? (
-                    <>
-                      The provider already had order{" "}
-                      <code style={{ color: "var(--color-text-hi)" }}>{decided.providerOrderId}</code>.
-                      It existed the whole time — we were never uncertain about the world, only about
-                      our knowledge of it. One order, never two.
-                    </>
-                  ) : (
-                    <>Recorded. The run is now {run.state}.</>
-                  )}
-                </p>
-              </div>
-            )}
-
-            <p className="text-xs leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
-              Approval runs the same <code>reconcile()</code> the concierge&rsquo;s own button
-              calls, under the approving actor&rsquo;s identity. The agent supplied the arguments
-              and the reasoning; it supplied no privileges. Identity here is an{" "}
-              <code>X-Actor</code> header and is trivially forged — authentication is a known,
-              stated gap; authorization and attribution are real.
-            </p>
-          </section>
-        </div>
-      )}
-
-      {!run && !busy && (
-        <p className="mt-10 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
-          Pick a case and ask. On a move whose provider outcome is unknown, the agent will read the
-          record, read the provider state, check what has already been attempted, reach for
-          resubmission, be refused, and propose reconciliation instead. On a quiet case it will say
-          there is nothing to do — an agent that always finds work is an agent whose
-          recommendations mean nothing.
-        </p>
-      )}
-
-      {/* ── The boundary itself ──────────────────────────────────── */}
-      {tools.length > 0 && (
-        <section className="mt-16 border-t pt-10" style={{ borderColor: "var(--color-ground-3)" }}>
-          <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-text-mid)" }}>
-            What it may and may not touch
-          </h2>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
-            Authority is data, not instruction. This table is the same registry the server checks
-            before any model output is consulted — publishing it means the boundary can be read
-            without reading the source, and the tests assert against this list rather than a second
-            copy of it.
-          </p>
-
-          <div className="mt-6 space-y-6">
-            {(["read_only", "requires_approval", "forbidden"] as const).map((tier) => {
-              const rows = tools.filter((t) => t.authority === tier);
-              if (rows.length === 0) return null;
-              const meta = AUTHORITY_LABEL[tier]!;
-              return (
-                <div key={tier}>
-                  <div className="flex flex-wrap items-baseline gap-x-3">
-                    <span
-                      className="text-[11px] font-bold uppercase tracking-widest"
-                      style={{ color: meta.colour }}
-                    >
-                      {meta.label}
-                    </span>
-                    <span className="text-xs" style={{ color: "var(--color-text-lo)" }}>
-                      {meta.note}
-                    </span>
+                {kind === "provider_unknown" && providerDetail.length > 0 && (
+                  <div className="mt-3">
+                    <ProviderIdentity operations={providerDetail} />
                   </div>
-                  <ul className="mt-2.5 space-y-1.5">
-                    {rows.map((tool) => (
-                      <li key={tool.name} className="text-sm">
-                        <code style={{ color: "var(--color-text-hi)" }}>{tool.name}</code>
-                        <span style={{ color: "var(--color-text-lo)" }}>
-                          {" — "}
-                          {tool.refusal ?? tool.description}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                )}
+                {consentDetail.length > 0 && (
+                  <div className="mt-3 border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+                      Consent on file
+                    </p>
+                    <div className="mt-1">
+                      <ConsentLine consent={consentDetail} />
+                    </div>
+                  </div>
+                )}
+                {decision.businessConsequence && (
+                  <p
+                    className="mt-3 border-t pt-3 text-[12px] leading-relaxed"
+                    style={{ borderColor: "rgba(255,255,255,0.08)", color: "var(--color-text-mid)" }}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--color-text-lo)" }}>
+                      Why it matters ·{" "}
+                    </span>
+                    {decision.businessConsequence}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
+                {selectedMove
+                  ? selectedMove.openConflicts > 0
+                    ? `${selectedMove.reference} carries ${selectedMove.openConflicts} open conflict${selectedMove.openConflicts === 1 ? "" : "s"}. Investigate to see what the sources actually said.`
+                    : `${selectedMove.reference} looks quiet from the list. The investigation reads the case itself.`
+                  : "Select a case. The demo seeds one with a lost provider response and a field two sources disagree about."}
+              </p>
+            )}
+          </div>
+
+          {/* ── Panel B: the copilot at work ── */}
+          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: accentColor("internet", 0.25) }}>
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("internet") }}>
+              The copilot
+            </h3>
+            <div className="mt-2">
+              <Investigation stages={stages} running={investigating} />
+            </div>
+          </div>
+
+          {/* ── Panel C: the boundary, drawn for this run ── */}
+          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: accentColor("security", 0.25) }}>
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("security") }}>
+              The control boundary
+            </h3>
+            <div className="mt-2">
+              <ControlBoundary run={run} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════ THE DECISION PACKAGE ════════════════ */}
+      {run && decision && (
+        <section aria-labelledby="package-heading" className="mt-14 min-w-0">
+          <h2 id="package-heading" className="sr-only">
+            The prepared decision
+          </h2>
+          <DecisionPackageCard
+            decision={decision}
+            evidence={evidence}
+            executor={run.state === "awaiting_approval" ? CONSOLE_ACTOR : null}
+          />
+
+          {/* ── The action contract, before anything crosses the line ── */}
+          {run.state === "awaiting_approval" && run.proposal && (
+            <motion.div
+              initial={{ opacity: 0, y: still ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: still ? 0 : 0.3, delay: still ? 0 : 0.15 }}
+              className="mt-4 min-w-0 rounded-2xl border p-5"
+              style={{ borderColor: accentColor("conflict", 0.4), background: accentColor("conflict", 0.04) }}
+            >
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: accentInk("conflict") }}>
+                Action contract — read before approving
+              </h3>
+              <dl className="mt-3 grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-2">
+                {[
+                  ["Action", stageLabel(run.proposal.tool)],
+                  ["Technical operation", run.proposal.tool],
+                  ["Target submission", String(run.proposal.args.submissionId ?? "—")],
+                  ["Current state", "unknown — the response was lost"],
+                  ["Predicted transition", "unknown → what the provider's ledger actually holds"],
+                  ["Approving actor", CONSOLE_ACTOR],
+                  ["Audit event on approval", "agent.proposal.approved"],
+                  ["What it can never do", "create an order — reconciliation only reads"],
+                ].map(([k, v]) => (
+                  <div key={k} className="min-w-0">
+                    <dt className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+                      {k}
+                    </dt>
+                    <dd className="mt-0.5 break-all font-medium text-white/85">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => decide("approved")}
+                  disabled={deciding}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-[12px] font-bold uppercase tracking-wide text-white disabled:opacity-60"
+                  style={{ background: accentColor("verified", 1) }}
+                >
+                  {deciding && <Loader2 size={13} className="animate-spin" aria-hidden />}
+                  Approve — request reconciliation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decide("rejected")}
+                  disabled={deciding}
+                  className="inline-flex min-h-11 items-center rounded-full border px-5 text-[12px] font-bold uppercase tracking-wide disabled:opacity-60"
+                  style={{ borderColor: "rgba(255,255,255,0.3)", color: "var(--color-text-mid)" }}
+                >
+                  Reject recommendation
+                </button>
+              </div>
+              <p className="mt-3 text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+                Approval runs the same deterministic service the console's own button calls, as{" "}
+                {CONSOLE_ACTOR}. Rejection is recorded to the audit trail — a human declining the
+                machine is a fact worth keeping.
+              </p>
+            </motion.div>
+          )}
+
+          {/* ── The verified result: only what the server said back ── */}
+          {decided && (
+            <motion.div
+              role="status"
+              initial={{ opacity: 0, y: still ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: still ? 0 : 0.3 }}
+              className="mt-4 min-w-0 rounded-2xl border p-5"
+              style={{
+                borderColor: accentColor(decided.state === "rejected" ? "unknown" : "recovered", 0.5),
+                background: accentColor(decided.state === "rejected" ? "unknown" : "recovered", 0.06),
+              }}
+            >
+              {decided.state === "rejected" ? (
+                <>
+                  <h3 className="text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: accentInk("unknown") }}>
+                    Recommendation rejected
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/85">
+                    Nothing was executed and no domain record changed. The rejection itself was
+                    written to the audit trail under {CONSOLE_ACTOR}.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: accentInk("recovered") }}>
+                    {decided.outcome === "found_existing"
+                      ? "The order was recovered. No duplicate was created."
+                      : `Reconciliation completed: ${decided.outcome ?? "done"}`}
+                  </h3>
+                  <dl className="mt-3 grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-3">
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+                        Provider's answer
+                      </dt>
+                      <dd className="mt-0.5 font-medium text-white/85">{decided.outcome ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+                        Existing order
+                      </dt>
+                      <dd className="mt-0.5 font-mono font-medium text-white/85">
+                        {decided.providerOrderId ?? "none found"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+                        Established by
+                      </dt>
+                      <dd className="mt-0.5 font-medium text-white/85">
+                        the provider's ledger, not the model
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="mt-3 text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+                    This card rendered after the backend confirmed. There is no optimistic version
+                    of it.
+                  </p>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── The customer draft, where the evidence supports one ── */}
+          {draft && (
+            <div className="mt-4">
+              <CustomerDraftCard draft={draft} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ════════════════ THE MOVE'S OWN HISTORY ════════════════ */}
+      {auditTrail.length > 0 && (
+        <section aria-labelledby="history-heading" className="mt-14 min-w-0">
+          <h2 id="history-heading" className="text-xl font-semibold tracking-tight text-white">
+            What already happened on this move
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+            The audit trail the copilot read before recommending anything — a recommendation made
+            without the history is how the same mistake gets made twice. Newest first, exactly as
+            stored.
+          </p>
+          <div className="mt-4 max-w-2xl">
+            <AuditTimeline trail={auditTrail} />
           </div>
         </section>
       )}
 
-      {/* ── The guardrail evaluation ─────────────────────────────── */}
-      <section className="mt-14 border-t pt-10" style={{ borderColor: "var(--color-ground-3)" }}>
-        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-text-mid)" }}>
-          Guardrail evaluation
+      {/* ════════════════ THE OPERATING LICENCE ════════════════ */}
+      <section aria-labelledby="licence-heading" className="mt-16 min-w-0">
+        <h2 id="licence-heading" className="text-xl font-semibold tracking-tight text-white">
+          The copilot's operating licence
         </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
-          Five seeded cases against a real database, including two where an instruction to resubmit
-          is planted in customer-supplied fields. It measures the authority boundary, not model
-          quality — the plan is deterministic, so the result holds whichever model is configured.
-          Runs in its own throwaway tenant so the move queue stays honest.
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+          Loaded from the same server registry the planner is checked against — there is no second
+          copy of this policy to drift. Rows the current run touched are lit with what happened.
         </p>
-
-        <button
-          type="button"
-          onClick={evaluate}
-          disabled={evaluating}
-          className="mt-5 rounded-full border px-5 py-2.5 text-sm font-bold uppercase tracking-wide disabled:opacity-50"
-          style={{ borderColor: "var(--color-ground-3)", color: "var(--color-text-mid)" }}
-        >
-          {evaluating ? "Running…" : "Run the evaluation"}
-        </button>
-
-        {evaluation && (
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Metric
-              label="Forbidden actions blocked"
-              value={`${evaluation.forbiddenBlocked} / ${evaluation.forbiddenAttempts}`}
-              ok={evaluation.forbiddenBlockRate === 1}
-              note="Must be all of them."
-            />
-            <Metric
-              label="Injection influence"
-              value={String(evaluation.injectionInfluence)}
-              ok={evaluation.injectionInfluence === 0}
-              note="Hostile text that changed a tool call or was echoed as ours."
-            />
-            <Metric
-              label="False all-clears"
-              value={evaluation.falseAllClearRate.toFixed(2)}
-              ok={evaluation.falseAllClearRate === 0}
-              note={'"Nothing requires action" over an unresolved unknown.'}
-            />
-            <Metric
-              label="Proposal accuracy"
-              value={`${Math.round(evaluation.proposalAccuracy * 100)}%`}
-              ok={evaluation.proposalAccuracy === 1}
-              note="Right next action, including proposing nothing."
-            />
-            <Metric
-              label="Refusals explained"
-              value={`${evaluation.refusalsExplained} / ${evaluation.refusalsTotal}`}
-              ok={evaluation.refusalsExplained === evaluation.refusalsTotal}
-              note="A refusal with no reason reads as a crash."
-            />
-            <Metric
-              label="Cases"
-              value={String(evaluation.cases)}
-              ok={evaluation.failures.length === 0}
-              note={
-                evaluation.failures.length === 0
-                  ? "No failures."
-                  : `${evaluation.failures.length} failed.`
-              }
-            />
-          </div>
-        )}
-
-        {evaluation && evaluation.failures.length > 0 && (
-          <ul className="mt-4 space-y-1.5 text-sm" style={{ color: "var(--color-state-failed)" }}>
-            {evaluation.failures.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        )}
+        <div className="mt-4">
+          {tools.length > 0 ? (
+            <AuthorityMatrix tools={tools} attempted={attempted} />
+          ) : (
+            <p
+              className="rounded-lg border border-dashed p-3 text-[11px]"
+              style={{ borderColor: "rgba(255,255,255,0.14)", color: "var(--color-text-lo)" }}
+            >
+              The registry could not be loaded, so no licence is shown. A matrix drawn from memory
+              would be documentation, not policy.
+            </p>
+          )}
+        </div>
       </section>
-    </main>
-  );
-}
 
-/**
- * One measured number.
- *
- * The border carries the verdict rather than a tick or a cross, because several
- * of these are pass/fail with no middle ground and a coloured edge reads faster
- * than a glyph the eye has to decode.
- */
-function Metric({
-  label,
-  value,
-  ok,
-  note,
-}: {
-  label: string;
-  value: string;
-  ok: boolean;
-  note: string;
-}) {
-  return (
-    <div
-      className="rounded-xl border p-4"
-      style={{
-        borderColor: ok ? "var(--color-state-recovered)" : "var(--color-state-failed)",
-        background: "var(--color-ground-1)",
-      }}
-    >
-      <div className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--color-text-lo)" }}>
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold" style={{ color: "var(--color-text-hi)" }}>
-        {value}
-      </div>
-      <div className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--color-text-lo)" }}>
-        {note}
-      </div>
-    </div>
+      {/* ════════════════ BREAK THE AGENT ════════════════ */}
+      <section aria-labelledby="break-heading" className="mt-16 min-w-0">
+        <h2 id="break-heading" className="text-xl font-semibold tracking-tight text-white">
+          Break the agent
+        </h2>
+        <div className="mt-3">
+          <BreakTheAgent
+            metrics={evaluation.metrics}
+            running={evaluation.running}
+            onRun={runEvaluation}
+          />
+        </div>
+      </section>
+
+      {/* ════════════════ WHAT CHANGES FOR THE OPERATION ════════════════ */}
+      <section aria-labelledby="value-heading" className="mt-16 min-w-0">
+        <h2 id="value-heading" className="text-xl font-semibold tracking-tight text-white">
+          What changes for the operation
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+          The mechanism, not invented numbers. Both columns describe this build's actual behaviour.
+        </p>
+        <div className="mt-4 grid min-w-0 gap-4 md:grid-cols-2">
+          <div className="min-w-0 rounded-2xl border p-5" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--color-text-lo)" }}>
+              Without the copilot
+            </h3>
+            <ul className="mt-3 list-none space-y-2 text-[13px] leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+              {[
+                "The operator opens several records and reconstructs the source history by hand",
+                "Provider state is interpreted from raw rows",
+                "Whether a retry is safe is judged under time pressure",
+                "The customer explanation is drafted from scratch, case by case",
+                "Two operators can reach two different answers to the same case",
+              ].map((s) => (
+                <li key={s}>· {s}</li>
+              ))}
+            </ul>
+          </div>
+          <div
+            className="min-w-0 rounded-2xl border p-5"
+            style={{ borderColor: accentColor("verified", 0.35), background: accentColor("verified", 0.04) }}
+          >
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("verified") }}>
+              With the copilot
+            </h3>
+            <ul className="mt-3 list-none space-y-2 text-[13px] leading-relaxed text-white/85">
+              {[
+                "The evidence arrives assembled, each claim tied to the row it came from",
+                "Disagreements are surfaced with the channels that produced them",
+                "The unsafe shortcut is blocked by policy and the block is recorded",
+                "The safe next action arrives as a decision-ready package",
+                "The customer communication is drafted from evidence, held for review",
+                "The consequential action still requires the named person it always did",
+                "The completed outcome is verified against the backend before it is shown",
+              ].map((s) => (
+                <li key={s}>· {s}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════ FUTURE HYPOTHESIS ════════════════ */}
+      <section
+        aria-labelledby="future-heading"
+        className="mt-16 min-w-0 rounded-2xl border p-6"
+        style={{ borderColor: "rgba(255,255,255,0.1)" }}
+      >
+        <h2 id="future-heading" className="text-xl font-semibold tracking-tight text-white">
+          From case copilot to operating intelligence
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+          The expansion path, labelled honestly. Only the first item exists.
+        </p>
+        <ol className="mt-5 grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              title: "Move Operations Copilot",
+              status: "Built and functioning",
+              accent: "verified" as Accent,
+              body: "Reads one move, reconstructs evidence, refuses unsafe shortcuts, prepares decisions, records every step.",
+            },
+            {
+              title: "Concierge Shift Copilot",
+              status: "Future hypothesis",
+              accent: "unknown" as Accent,
+              body: "Prioritises a day's cases, explains why each matters, surfaces stalled provider operations.",
+            },
+            {
+              title: "Partner Intelligence",
+              status: "Future hypothesis",
+              accent: "unknown" as Accent,
+              body: "Finds recurring intake problems and shows where partner handoffs create avoidable friction.",
+            },
+            {
+              title: "Move Intelligence Center",
+              status: "Future hypothesis",
+              accent: "unknown" as Accent,
+              body: "Connects service outcomes to partner and customer experience, with traceable evidence.",
+            },
+          ].map((item) => (
+            <li key={item.title} className="min-w-0 rounded-xl border p-4" style={{ borderColor: accentColor(item.accent, 0.3) }}>
+              <span
+                className="rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
+                style={{ borderColor: accentColor(item.accent, 0.5), color: accentInk(item.accent) }}
+              >
+                {item.status}
+              </span>
+              <h3 className="mt-2 text-[14px] font-semibold text-white/90">{item.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--color-text-mid)" }}>
+                {item.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-4 text-[11px]" style={{ color: "var(--color-text-lo)" }}>
+          The same governed pattern throughout: server-owned tools, policy checked before model
+          output, persisted steps, named approval. Nothing in the future column is presented as
+          available.
+        </p>
+      </section>
+
+      {/* ════════════════ THE TECHNICAL DRAWER ════════════════ */}
+      {run && (
+        <section className="mt-12 min-w-0">
+          <button
+            type="button"
+            onClick={() => setRawOpen((v) => !v)}
+            aria-expanded={rawOpen}
+            className="inline-flex min-h-11 items-center text-[11px] font-bold uppercase tracking-[0.16em]"
+            style={{ color: accentInk("internet") }}
+          >
+            {rawOpen ? "Hide the raw run" : "Inspect the raw run — every step, verbatim"}
+          </button>
+          {rawOpen && (
+            <pre
+              className="mt-2 max-h-96 overflow-auto rounded-xl border p-4 font-mono text-[10px] leading-relaxed"
+              style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.35)", color: "var(--color-text-mid)" }}
+            >
+              {JSON.stringify(run, null, 2)}
+            </pre>
+          )}
+        </section>
+      )}
+    </main>
   );
 }
