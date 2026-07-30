@@ -121,7 +121,7 @@ export default function OpengraphImage() {
               display: "flex",
             }}
           >
-            565 tests · real Postgres · no mocks
+            575 tests · real Postgres · no mocks
           </div>
         </div>
       </div>
