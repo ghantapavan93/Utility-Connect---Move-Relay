@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Constellation, type Source } from "@/components/Constellation";
+import { auditLabel } from "@/lib/agent/narrative";
 import { StateBadge, type State } from "@/components/StateBadge";
 import { EngineeringPanel } from "@/components/EngineeringPanel";
 import { ProvenanceDrawer } from "@/components/ProvenanceDrawer";
@@ -427,7 +429,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 532 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 565 tests against a real database.",
           },
         ]}
         actions={
@@ -782,6 +784,13 @@ export default function DemoPage() {
                     order {String(s.provider_order_id)}
                   </span>
                 ) : null}
+                {/* The identity reconciliation looks the order up by — the
+                    safe path out of "unknown", shown rather than asserted. */}
+                {s.operation_key ? (
+                  <span className="w-full break-all font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                    operation identity: {String(s.operation_key)}
+                  </span>
+                ) : null}
               </div>
             ))}
           </Panel>
@@ -798,9 +807,23 @@ export default function DemoPage() {
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
               <Panel title={`Step result · ${lastResult.step}`}>
-                <pre className="overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed" style={{ background: "var(--color-ground-0)", color: "var(--color-text-mid)" }}>
-                  {JSON.stringify(lastResult.data, null, 2)}
-                </pre>
+                {/*
+                  The payload is evidence, not the message — an always-open
+                  JSON dump as the primary rendering was the exact habit the
+                  rest of this project keeps refusing. The drawer keeps it one
+                  click away, verbatim.
+                */}
+                <details>
+                  <summary
+                    className="cursor-pointer text-xs font-bold uppercase tracking-wide"
+                    style={{ color: "var(--color-state-verified)" }}
+                  >
+                    Inspect the raw step result
+                  </summary>
+                  <pre className="mt-2 overflow-x-auto rounded-lg p-3 font-mono text-xs leading-relaxed" style={{ background: "var(--color-ground-0)", color: "var(--color-text-mid)" }}>
+                    {JSON.stringify(lastResult.data, null, 2)}
+                  </pre>
+                </details>
               </Panel>
             </motion.div>
           )}
@@ -810,17 +833,35 @@ export default function DemoPage() {
         {move?.timeline && move.timeline.length > 0 && (
           <Panel title="Operational audit trail — append-only">
             <ol className="space-y-2">
-              {move.timeline.map((e, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--color-state-verified)" }} />
-                  <div>
-                    <span className="font-mono text-xs font-semibold">{String(e.event_type)}</span>
-                    <span className="ml-2 text-xs" style={{ color: "var(--color-text-lo)" }}>
-                      {String(e.actor)}
-                    </span>
-                  </div>
-                </li>
-              ))}
+              {move.timeline.map((e, i) => {
+                const type = String(e.event_type);
+                /*
+                  The dot was hardcoded to the verified green, which painted
+                  `provider.retry.blocked` and `provider.submission.unknown`
+                  in the one colour this vocabulary reserves for verified
+                  state. The tone now follows the event, and the business
+                  sentence leads with the raw type underneath as evidence.
+                */
+                const tone = /blocked|unknown/.test(type)
+                  ? "var(--color-state-conflict)"
+                  : /confirmed|reconcil|approved/.test(type)
+                    ? "var(--color-state-verified)"
+                    : "rgba(255,255,255,0.35)";
+                return (
+                  <li key={i} className="flex items-start gap-3 text-sm">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: tone }} />
+                    <div className="min-w-0">
+                      <span className="font-medium" style={{ color: "var(--color-text-hi)" }}>
+                        {auditLabel(type)}
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                        {type} · {String(e.actor)}
+                        {e.occurred_at ? ` · ${new Date(String(e.occurred_at)).toLocaleString()}` : ""}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </Panel>
         )}
@@ -847,7 +888,7 @@ export default function DemoPage() {
             {
               href: "/future" as const,
               t: "The Continuum",
-              b: "Eight modules extending this same kernel — one built, five concepts, two hypotheses, each labelled where it stands.",
+              b: "Seven modules extending this same kernel — one built, four concepts, two hypotheses, each labelled where it stands.",
               a: "solar" as const,
             },
           ].map((c) => (

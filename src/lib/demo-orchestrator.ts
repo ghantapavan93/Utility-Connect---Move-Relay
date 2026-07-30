@@ -637,7 +637,8 @@ export async function getMoveRecord() {
 
   const services = await query<Record<string, unknown>>(
     `SELECT sr.service_type, sr.provider_name, sr.state AS request_state,
-            ps.state AS submission_state, ps.provider_order_id, ps.error_category
+            ps.state AS submission_state, ps.provider_order_id, ps.error_category,
+            ps.operation_key
        FROM service_requests sr
        LEFT JOIN provider_submissions ps ON ps.service_request_id = sr.id
       WHERE sr.move_id = $1`,

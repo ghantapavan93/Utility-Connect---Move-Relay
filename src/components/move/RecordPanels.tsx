@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { FieldHistory, FieldVersion, MoveRecord } from "@/lib/move-record";
+import { auditLabel } from "@/lib/agent/narrative";
 
 /**
  * The record itself: provenance, sources, services, consent, audit.
@@ -260,6 +261,16 @@ function Services({ record }: { record: MoveRecord }) {
                 order {s.providerOrderId}
               </span>
             )}
+            {/*
+              The identity reconciliation looks the order up by. On an unknown
+              outcome this is the whole safe path made visible; omitting it
+              asks a reader to believe recovery works by magic.
+            */}
+            {s.operationKey && (
+              <span className="w-full break-all font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                operation identity: {s.operationKey}
+              </span>
+            )}
           </div>
         ))}
         {record.services.length === 0 && (
@@ -271,13 +282,50 @@ function Services({ record }: { record: MoveRecord }) {
 }
 
 function Consent({ record }: { record: MoveRecord }) {
+  const [expanded, setExpanded] = useState(false);
+  /*
+    Four purposes across three channels is twelve near-identical rows, and a
+    reader scanning a wall of "granted" learns exactly two things: the count,
+    and whether anything was NOT granted. So past four records the summary
+    leads, denials always render individually — a refusal may never hide
+    inside an aggregate — and the verbatim list stays one disclosure away.
+  */
+  const denied = record.consent.filter((c) => !c.granted);
+  const wordings = [...new Set(record.consent.map((c) => c.textVersion))];
+  const compact = record.consent.length > 4 && !expanded;
+
   return (
     <Panel
       title="Consent"
       hint="Scope, channel and the exact wording version. “They agreed” is not an answer without “to what”."
       count={record.consent.length}
     >
-      <div className="grid gap-2">
+      {compact && (
+        <div className="mb-2">
+          <p className="text-xs" style={{ color: "var(--color-text-mid)" }}>
+            <span
+              className="font-bold"
+              style={{ color: denied.length === 0 ? "var(--color-state-verified)" : "var(--color-state-conflict)" }}
+            >
+              {record.consent.length - denied.length} of {record.consent.length} granted
+            </span>
+            {" · "}wording {wordings.join(", ")}
+          </p>
+          {denied.map((c, i) => (
+            <p key={i} className="mt-1 text-xs" style={{ color: "var(--color-state-failed)" }}>
+              not granted · {c.purpose} via {c.channel}
+            </p>
+          ))}
+          <button
+            onClick={() => setExpanded(true)}
+            className="mt-1 text-[10px] font-bold uppercase tracking-wide"
+            style={{ color: "var(--color-state-verified)" }}
+          >
+            Show each of the {record.consent.length} records
+          </button>
+        </div>
+      )}
+      <div className="grid gap-2" style={compact ? { display: "none" } : undefined}>
         {record.consent.map((c, i) => (
           <div
             key={i}
@@ -290,7 +338,9 @@ function Consent({ record }: { record: MoveRecord }) {
                 color: c.granted ? "var(--color-state-verified)" : "var(--color-state-failed)",
               }}
             >
-              {c.granted ? "granted" : "withdrawn"}
+              {/* "Withdrawn" asserts a grant existed and was revoked — a
+                  history this row does not record. "Not granted" is the fact. */}
+              {c.granted ? "granted" : "not granted"}
             </span>
             <span className="font-mono">{c.purpose}</span>
             <span style={{ color: "var(--color-text-lo)" }}>via {c.channel}</span>
@@ -319,17 +369,29 @@ function Audit({ record }: { record: MoveRecord }) {
       hint="Append-only, and written in the same transaction as the change it describes. A correction is a new event, never an edit."
       count={record.audit.length}
     >
-      <ol className="grid gap-1.5">
+      <ol className="grid gap-2">
         {record.audit.map((a) => (
-          <li
-            key={a.id}
-            className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs"
-          >
-            <span className="font-mono" style={{ color: "var(--color-text-lo)" }}>
-              {when(a.occurredAt)}
+          <li key={a.id} className="min-w-0 text-xs">
+            {/*
+              The business sentence leads; the raw event type stays underneath
+              as evidence. `provider.retry.blocked` printed as the headline was
+              accurate and unreadable — and the same map the copilot uses keeps
+              the two surfaces from drifting apart.
+            */}
+            <span
+              className="font-medium"
+              style={{
+                color:
+                  a.eventType.includes("blocked") || a.eventType.includes("unknown")
+                    ? "var(--color-state-conflict)"
+                    : "var(--color-text-hi)",
+              }}
+            >
+              {auditLabel(a.eventType)}
             </span>
-            <span className="font-mono font-semibold">{a.eventType}</span>
-            <span style={{ color: "var(--color-text-lo)" }}>{a.actor}</span>
+            <span className="mt-0.5 block font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+              {a.eventType} · {a.actor} · {when(a.occurredAt)}
+            </span>
           </li>
         ))}
         {record.audit.length === 0 && <Empty>No audit events for this move.</Empty>}

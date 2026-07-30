@@ -73,6 +73,13 @@ export interface ServiceRow {
   submissionId: string | null;
   providerOrderId: string | null;
   submissionState: SubmissionState | null;
+  /**
+   * The idempotency identity the original request carried — what makes
+   * reconciliation able to find an order without creating one. Surfaces that
+   * show an unknown outcome without this key are asking the safe path to be
+   * taken on faith.
+   */
+  operationKey: string | null;
 }
 
 /**
@@ -135,7 +142,8 @@ export async function servicesFor(moveId: string): Promise<ServiceRow[]> {
             sr.state,
             ps.id             AS "submissionId",
             ps.provider_order_id AS "providerOrderId",
-            ps.state          AS "submissionState"
+            ps.state          AS "submissionState",
+            ps.operation_key  AS "operationKey"
        FROM service_requests sr
        LEFT JOIN provider_submissions ps ON ps.service_request_id = sr.id
       WHERE sr.move_id = $1
