@@ -55,7 +55,7 @@ Stop there. The pause after "never two" does more work than another sentence.
 
 **Minute 0–2 — run the proof.**
 `npm run verify` on screen. "Eleven schema guarantees — SQL that must be
-rejected — then 590 tests. The claims in the docs re-verify on every commit."
+rejected — then 593 tests. The claims in the docs re-verify on every commit."
 
 **Minute 2–4 — the state machine.**
 Open `provider-submission.ts`. Walk UNKNOWN → reconcile → recovered. "Their own

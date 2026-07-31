@@ -798,7 +798,15 @@ export function LivingHome() {
       <div className="sticky top-0 h-[100svh] overflow-hidden">
         <Canvas
           camera={{ position: [-30, 4.2, 22], fov: 52, near: 0.05, far: 400 }}
-          dpr={[1, 1.75]}
+          /*
+            1.5, down from 1.75. The composer runs AO, depth-of-field, bloom
+            and vignette over every pixel, and on a 2x laptop display the old
+            cap asked for that work at 2.6× the pixels of 1.5 — measured as
+            the difference between a scroll that keeps up and one that visibly
+            drags behind the thumb. At these viewing sizes the film cannot
+            show the difference; the frame rate can.
+          */
+          dpr={[1, 1.5]}
           /*
             Development-only handle on the scene graph.
 

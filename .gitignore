@@ -54,3 +54,4 @@ CLAUDE.md
 # scratch and harness-local settings are not.
 .claude/settings.local.json
 .impeccable/
+.film-shots/

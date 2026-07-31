@@ -3,21 +3,28 @@
 import * as THREE from "three";
 
 /**
- * Procedural PBR material sets.
+ * PBR material sets — photographic where the camera lingers, procedural where
+ * it does not.
  *
- * The claim that real PBR maps "need asset files" was wrong. A PBR map set is
- * three coherent images — albedo, normal, roughness — and all three can be
- * generated from one height field in code. That is what this module does, and
- * the result is genuine physically-based material response, not a flat colour
- * pretending to be wood.
+ * The first version of this module was all-procedural and proud of it: albedo,
+ * normal and roughness derived from one height field, Sobel normals, the lot.
+ * That machinery was correct and it is still here — but the critique that the
+ * house "looks 3D rendered" was pointing at exactly this file. A height field
+ * can make grain that BEHAVES like wood; it cannot make the thousand accidents
+ * of real wood, and the eye prices surfaces by their accidents. So the four
+ * materials that dominate the frame by area — the lawn, the oak floor, the
+ * stone paving, the concrete — are now photographs of the real thing, and the
+ * counter got real marble.
  *
- * The normal maps are derived from the height field with a Sobel operator,
- * which is exactly how a baking tool produces them. That is what makes oak
- * grain catch a grazing pendant and stone speckle scatter light — detail below
- * the geometry, which is the whole point of normal mapping.
+ * The photographs are ambientCG scans (CC0 — no attribution required, given
+ * anyway): Grass001, WoodFloor051, Travertine008, Concrete034, Marble023,
+ * each downsized to ≤1K JPEG in public/textures/ (~1.3MB for all fifteen
+ * maps). `photo-materials.test.ts` fails if any file this module names stops
+ * existing.
  *
- * Everything is generated once, cached by key, and reused across every mesh
- * that shares a material.
+ * Walnut, linen and the artwork stay procedural: they cover small areas, they
+ * read as intended, and a photograph would spend bytes on surfaces the film
+ * never holds in close-up.
  */
 
 type HeightFn = (x: number, y: number) => number;
@@ -146,6 +153,56 @@ function generateMaps(
   };
 }
 
+// --- photographic sets -----------------------------------------------------
+
+export interface MapSet {
+  map: THREE.Texture;
+  normalMap: THREE.Texture;
+  roughnessMap: THREE.Texture;
+}
+
+/** The photo sets this module is allowed to reference — the test walks this. */
+export const PHOTO_SETS = ["grass", "oak", "travertine", "concrete", "marble"] as const;
+type PhotoSet = (typeof PHOTO_SETS)[number];
+
+const photoCache = new Map<string, MapSet>();
+
+/**
+ * One photographed material at one repeat.
+ *
+ * Cached per (set, repeat) rather than cloned from a shared load: a texture
+ * cloned before its image arrives can miss the upload, and the browser's HTTP
+ * cache already deduplicates the fetch. The GPU carries at most a handful of
+ * repeat variants per set — this scene uses fewer than twenty textures total.
+ */
+function photoMaps(name: PhotoSet, [rx, ry]: [number, number]): MapSet {
+  const key = `${name}:${rx}x${ry}`;
+  let m = photoCache.get(key);
+  if (!m) {
+    const loader = new THREE.TextureLoader();
+    const load = (file: string, srgb: boolean) => {
+      const t = loader.load(`/textures/${name}/${file}.jpg`);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(rx, ry);
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    };
+    m = {
+      map: load("color", true),
+      normalMap: load("normal", false),
+      roughnessMap: load("rough", false),
+    };
+    photoCache.set(key, m);
+  }
+  return m;
+}
+
+/** Mown lawn — the photograph that retired the green-tinted stone grid. */
+export function grassMaps(repeat: [number, number] = [30, 20]): MapSet {
+  return photoMaps("grass", repeat);
+}
+
 // --- material recipes ------------------------------------------------------
 
 const cache = new Map<string, ReturnType<typeof generateMaps>>();
@@ -159,30 +216,9 @@ function cached(key: string, build: () => ReturnType<typeof generateMaps>) {
   return m;
 }
 
-/** Oak flooring: long grain along X, plank seams across Y. */
-export function oakMaps(repeat: [number, number] = [6, 6]) {
-  const m = cached("oak", () =>
-    generateMaps(
-      (x, y) => {
-        // Grain: heavily stretched noise so it runs with the plank.
-        const grain = fbm(x * 5, y * 90, 4);
-        // Plank seams every 1/5 of the tile.
-        const plank = y * 5;
-        const seam = Math.abs(plank - Math.round(plank)) < 0.012 ? 0 : 1;
-        // End joints, staggered per plank row.
-        const row = Math.floor(plank);
-        const joint = Math.abs((x + row * 0.37) * 2.5 - Math.round((x + row * 0.37) * 2.5)) < 0.006 ? 0 : 1;
-        return grain * 0.7 * seam * joint + 0.15;
-      },
-      (_x, _y, h) => {
-        const t = 0.55 + h * 0.7;
-        return [Math.min(255, 176 * t), Math.min(255, 139 * t), Math.min(255, 92 * t)];
-      },
-      (h) => 0.42 + (1 - h) * 0.32,
-      2.6,
-    ),
-  );
-  return applyRepeat(m, repeat);
+/** Oak plank flooring — WoodFloor051. */
+export function oakMaps(repeat: [number, number] = [6, 6]): MapSet {
+  return photoMaps("oak", repeat);
 }
 
 /** Walnut: tighter, darker, more figured than oak. */
@@ -201,44 +237,14 @@ export function walnutMaps(repeat: [number, number] = [2, 2]) {
   return applyRepeat(m, repeat);
 }
 
-/** Board-formed concrete: subtle mottling with faint horizontal board lines. */
-export function concreteMaps(repeat: [number, number] = [4, 2]) {
-  const m = cached("concrete", () =>
-    generateMaps(
-      (x, y) => {
-        const mottle = fbm(x * 7, y * 7, 5);
-        const board = Math.abs(y * 8 - Math.round(y * 8)) < 0.02 ? 0.55 : 1;
-        return mottle * 0.5 * board + 0.4;
-      },
-      (_x, _y, h) => {
-        const t = 0.9 + h * 0.22;
-        return [Math.min(255, 230 * t), Math.min(255, 226 * t), Math.min(255, 219 * t)];
-      },
-      (h) => 0.78 + h * 0.14,
-      1.1,
-    ),
-  );
-  return applyRepeat(m, repeat);
+/** Cast concrete — Concrete034. */
+export function concreteMaps(repeat: [number, number] = [4, 2]): MapSet {
+  return photoMaps("concrete", repeat);
 }
 
-/** Honed stone counter: fine speckle, low roughness, slight veining. */
-export function stoneMaps(repeat: [number, number] = [2, 1]) {
-  const m = cached("stone", () =>
-    generateMaps(
-      (x, y) => {
-        const speck = smoothNoise(x * 90, y * 90);
-        const vein = fbm(x * 2.2 + fbm(x * 4, y * 4, 3) * 2.4, y * 2.2, 3);
-        return speck * 0.16 + vein * 0.62 + 0.3;
-      },
-      (_x, _y, h) => {
-        const t = 0.92 + h * 0.16;
-        return [Math.min(255, 239 * t), Math.min(255, 236 * t), Math.min(255, 230 * t)];
-      },
-      (h) => 0.14 + h * 0.12,
-      0.45,
-    ),
-  );
-  return applyRepeat(m, repeat);
+/** Honed marble counter — Marble023. */
+export function stoneMaps(repeat: [number, number] = [2, 1]): MapSet {
+  return photoMaps("marble", repeat);
 }
 
 /** Linen upholstery: a woven cross-hatch. */
@@ -261,30 +267,14 @@ export function linenMaps(repeat: [number, number] = [4, 4]) {
   return applyRepeat(m, repeat);
 }
 
-/** Limestone floor: large format, soft tonal drift, faint joints. */
-export function limestoneMaps(repeat: [number, number] = [8, 4]) {
-  const m = cached("limestone", () =>
-    generateMaps(
-      (x, y) => {
-        const drift = fbm(x * 3, y * 3, 4);
-        const jx = Math.abs(x * 3 - Math.round(x * 3)) < 0.011 ? 0.18 : 1;
-        const jy = Math.abs(y * 3 - Math.round(y * 3)) < 0.011 ? 0.18 : 1;
-        return drift * 0.72 * jx * jy + 0.3;
-      },
-      (_x, _y, h) => {
-        const t = 0.74 + h * 0.42;
-        return [Math.min(255, 221 * t), Math.min(255, 214 * t), Math.min(255, 202 * t)];
-      },
-      (h) => 0.42 + h * 0.22,
-      1.9,
-    ),
-  );
-  return applyRepeat(m, repeat);
+/** Large-format pale stone — Travertine008. Its predecessor Travertine013 turned out to be a blue-green veined stone that read as swirled marble across every floor. */
+export function limestoneMaps(repeat: [number, number] = [8, 4]): MapSet {
+  return photoMaps("travertine", repeat);
 }
 
 /**
  * Textures are shared from the cache, so repeat is applied to clones —
- * otherwise a floor tiling 8× would force the counter to tile 8× too.
+ * otherwise a fabric tiling 4× would force every cushion to tile 4× too.
  */
 function applyRepeat(
   m: ReturnType<typeof generateMaps>,

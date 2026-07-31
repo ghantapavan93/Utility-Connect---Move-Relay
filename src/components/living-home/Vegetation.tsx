@@ -30,7 +30,7 @@ import * as THREE from "three";
 /* ── the leaf-cluster texture, painted rather than fetched ────────────────── */
 
 function makeLeafTexture(): THREE.CanvasTexture {
-  const size = 256;
+  const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -49,15 +49,20 @@ function makeLeafTexture(): THREE.CanvasTexture {
     Leaves cluster toward the card's centre and thin toward its edge, so the
     card's silhouette is ragged rather than square — the square outline is
     what gives billboard foliage away.
+
+    512px and ~340 small leaves rather than the first pass's 256px and 150:
+    at close range the big ellipses read as confetti ("the card grids"), and
+    leaf believability is almost entirely a function of element count and
+    element smallness relative to the card.
   */
-  const leaves = 150;
+  const leaves = 340;
   for (let i = 0; i < leaves; i++) {
     const ang = rnd() * Math.PI * 2;
-    const dist = Math.pow(rnd(), 0.6) * size * 0.42;
+    const dist = Math.pow(rnd(), 0.6) * size * 0.44;
     const x = size / 2 + Math.cos(ang) * dist;
     const y = size / 2 + Math.sin(ang) * dist;
-    const len = 9 + rnd() * 14;
-    const wid = 4 + rnd() * 5;
+    const len = 11 + rnd() * 17;
+    const wid = 5 + rnd() * 6;
     const rot = rnd() * Math.PI * 2;
 
     // Green range: warm olive in the light, cool blue-green in shade. The hue

@@ -70,7 +70,7 @@ const HORIZON_0: Capability[] = [
     problem: "A move described by three sources is three stories until something holds the canonical one.",
     scenario:
       "Partner API, CSV and the customer's own form each describe Maya's move. One record holds the verified state, every value keeps its source and verification tier, conflicts stay visible until a named person resolves them, and each audience sees only its own projection.",
-    smallestExperiment: "Already run: 590 tests against a real Postgres, three audience projections diffed live on /views.",
+    smallestExperiment: "Already run: 593 tests against a real Postgres, three audience projections diffed live on /views.",
     aiResponsibility: "None. The record is deterministic ground truth the AI reads through tools.",
     deterministicResponsibility: "Provenance, conflict detection, consent, projections, the append-only audit trail.",
     requiredData: ["field_versions with channel and verification", "auth_tuples", "consent_events", "audit_events"],
@@ -130,7 +130,7 @@ const HORIZON_0: Capability[] = [
     problem: "A safety claim that has never been attacked is a hope with a heading.",
     scenario:
       "Replay protection, stale-write handling, authorization boundaries, prompt-injection resistance and evidence grounding are each exercised by seeded attacks — in the suite and interactively — and each check was proven to discriminate by restoring the defect it exists to catch.",
-    smallestExperiment: "Already run: 590 tests, 54 browser specs, live SLOs computed from rows on /reliability.",
+    smallestExperiment: "Already run: 593 tests, 54 browser specs, live SLOs computed from rows on /reliability.",
     aiResponsibility: "Being the subject under attack.",
     deterministicResponsibility: "Every verdict, every metric, every refusal being counted.",
     requiredData: ["seeded eval tenants", "the audit trail the attacks leave behind"],

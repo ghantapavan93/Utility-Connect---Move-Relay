@@ -9,7 +9,7 @@ import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug
 import { ServiceFixtures } from "./ServiceFixtures";
 import { Vegetation } from "./Vegetation";
 import { applyGIBake } from "./gi-apply";
-import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
+import { grassMaps, oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
 
 /**
  * The residence.
@@ -209,6 +209,13 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   // repeat at architectural scale or it turns into visible noise.
   const ceilingMaps = useMemo(() => concreteMaps([14, 5]), []);
   const groundMaps = useMemo(() => limestoneMaps([26, 18]), []);
+  /*
+    The lawn was the loudest fake on the site: green-tinted STONE, whose joint
+    lines tiled the whole plot into a giant grid — the first thing the arrival
+    shot showed and the first thing the critique named. It is a photograph of
+    grass now, repeated hard enough that no seam survives the fog.
+  */
+  const lawnMaps = useMemo(() => grassMaps([40, 26]), []);
 
   // Service fixtures, each owned by its room.
   const garageKey = useRef<THREE.MeshStandardMaterial>(null);
@@ -373,15 +380,14 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
       {/* ── Ground and courtyard ─────────────────────────────── */}
       {/*
-        The ground carries a texture for one reason: on the arrival shot it is
-        a third of the frame, and a single flat colour that large announces the
-        render before the house gets a chance to speak. The limestone maps are
-        reused at a coarse tiling and tinted to planting green, so the surface
-        breaks up tonally the way mown ground does without needing its own map.
+        The lawn is a photograph of grass — see the note where lawnMaps is
+        built. The near-white tint matters: the scan is already green, and a
+        colour multiplied over it would re-tint the photo back toward the
+        uniform swatch the photo exists to replace.
       */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[140, 90]} />
-        <meshStandardMaterial {...groundMaps} color="#93a083" roughness={0.97} envMapIntensity={0.5} />
+        <meshStandardMaterial {...lawnMaps} color="#e6e9df" roughness={1} envMapIntensity={0.35} />
       </mesh>
       {/* A paved apron under the cantilever, so the house meets the site on a
           hard edge rather than floating on lawn. */}
