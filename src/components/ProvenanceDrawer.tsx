@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Drawer } from "vaul";
 import { StateBadge } from "@/components/StateBadge";
 
@@ -11,6 +11,14 @@ import { StateBadge } from "@/components/StateBadge";
  * it was verified, both clocks, and — for the canonical pick — the named human
  * and their written reason. This is the product thesis at the smallest
  * possible grain: one field, fully accountable.
+ *
+ * It also used to be the worst place in the app to fail. The read had no status
+ * check and no catch, so a 500 landed in the same branch as a genuinely empty
+ * history and the drawer said "No history for this field yet — run the demo
+ * first": an instruction that would not have helped, given to someone whose
+ * database had just stopped answering, by the component whose entire job is
+ * proving where a value came from. Failed and empty are now different states,
+ * and the failed one offers the read again instead of advice.
  */
 
 interface Version {
@@ -34,15 +42,31 @@ export function ProvenanceDrawer({
 }) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
+
+  const load = useCallback((f: string) => {
+    setLoading(true);
+    setReadError(null);
+    fetch(`/api/v1/provenance?field=${encodeURIComponent(f)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => setVersions(d.versions ?? []))
+      .catch((e) => {
+        // Clear the list too: a stale history under a failure notice reads as
+        // "here is the record, and also something went wrong", which invites
+        // exactly the wrong conclusion about what is on screen.
+        setVersions([]);
+        setReadError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!field) return;
-    setLoading(true);
-    fetch(`/api/v1/provenance?field=${encodeURIComponent(field)}`)
-      .then((r) => r.json())
-      .then((d) => setVersions(d.versions ?? []))
-      .finally(() => setLoading(false));
-  }, [field]);
+    load(field);
+  }, [field, load]);
 
   return (
     <Drawer.Root open={field !== null} onOpenChange={(open) => !open && onClose()}>
@@ -99,7 +123,32 @@ export function ProvenanceDrawer({
               ))}
             </ol>
 
-            {!loading && versions.length === 0 && (
+            {!loading && readError && (
+              <div
+                className="mt-6 rounded-xl border p-4"
+                style={{
+                  borderColor: "var(--color-state-failed)",
+                  background: "rgba(229,72,77,0.06)",
+                }}
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--color-state-failed)" }}>
+                  This field&rsquo;s history could not be read.
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--color-text-lo)" }}>
+                  {readError} — the versions still exist; this drawer just cannot see them, so it
+                  shows nothing rather than an empty history.
+                </p>
+                <button
+                  onClick={() => field && load(field)}
+                  className="mt-3 inline-flex min-h-11 items-center rounded-full border px-4 text-xs font-semibold uppercase tracking-wide"
+                  style={{ borderColor: "rgba(255,255,255,0.3)", color: "var(--color-text-mid)" }}
+                >
+                  Read it again
+                </button>
+              </div>
+            )}
+
+            {!loading && !readError && versions.length === 0 && (
               <p className="mt-6 text-sm" style={{ color: "var(--color-text-lo)" }}>
                 No history for this field yet — run the demo first.
               </p>

@@ -11,6 +11,14 @@ import { motion, AnimatePresence } from "framer-motion";
  * fulfilment state, AI runs with their metrics, workflow histories, queue
  * depths, and the audit trail. All of it is fetched live from the same
  * database the demo just wrote — the reviewer sees rows, not summaries.
+ *
+ * Neither read was checked, which broke the panel in the one way it must never
+ * break. A 500 whose body parsed left `data` holding an error object, and the
+ * summary line above the JSON then printed "outbox backlog: 0 · quarantine: 0"
+ * — because both lookups fell through to their `?? 0` default. An engineering
+ * view inventing a clean queue depth out of a failed read is worse than no
+ * engineering view: it is the panel meant to prove the system is inspectable,
+ * quietly making a number up.
  */
 
 type Tab = "raw" | "provenance" | "fulfilment" | "ai" | "workflows" | "audit";
@@ -29,23 +37,29 @@ export function EngineeringPanel() {
   const [tab, setTab] = useState<Tab>("raw");
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [readError, setReadError] = useState<string | null>(null);
 
-  const reveal = useCallback(async () => {
-    if (!open) {
-      setLoading(true);
+  const read = useCallback(async () => {
+    setLoading(true);
+    setReadError(null);
+    try {
       const res = await fetch("/api/v1/engineering");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
+    } catch (err) {
+      // Drop the rows as well. Stale payloads under a failure notice are the
+      // one thing this panel exists to make impossible.
+      setData(null);
+      setReadError(err instanceof Error ? err.message : String(err));
+    } finally {
       setLoading(false);
     }
-    setOpen((o) => !o);
-  }, [open]);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch("/api/v1/engineering");
-    setData(await res.json());
-    setLoading(false);
   }, []);
+
+  const reveal = useCallback(async () => {
+    if (!open) await read();
+    setOpen((o) => !o);
+  }, [open, read]);
 
   return (
     <div className="rounded-2xl border" style={{ borderColor: "var(--color-state-locked)", background: "var(--color-ground-1)" }}>
@@ -83,10 +97,25 @@ export function EngineeringPanel() {
                     {t.label}
                   </button>
                 ))}
-                <button onClick={refresh} className="ml-auto text-xs font-semibold" style={{ color: "var(--color-text-lo)" }}>
+                <button onClick={read} className="ml-auto text-xs font-semibold" style={{ color: "var(--color-text-lo)" }}>
                   {loading ? "loading…" : "↻ refresh"}
                 </button>
               </div>
+
+              {readError && (
+                <div
+                  className="rounded-lg border p-3 text-xs"
+                  style={{ borderColor: "var(--color-state-failed)", background: "rgba(229,72,77,0.06)" }}
+                >
+                  <span className="font-semibold" style={{ color: "var(--color-state-failed)" }}>
+                    The system could not be read.
+                  </span>{" "}
+                  <span style={{ color: "var(--color-text-lo)" }}>
+                    {readError} — no rows and no queue depths are shown, because the honest answer
+                    here is that this panel does not currently know.
+                  </span>
+                </div>
+              )}
 
               {data && (
                 <>
