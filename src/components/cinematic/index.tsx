@@ -242,6 +242,8 @@ export function Stage({
   live = false,
   liveLabel = "LIVE",
   liveAccent,
+  badge,
+  stageRef,
 }: {
   children: ReactNode;
   accent?: Accent;
@@ -249,9 +251,18 @@ export function Stage({
   live?: boolean;
   liveLabel?: string;
   liveAccent?: Accent;
+  /*
+    What this diagram is, stated in its own corner. Takes precedence over
+    `live`, because `live` is a decoration the caller chose and this is a
+    claim the caller has to be able to support - see `DataBadge`.
+  */
+  badge?: ReactNode;
+  /** Attached by `useLiveData` so the read fires when the stage is seen. */
+  stageRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
     <div
+      ref={stageRef}
       className="relative w-full overflow-hidden rounded-3xl border"
       style={{
         height,
@@ -265,9 +276,9 @@ export function Stage({
       />
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
       <Particles accent={accent} />
-      {live && (
+      {(badge || live) && (
         <div className="absolute right-3 top-3 z-20">
-          <LiveBadge label={liveLabel} accent={liveAccent ?? "recovered"} />
+          {badge ?? <LiveBadge label={liveLabel} accent={liveAccent ?? "recovered"} />}
         </div>
       )}
       <div className="relative h-full w-full">{children}</div>
@@ -488,15 +499,25 @@ export function PhaseScrubber({
         if (e.key === "ArrowRight") { e.preventDefault(); next(); }
         if (e.key === "ArrowLeft") { e.preventDefault(); prev(); }
       }}
-      className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-2 rounded-b-3xl bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-6 outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+      className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-center rounded-b-3xl bg-gradient-to-t from-black/70 to-transparent px-2 pb-0 pt-6 outline-none focus-visible:ring-1 focus-visible:ring-white/40"
     >
       {Array.from({ length: count }, (_, i) => (
+        /*
+          A 44px target around a 6px dot.
+
+          The dot is the affordance; the button is the thing a thumb has to
+          hit, and those are allowed to be different sizes. This was `h-6` with
+          a hairline of horizontal padding — an 8×24px target that the 320px
+          sweep flagged under WCAG 2.5.8 the moment these diagrams stopped
+          being unreachable code. The gap moved into the padding so the row
+          keeps its spacing while the targets touch.
+        */
         <button
           key={i}
           onClick={() => goTo(i)}
           aria-label={labels?.[i] ?? `Step ${i + 1}`}
           aria-current={i === phase}
-          className="group/dot relative h-6 px-0.5"
+          className="group/dot relative flex min-h-11 min-w-11 items-center justify-center px-1"
         >
           <span
             className="block h-1.5 rounded-full transition-all duration-300"
@@ -518,50 +539,130 @@ export function PhaseScrubber({
 
 /* ───────────────────────────── live data ───────────────────────────────── */
 
+export type LiveState = "idle" | "loading" | "ready" | "error";
+
+/**
+ * What a response to a live read actually means.
+ *
+ * Pure, and separated from the hook on purpose: this is the decision the badge
+ * above the diagram reports, and it used to be wrong in the most expensive way
+ * on offer. The old version called `r.json()` with no status check, so a 500
+ * whose body happened to parse became `ready` — and the badge then read
+ * `live · /api/v1/stats` above a diagram holding nothing at all.
+ *
+ * A label whose entire job is to certify that a number came from the running
+ * system is the last place in the app that may report a false positive. So a
+ * read is `ready` only when the server said yes *and* the body is the shape the
+ * diagram reads. Anything else is an error with a stated reason, because
+ * "unreachable" and "answered with something unrecognisable" send a reader to
+ * two different places.
+ */
+export function liveReadOutcome<T>(
+  ok: boolean,
+  status: number,
+  body: unknown,
+  isValid: (b: unknown) => b is T,
+): { state: "ready"; data: T } | { state: "error"; reason: string } {
+  if (!ok) return { state: "error", reason: `endpoint answered ${status}` };
+  if (!isValid(body)) return { state: "error", reason: "unrecognised response" };
+  return { state: "ready", data: body };
+}
+
 /**
  * Reads a real endpoint, once, when the diagram first scrolls into view.
  *
- * Deferring to first sight rather than firing on mount matters on this page:
- * there are eight diagrams and only three of them are wired, and none of them
- * should cost a request until someone is actually looking at it.
+ * Deferring to first sight rather than firing on mount matters here: most of
+ * these diagrams are concepts wired to nothing, and none of them should cost a
+ * request until someone is actually looking at it.
+ *
+ * The validator is required rather than optional. An optional one would be
+ * omitted at exactly the call sites that most need it, and the badge would go
+ * back to certifying whatever arrived.
  */
-export function useLiveData<T>(url: string | null) {
+export function useLiveData<T>(url: string | null, isValid: (b: unknown) => b is T) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-15% 0px" });
   const [data, setData] = useState<T | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [state, setState] = useState<LiveState>("idle");
+  const [reason, setReason] = useState<string | null>(null);
+  /*
+    Once-only, in a ref rather than in the dependency array.
+
+    The original hook guarded with `state !== "idle"` while listing `state` as
+    a dependency, so it strangled its own request: setting "loading" changed a
+    dependency, React ran the cleanup, the cleanup set `cancelled`, and the
+    response that arrived a moment later was discarded by its own effect. The
+    badge sat on "reading /api/v1/…" forever and could never have reached
+    "live" — which is its own quiet evidence that nothing ever rendered this.
+    A ref is not a dependency, so the read survives the states it causes.
+
+    The cancellation flag went with it. With the ref in place a cleanup can no
+    longer protect against a duplicate fetch — there cannot be one — so all it
+    could do is discard the single answer this hook exists to deliver. That is
+    not hypothetical: `reactStrictMode` is on, and a diagram that happened to
+    be above the fold at mount would start its read on the first pass, have it
+    cancelled by the unmount, and be refused a second attempt by the ref.
+    Since React 18 a `setState` after unmount is a documented no-op, so there
+    is nothing left for the flag to buy.
+  */
+  const started = useRef(false);
 
   useEffect(() => {
-    if (!url || !inView || state !== "idle") return;
-    let cancelled = false;
+    if (!url || !inView || started.current) return;
+    started.current = true;
     setState("loading");
-    fetch(url)
-      .then((r) => r.json())
-      .then((j) => {
-        if (cancelled) return;
-        setData(j as T);
-        setState("ready");
-      })
-      .catch(() => !cancelled && setState("error"));
-    return () => {
-      cancelled = true;
-    };
-  }, [url, inView, state]);
+    (async () => {
+      try {
+        const response = await fetch(url);
+        // A body that is not JSON at all is a failed read, not a crash — the
+        // outcome below still has to be reported rather than thrown.
+        const body = await response.json().catch(() => null);
+        const outcome = liveReadOutcome(response.ok, response.status, body, isValid);
+        if (outcome.state === "ready") {
+          setData(outcome.data);
+          setState("ready");
+        } else {
+          setReason(outcome.reason);
+          setState("error");
+        }
+      } catch (err) {
+        setReason(err instanceof Error ? err.message : "unreachable");
+        setState("error");
+      }
+    })();
+    // `isValid` is a module-level type guard at every call site; including it
+    // would re-run the read on any caller that passed an inline closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, inView]);
 
-  return { ref, data, state };
+  return { ref, data, state, reason };
 }
 
 /**
  * States what a diagram actually is.
  *
  * This is the honesty rule from the design system, applied to the one place it
- * is easiest to cheat. A moving diagram implies a running system, and five of
- * the eight modules on the vision page are not running anything. So a mockup
- * reading a real endpoint says READING LIVE DATA and names the endpoint; a
- * mockup that is an argument drawn in SVG says CONCEPT · NOT WIRED and does not
- * pretend otherwise. The label is more valuable than the illusion.
+ * is easiest to cheat. A moving diagram implies a running system, and most of
+ * the Continuum's modules are not running anything. So a mockup reading a real
+ * endpoint names that endpoint; a mockup that is an argument drawn in SVG says
+ * CONCEPT · NOT WIRED and does not pretend otherwise. The label is more
+ * valuable than the illusion.
+ *
+ * For a while this badge was the least honest thing in the repository, in the
+ * quietest possible way: it was exported, imported by the visual library, and
+ * called by nothing — while every diagram wore a hardcoded LIVE chip fed by a
+ * `setInterval`. The rule was written down and then not applied. It is applied
+ * now, and `liveReadOutcome` is what makes the word "live" mean something.
  */
-export function DataBadge({ endpoint, state }: { endpoint?: string; state?: "idle" | "loading" | "ready" | "error" }) {
+export function DataBadge({
+  endpoint,
+  state,
+  reason,
+}: {
+  endpoint?: string;
+  state?: LiveState;
+  reason?: string | null;
+}) {
   if (!endpoint) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] text-white/45">
@@ -571,6 +672,24 @@ export function DataBadge({ endpoint, state }: { endpoint?: string; state?: "idl
   }
   const ok = state === "ready";
   const accent: Accent = state === "error" ? "conflict" : "recovered";
+  /*
+    The failed read names what went wrong rather than saying "unreachable" for
+    everything. A 503 and a body this diagram cannot read are two different
+    problems with two different owners, and collapsing them costs the reader
+    the only lead the badge could have given them.
+  */
+  const label =
+    state === "error"
+      ? `${endpoint} · ${reason ?? "unreachable"}`
+      : ok
+        ? `live · ${endpoint}`
+        : state === "loading"
+          ? `reading ${endpoint}`
+          : // Idle is not reading. The read is deferred until the diagram is
+            // actually on screen, and a badge claiming a request that has not
+            // been made is the same species of small lie as the rest of this
+            // file's history — it just flatters the page instead of the data.
+            `reads ${endpoint}`;
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-[0.14em]"
@@ -584,7 +703,7 @@ export function DataBadge({ endpoint, state }: { endpoint?: string; state?: "idl
         className="inline-block h-1.5 w-1.5 rounded-full"
         style={{ background: accentColor(accent, 1), opacity: ok ? 1 : 0.4 }}
       />
-      {state === "error" ? "endpoint unreachable" : ok ? `live · ${endpoint}` : `reading ${endpoint}`}
+      {label}
     </span>
   );
 }

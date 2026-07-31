@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { CONTINUUM, continuumModule } from "@/lib/continuum";
 import { accentColor, accentInk } from "@/lib/accents";
 import { ChapterMarker, FilmGrain, Pill } from "@/components/cinematic";
+import { ContinuumModuleVisual } from "@/components/cinematic/ContinuumVisual";
 import { ParticleCanvas } from "@/components/ui/particle-canvas";
 import { asRoute } from "@/lib/routes";
 
@@ -115,6 +116,23 @@ export default async function ContinuumModulePage({
 
         <ChapterMarker n="02" label="How it would work" />
         <Section>
+          {/*
+            The mechanism, driveable, before the prose that describes it.
+
+            Reading five paragraphs and then being shown the diagram is the
+            wrong order: the diagram is the claim and the paragraphs are its
+            footnotes. It autoplays once so a scroller gets the shape for free,
+            and stops the instant anyone touches the scrubber.
+
+            The badge in its corner states what the diagram is. Two of the seven
+            read a real endpoint of the shipped system and name it; the rest say
+            CONCEPT · NOT WIRED, because a moving picture of an unbuilt thing is
+            the most persuasive lie a page like this can tell.
+          */}
+          <div className="mb-8">
+            <ContinuumModuleVisual visual={m.visual} />
+          </div>
+
           <ol className="grid gap-4 sm:grid-cols-2">
             {m.mechanism.map((s, i) => (
               <li

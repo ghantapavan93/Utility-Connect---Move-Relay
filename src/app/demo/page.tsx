@@ -429,7 +429,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 582 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 590 tests against a real database.",
           },
         ]}
         actions={
@@ -963,6 +963,11 @@ function FieldTable({
               className="cursor-pointer border-t transition-colors hover:bg-white/5"
               style={{ borderColor: "var(--color-ground-3)" }}
               title="Tap for full version history"
+              /* The browser suite opens a row to exercise the drawer's failure
+                 path; which row is not the point, so it needs a handle that
+                 does not depend on whichever fields the tenant happens to
+                 hold. */
+              data-field-row=""
             >
               <td className="py-1.5 font-mono text-xs">{String(f.field_path)}</td>
               <td className="py-1.5">{fmt(f.value)}</td>

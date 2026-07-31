@@ -32,6 +32,24 @@ export type ContinuumLabel =
   | "INTERACTIVE CONCEPT"
   | "FUTURE HYPOTHESIS";
 
+/**
+ * Which operable diagram belongs to this module.
+ *
+ * Named here rather than mapped inside the page because the pairing is a
+ * content decision, not a layout one, and because a test can then assert that
+ * every module has a diagram and every diagram has a module. The library this
+ * points into spent its whole life imported by nothing; a key in the data that
+ * a test walks is what stops that happening twice.
+ */
+export type ContinuumVisualKey =
+  | "relay"
+  | "launchpad"
+  | "concierge"
+  | "scenario"
+  | "wallet"
+  | "timeline"
+  | "continuity";
+
 export interface ContinuumModule {
   slug: string;
   title: string;
@@ -56,11 +74,14 @@ export interface ContinuumModule {
   aiBoundary: { may: string[]; mayNot: string[] };
   /** Only present where something real can be opened. */
   proof?: { label: string; href: string };
+  /** The operable diagram of the mechanism. Required — see the type. */
+  visual: ContinuumVisualKey;
 }
 
 export const CONTINUUM: ContinuumModule[] = [
   {
     slug: "move-relay",
+    visual: "relay",
     title: "Move Relay",
     kicker: "THE SPINE EVERYTHING ELSE STANDS ON",
     line: "One household, three channels, no two agreeing — and one record that survives it.",
@@ -121,6 +142,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "adaptive-front-door",
+    visual: "launchpad",
     title: "Adaptive Front Door",
     kicker: "EVERY MOVER ARRIVES DIFFERENTLY",
     line: "Six ways in. One record out. Nothing loses its source on the way.",
@@ -175,6 +197,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "concierge-copilot",
+    visual: "concierge",
     title: "Verified Concierge Copilot",
     kicker: "BEFORE THE CALL, DURING IT, AND AFTER",
     line: "AI prepares the decision. A person owns it. The record keeps the evidence.",
@@ -240,6 +263,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "move-intelligence",
+    visual: "scenario",
     title: "Move Intelligence Center",
     kicker: "WHAT NEEDS ATTENTION, AND WHY",
     line: "No score. Every signal says which row produced it and who can act.",
@@ -295,6 +319,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "partner-growth",
+    visual: "wallet",
     title: "Partner Growth & Move Wallet",
     kicker: "ATTRIBUTION THAT SURVIVES THE HANDOFF",
     line: "The partner sees their referral. The customer sees everything about their own.",
@@ -349,6 +374,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "home-continuum",
+    visual: "timeline",
     title: "Home Continuum",
     kicker: "THE MOVE IS THE ACQUISITION, NOT THE PRODUCT",
     line: "The record does not close when the electricity comes on.",
@@ -402,6 +428,7 @@ export const CONTINUUM: ContinuumModule[] = [
 
   {
     slug: "agent-gateway",
+    visual: "continuity",
     title: "Agent-Accessible Infrastructure",
     kicker: "LET THEM READ. NEVER LET THEM DECIDE.",
     line: "READ allowed. DRAFT allowed. PROPOSE needs approval. DECIDE is blocked.",

@@ -13,32 +13,70 @@ import {
 } from "./index";
 
 /**
- * The live mockups for the future concepts.
+ * The operable mockups for the Continuum modules.
  *
- * Every one of these is *operable*. They autoplay so a visitor who scrolls past
- * gets the mechanism for free, and the moment anyone clicks a dot or presses an
- * arrow key the autoplay stops for good and they are driving. A control that
- * keeps moving under your hand is worse than one that never moved.
+ * A vision page fails in one specific way: it becomes paragraphs of confident
+ * prose about things that do not exist. The fix is to show each idea *running*
+ * — a small, honest, moving diagram of the mechanism — so a reader can judge
+ * whether the thing is coherent instead of whether the sentence is. Each one is
+ * deliberately a mechanism rather than a screenshot of an imagined UI:
+ * screenshots of software that does not exist are the least honest thing a
+ * vision page can contain, while a diagram of how something would work is a
+ * claim you can argue with.
  *
- * Three of the eight read a real endpoint and say which one on the badge. The
- * other five say CONCEPT · NOT WIRED, because a moving diagram implies a
- * running system and five of these modules are not running anything. The label
- * is worth more than the illusion.
+ * They autoplay so a visitor who scrolls past gets the mechanism for free, and
+ * the moment anyone clicks a dot or presses an arrow key the autoplay stops for
+ * good and they are driving. A control that keeps moving under your hand is
+ * worse than one that never moved.
  *
- * A vision page fails in one specific way: it becomes eight paragraphs of
- * confident prose about things that do not exist. The fix is to show each idea
- * *running* — a small, honest, moving diagram of the mechanism — so a reader can
- * judge whether the thing is coherent instead of whether the sentence is.
+ * ## What the badges mean, and why they were wrong
  *
- * Every one of these is deliberately a mechanism rather than a screenshot of an
- * imagined UI. Screenshots of software that does not exist are the least
- * honest thing a vision page can contain; a diagram of how something would work
- * is a claim you can actually argue with. They carry a LIVE chip because they
- * are animating, and they are labelled by the page as CONCEPT or HYPOTHESIS
- * because they are not built.
+ * Two of these read a real endpoint of the shipped system and name it on the
+ * badge: the relay diagram counts real rows, and the copilot diagram lists the
+ * evaluation cases the agent is actually held to. The rest say CONCEPT · NOT
+ * WIRED and animate a timer.
+ *
+ * That distinction is the whole point of the badge, and until now none of it
+ * was true. This file was imported by nothing — 500 lines of diagrams no route
+ * rendered — while its own header claimed three of them read live endpoints.
+ * Every one wore a hardcoded `LIVE · INGEST` chip driven by `setInterval`, and
+ * the reliability diagram printed invented provider latencies under the caption
+ * "measured, not predicted". Dead code is where claims go to stop being
+ * checked. The diagrams are on the module pages now, the chips are gone, and
+ * the two that say "live" are the two that can prove it.
  */
 
 /* ── shared bits ──────────────────────────────────────────────────────────── */
+
+/**
+ * The smallest type any of these diagrams is allowed to use.
+ *
+ * An SVG scales rather than reflows, so this is a size in viewBox units and
+ * what a reader gets is that number times the fit scale. These boxes are 520 ×
+ * 400 in a 380px-tall stage, which pins the scale near 0.95 once `Diagram`
+ * stops them shrinking below 1:1 — so 11 lands just over ten physical pixels
+ * and 9, the previous value, landed under it on every screen size including
+ * desktop. The mobile sweep measures the rendered figure rather than this one.
+ */
+const LABEL_PX = 11;
+
+/**
+ * A diagram that stays legible instead of staying fully visible.
+ *
+ * Below about 550px the honest options are unreadable type or a sideways
+ * scroll inside the frame, and the second one is the only one a person can
+ * actually use. The stage clips, so the scroll has to live here rather than on
+ * a parent.
+ */
+function Diagram({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="h-full w-full overflow-x-auto">
+      <svg viewBox={VB} className="h-full w-full min-w-[520px]">
+        {children}
+      </svg>
+    </div>
+  );
+}
 
 function Label({ children, x, y, dim }: { children: string; x: number; y: number; dim?: boolean }) {
   return (
@@ -47,7 +85,11 @@ function Label({ children, x, y, dim }: { children: string; x: number; y: number
       y={y}
       textAnchor="middle"
       className="font-mono"
-      style={{ fontSize: 9, fill: dim ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.75)", letterSpacing: "0.06em" }}
+      style={{
+        fontSize: LABEL_PX,
+        fill: dim ? "rgba(255,255,255,0.42)" : "rgba(255,255,255,0.75)",
+        letterSpacing: "0.06em",
+      }}
     >
       {children}
     </text>
@@ -82,17 +124,72 @@ function Wire({ d, accent, on, dashed }: { d: string; accent: Accent; on: boolea
   );
 }
 
-const SVG = "h-full w-full";
 const VB = "0 0 520 400";
+
+/* ── what a live read has to look like before a badge may say "live" ──────── */
+
+/**
+ * The shape guards, one per wired diagram.
+ *
+ * `useLiveData` will not report `ready` without one, which is the point: the
+ * badge is a claim that a real payload arrived, and the only way to keep that
+ * claim honest is to make the diagram state what "real" means for it before it
+ * is allowed to say so.
+ */
+
+export interface RelayCounts {
+  activeMoves: number;
+  canonicalMoves: number;
+  providerSubmissions: number;
+  duplicatesPrevented: number;
+}
+
+function isStatsBody(b: unknown): b is { stats: RelayCounts } {
+  if (typeof b !== "object" || b === null || !("stats" in b)) return false;
+  const s = (b as { stats: unknown }).stats;
+  if (typeof s !== "object" || s === null) return false;
+  return (["activeMoves", "canonicalMoves", "providerSubmissions", "duplicatesPrevented"] as const).every(
+    (k) => typeof (s as Record<string, unknown>)[k] === "number",
+  );
+}
+
+export interface EvalCase {
+  name: string;
+  hypothesis: string;
+  adversarial: boolean;
+}
+
+function isEvalBody(b: unknown): b is { cases: EvalCase[] } {
+  if (typeof b !== "object" || b === null || !("cases" in b)) return false;
+  const c = (b as { cases: unknown }).cases;
+  return (
+    Array.isArray(c) &&
+    c.length > 0 &&
+    c.every((x) => typeof x?.name === "string" && typeof x?.hypothesis === "string")
+  );
+}
 
 /* ── 1 · Move Relay — the shipped spine ───────────────────────────────────── */
 
 export function RelayVisual() {
   const ctl = useInteractivePhase(4, 1500);
   const p = ctl.phase;
+  /*
+    The one module of the Continuum that is not a proposal. So its diagram
+    reads the tenant it is drawing: the counts below are `SELECT count(*)`
+    over the same tables the dashboard renders, and if the demo has never
+    been run they are zeroes rather than illustrative figures.
+  */
+  const live = useLiveData<{ stats: RelayCounts }>("/api/v1/stats", isStatsBody);
+  const s = live.data?.stats;
   return (
-    <Stage accent="verified" live liveLabel="LIVE · INGEST" height={380}>
-      <svg viewBox={VB} className={SVG}>
+    <Stage
+      accent="verified"
+      height={380}
+      stageRef={live.ref}
+      badge={<DataBadge endpoint="/api/v1/stats" state={live.state} reason={live.reason} />}
+    >
+      <Diagram>
         {[
           { y: 90, label: "PARTNER API" },
           { y: 175, label: "CSV UPLOAD" },
@@ -112,8 +209,30 @@ export function RelayVisual() {
         <Wire d="M282 175 L 400 175" accent="verified" on={p >= 3} />
         <Node cx={412} cy={175} accent="verified" on={p >= 3} />
         <Label x={412} y={218} dim={p < 3}>PROVIDER</Label>
-      </svg>
-    
+
+        {/*
+          The counts, rendered only once a validated body arrived. A diagram
+          that drew "0" while the read was still in flight would be making the
+          claim it exists to avoid - and a zero is a real answer here, so it
+          cannot double as a placeholder.
+        */}
+        {s && (
+          <g>
+            <Label x={90} y={330}>{`${s.providerSubmissions} SUBMISSIONS`}</Label>
+            <Label x={264} y={330}>{`${s.canonicalMoves} OF ${s.activeMoves} CANONICAL`}</Label>
+            <Label x={412} y={330}>{`${s.duplicatesPrevented} DUPLICATES BLOCKED`}</Label>
+            <text
+              x={260}
+              y={362}
+              textAnchor="middle"
+              style={{ fontSize: LABEL_PX, fill: "rgba(255,255,255,0.42)" }}
+            >
+              counted from the live tenant, not illustrated
+            </text>
+          </g>
+        )}
+      </Diagram>
+
       <PhaseScrubber
         count={4}
         phase={ctl.phase}
@@ -137,8 +256,20 @@ export function ConciergeVisual() {
     { t: "“…actually the 16th, sorry.”", fact: "move_date = Aug 16", ok: true },
     { t: "“Put us on the cheapest plan.”", fact: "no fact — preference", ok: false },
   ];
+  /*
+    The transcript above is illustrative and says so; the panel below it is
+    not. It reads the guardrail cases the shipped copilot is evaluated
+    against, so the claim "the AI proposes, it never commits" is followed
+    immediately by the list of tests that would fail if it ever did.
+  */
+  const live = useLiveData<{ cases: EvalCase[] }>("/api/v1/agent/evals", isEvalBody);
   return (
-    <Stage accent="internet" live liveLabel="LIVE · TRANSCRIPT" height={380}>
+    <Stage
+      accent="internet"
+      height={380}
+      stageRef={live.ref}
+      badge={<DataBadge endpoint="/api/v1/agent/evals" state={live.state} reason={live.reason} />}
+    >
       <div className="flex h-full flex-col gap-2 p-5">
         {lines.map((l, i) => (
           <motion.div
@@ -170,9 +301,17 @@ export function ConciergeVisual() {
           <div className="mt-1 text-[11px] text-white/60">
             Every fact carries the utterance it came from. The AI proposes; it never commits.
           </div>
+          {live.data && (
+            <div className="mt-2 border-t border-white/10 pt-2 font-mono text-[9px] leading-relaxed text-white/50">
+              held to {live.data.cases.length} guardrail case
+              {live.data.cases.length === 1 ? "" : "s"} today
+              {live.data.cases.some((c) => c.adversarial) && ", including planted instructions"} —{" "}
+              {live.data.cases[0]!.name}
+            </div>
+          )}
         </motion.div>
       </div>
-    
+
       <PhaseScrubber
         count={4}
         phase={ctl.phase}
@@ -197,7 +336,7 @@ export function WalletVisual() {
     { name: "Security monitoring", why: "not eligible: no consent on file", ok: false },
   ];
   return (
-    <Stage accent="electricity" live liveLabel="LIVE · ELIGIBILITY" height={380}>
+    <Stage accent="electricity" height={380} badge={<DataBadge />}>
       <div className="flex h-full flex-col gap-2.5 p-5">
         {offers.map((o, i) => (
           <motion.div
@@ -252,7 +391,7 @@ export function LaunchpadVisual() {
   const ctl = useInteractivePhase(steps.length + 1, 900);
   const p = ctl.phase;
   return (
-    <Stage accent="verified" live liveLabel="LIVE · ONBOARDING" height={380}>
+    <Stage accent="verified" height={380} badge={<DataBadge />}>
       <div className="flex h-full flex-col justify-center gap-6 p-6">
         <div className="flex items-center">
           {steps.map((s, i) => {
@@ -320,7 +459,7 @@ export function ScenarioVisual() {
     { name: "partner reads another partner", state: "denied" },
   ];
   return (
-    <Stage accent="recovered" live liveLabel="LIVE · REPLAY" height={380}>
+    <Stage accent="recovered" height={380} badge={<DataBadge />}>
       <div className="flex h-full flex-col p-5">
         <div className="rounded-lg border border-white/10 bg-black/40 p-3 font-mono text-[10px] text-white/70">
           <span className="text-white/40">$</span> compile &quot;a partner sends a duplicate, the provider times out&quot;
@@ -367,7 +506,7 @@ export function ScenarioVisual() {
 
 /* ── 6 · Home Continuum ───────────────────────────────────────────────────── */
 
-export function ContinuumVisual() {
+export function TimelineVisual() {
   const ctl = useInteractivePhase(5, 1500);
   const p = ctl.phase;
   const beats = [
@@ -378,8 +517,8 @@ export function ContinuumVisual() {
     { t: "NEXT MOVE", d: "year 2" },
   ];
   return (
-    <Stage accent="solar" live liveLabel="LIVE · TIMELINE" height={380}>
-      <svg viewBox="0 0 520 400" className={SVG}>
+    <Stage accent="solar" height={380} badge={<DataBadge />}>
+      <Diagram>
         <line x1="60" y1="200" x2="460" y2="200" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
         <motion.line
           x1="60"
@@ -401,10 +540,10 @@ export function ContinuumVisual() {
             </g>
           );
         })}
-        <text x="260" y="330" textAnchor="middle" style={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }}>
+        <text x="260" y="330" textAnchor="middle" style={{ fontSize: LABEL_PX, fill: "rgba(255,255,255,0.45)" }}>
           Consent is re-checked at every beat, not assumed from the first.
         </text>
-      </svg>
+      </Diagram>
     
       <PhaseScrubber
         count={5}
@@ -419,68 +558,30 @@ export function ContinuumVisual() {
   );
 }
 
-/* ── 7 · Provider Reliability Graph ───────────────────────────────────────── */
+/*
+  ── 7 · Provider Reliability Graph — removed, on purpose ───────────────────
 
-export function ReliabilityVisual() {
-  const ctl = useInteractivePhase(3, 1800);
-  const p = ctl.phase;
-  const providers = [
-    { n: "Provider A", latency: 0.35, unknown: 0.02 },
-    { n: "Provider B", latency: 0.62, unknown: 0.11 },
-    { n: "Provider C", latency: 0.88, unknown: 0.24 },
-  ];
-  return (
-    <Stage accent="unknown" live liveLabel="LIVE · OUTCOMES" height={380}>
-      <div className="flex h-full flex-col gap-4 p-5">
-        <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/45">
-          measured, not predicted
-        </div>
-        {providers.map((pr, i) => (
-          <div key={pr.n} className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-white/80">{pr.n}</span>
-              <span className="font-mono text-[9px] text-white/50">
-                unknown-outcome {Math.round(pr.unknown * 100)}%
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: accentColor(pr.unknown > 0.15 ? "unknown" : "recovered", 0.85) }}
-                animate={{ width: p >= i ? `${pr.latency * 100}%` : "0%" }}
-                transition={{ duration: 0.8, ease: EASE.outQuart }}
-              />
-            </div>
-          </div>
-        ))}
-        <div className="mt-auto font-mono text-[10px] leading-relaxed text-white/45">
-          No model ranks these. The numbers are what actually happened
-          <br />
-          on real handoffs — latency, timeouts, reconciliation success.
-        </div>
-      </div>
-    
-      <PhaseScrubber
-        count={3}
-        phase={ctl.phase}
-        goTo={ctl.goTo}
-        next={ctl.next}
-        prev={ctl.prev}
-        accent="unknown"
-          labels={["Provider A", "Provider B", "Provider C"]}
-      />
-    </Stage>
-  );
-}
+  This slot held a bar chart of three providers with hardcoded latencies and
+  unknown-outcome rates, captioned "measured, not predicted" and "the numbers
+  are what actually happened on real handoffs". None of it had ever touched a
+  database. It survived because nothing rendered it, which is the argument
+  against keeping unreachable code: a claim no one can see is a claim no one
+  checks.
 
-/* ── 8 · Service Continuity Graph ─────────────────────────────────────────── */
+  There is no honest version of it here. The real objectives are computed by
+  `lib/slo.ts` and already rendered live on /reliability, breaches and all, so
+  a second drawing of the same thing could only be a worse copy. Deleted rather
+  than rewritten.
+*/
+
+/* ── 7 · Service Continuity Graph ─────────────────────────────────────────── */
 
 export function ContinuityVisual() {
   const ctl = useInteractivePhase(4, 1500);
   const p = ctl.phase;
   return (
-    <Stage accent="security" live liveLabel="LIVE · ROUTING" height={380}>
-      <svg viewBox={VB} className={SVG}>
+    <Stage accent="security" height={380} badge={<DataBadge />}>
+      <Diagram>
         <Node cx={110} cy={200} r={14} accent="verified" on={p >= 0} />
         <Label x={110} y={240}>MOVE RECORD</Label>
 
@@ -508,10 +609,10 @@ export function ContinuityVisual() {
         />
         <Label x={428} y={196} dim={p < 3}>VENDOR</Label>
         <Label x={428} y={210} dim={p < 3}>HUB</Label>
-        <text x="260" y="365" textAnchor="middle" style={{ fontSize: 10, fill: "rgba(255,255,255,0.45)" }}>
+        <text x="260" y="365" textAnchor="middle" style={{ fontSize: LABEL_PX, fill: "rgba(255,255,255,0.45)" }}>
           Two products, shared primitives. The dashed edge is the one not built.
         </text>
-      </svg>
+      </Diagram>
     
       <PhaseScrubber
         count={4}
