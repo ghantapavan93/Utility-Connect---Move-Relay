@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { MarketingHeader } from "@/components/MarketingHeader";
 import { SERVICE_CATALOGUE } from "@/lib/service-catalogue";
+import { asRoute } from "@/lib/routes";
 
 /**
  * The enrollment experience — a premium reimagining of Utility Connect's own
@@ -108,7 +109,9 @@ export default function ConnectFlow() {
   return (
     <div className="theme-light" style={{ background: "var(--color-ground-0)", minHeight: "100dvh" }}>
       <MarketingHeader />
-      <main className="mx-auto max-w-3xl px-6 py-20">
+      <main className="relative mx-auto max-w-3xl px-6 py-20">
+        <div className="cine-aurora" aria-hidden />
+        <div className="relative" style={{ zIndex: 1 }}>
         {/* progress */}
         <div className="mb-8 flex items-center gap-2">
           {[0, 1, 2, 3].map((i) => (
@@ -279,7 +282,7 @@ export default function ConnectFlow() {
               <div className="mt-6 flex flex-wrap gap-3">
                 {result.moveId && (result.conflictFields?.length ?? 0) > 0 && (
                   <Link
-                    href={`/moves/${result.moveId}` as never}
+                    href={asRoute(`/moves/${result.moveId}`)}
                     className="rounded-full px-6 py-3 text-sm font-semibold uppercase tracking-wide"
                     style={{ background: "var(--color-state-conflict)", color: "#1a1207" }}
                   >
@@ -302,6 +305,7 @@ export default function ConnectFlow() {
           deduplication against existing moves, idempotency, and provenance — all real.
           All data is synthetic; nothing goes to any external service.
         </p>
+        </div>
       </main>
     </div>
   );

@@ -75,6 +75,14 @@ export default function MoveWorkspace() {
   /* Distinguishes "still fetching" from "fetched and failed" — the two states
      the old single-null `data` flattened into one eternal spinner. */
   const [loadError, setLoadError] = useState<string | null>(null);
+  /*
+    A 404 is not a failed read — it is a successful read of an absence. The
+    two demand different pages: a read failure earns a retry, but retrying an
+    id that does not exist earns the same 404 forever, which is a treadmill
+    dressed as recovery. On this tenant the usual cause is a demo reset that
+    re-minted every id, so the honest offer is the queue, not the button.
+  */
+  const [gone, setGone] = useState(false);
   /* True only when the server said 401/403 — the one case the empty state may
      describe as an authorization decision. */
   const [recordDenied, setRecordDenied] = useState(false);
@@ -120,6 +128,17 @@ export default function MoveWorkspace() {
       setRecordDenied(recordRes.status === 401 || recordRes.status === 403);
     }
 
+    /*
+      The conflicts route alone decides existence. The record route runs its
+      relationship gate first, so a nonexistent id answers 403 there — "you
+      have no path to this" — before "this" was ever checked for being real.
+      Requiring both to say 404 meant the gone-state never fired and the dead
+      id fell through to the retry treadmill this branch exists to replace.
+    */
+    if (conflictsRes.status === 404) {
+      setGone(true);
+      return;
+    }
     if (!conflictsRes.ok) {
       /*
         Returning early here used to leave `data` null for ever, which rendered
@@ -130,6 +149,7 @@ export default function MoveWorkspace() {
       setLoadError(`The conflicts could not be read (HTTP ${conflictsRes.status}).`);
       return;
     }
+    setGone(false);
     setLoadError(null);
     const d = (await conflictsRes.json()) as ConflictsResponse;
     setData(d);
@@ -200,7 +220,37 @@ export default function MoveWorkspace() {
         <div className="cine-aurora" aria-hidden />
         <ParticleCanvas phase="idle" />
         <div className="relative mx-auto max-w-4xl" style={{ zIndex: 1 }}>
-          {loadError ? (
+          {gone ? (
+            <div
+              className="rounded-2xl border p-5"
+              style={{ borderColor: "var(--color-ground-3)" }}
+            >
+              <p className="text-sm font-semibold" style={{ color: "var(--color-state-conflict)" }}>
+                No move lives at this id.
+              </p>
+              <p className="mt-1 text-sm" style={{ color: "var(--color-text-lo)" }}>
+                The read succeeded and the answer was &ldquo;nothing here&rdquo; — most likely a
+                link minted before a demo reset re-created the tenant with fresh ids. Retrying
+                cannot change an existence answer, so none is offered.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href="/moves"
+                  className="inline-flex min-h-11 items-center rounded-full px-5 text-xs font-semibold uppercase tracking-wide text-white"
+                  style={{ background: "var(--color-state-verified)" }}
+                >
+                  The current queue
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex min-h-11 items-center rounded-full border px-5 text-xs font-semibold uppercase tracking-wide"
+                  style={{ borderColor: "rgba(255,255,255,0.3)", color: "var(--color-text-mid)" }}
+                >
+                  Control room
+                </Link>
+              </div>
+            </div>
+          ) : loadError ? (
             /*
               Fetched and failed, which is not the same state as fetching. The
               old page kept the spinner for both, so a 500 from the conflicts
@@ -220,7 +270,7 @@ export default function MoveWorkspace() {
               </p>
               <button
                 onClick={() => { setLoadError(null); void load(); }}
-                className="mt-3 rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+                className="mt-3 inline-flex min-h-11 items-center rounded-full border px-4 text-xs font-semibold uppercase tracking-wide"
                 style={{ borderColor: "rgba(255,255,255,0.3)", color: "var(--color-text-mid)" }}
               >
                 Read it again
