@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
 import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug, Sofa, Sideboard, Ottoman, FloorLamp, Basket, SideTable } from "./Furniture";
 import { ServiceFixtures } from "./ServiceFixtures";
+import { Vegetation } from "./Vegetation";
 import { applyGIBake } from "./gi-apply";
 import { oakMaps, walnutMaps, concreteMaps, stoneMaps, limestoneMaps, linenMaps } from "./materials";
 
@@ -394,65 +395,15 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         <meshPhysicalMaterial color="#3f5c6b" roughness={0.05} metalness={0.35} envMapIntensity={1.6} />
       </mesh>
       {/*
-        Treeline behind the house.
-
-        The arrival shot was giving 40% of its frame to flat sky, and the fix is
-        not a longer lens — a 40m-long house cannot fill a frame vertically and
-        still read as long. What removes empty sky in real property photography
-        is that there is always something behind the building. This is a mass,
-        not a set of trees: desaturated and cool, far enough back that the fog
-        takes it, so it sits behind the residence instead of competing with it.
+        The planting — treeline mass behind the house, specimens in the
+        courtyard. Placement logic lives with the canopy construction in
+        Vegetation.tsx: the icosahedron trees that used to stand here were the
+        single most-cited "this is fake" tell on the page, because a
+        flat-shaded polyhedron does not behave like foliage at any distance.
+        The replacements are alpha-tested leaf cards with wind — one draw call
+        for every canopy in the scene.
       */}
-      {Array.from({ length: 26 }, (_, i) => {
-        const x = -46 + i * 3.7;
-        // Deterministic jitter — a perfectly even row reads as a fence.
-        const j = Math.sin(i * 12.9898) * 43758.5453;
-        const r = j - Math.floor(j);
-        return { x, z: -24 - r * 9, h: 5.4 + r * 4.6, w: 2.2 + r * 1.5, i };
-      }).map((t) => (
-        <group key={t.i} position={[t.x, 0, t.z]}>
-          <mesh position={[0, t.h * 0.34, 0]}>
-            <cylinderGeometry args={[0.16, 0.24, t.h * 0.68, 6]} />
-            <meshStandardMaterial color="#5b5344" roughness={0.95} />
-          </mesh>
-          <mesh position={[0, t.h * 0.78, 0]}>
-            <icosahedronGeometry args={[t.w, 1]} />
-            <meshStandardMaterial color="#6d7d63" roughness={1} envMapIntensity={0.35} />
-          </mesh>
-        </group>
-      ))}
-
-      {/*
-        Courtyard planting. These sit within a few metres of the arrival camera,
-        which is why they get three canopy masses at a higher subdivision and no
-        flat shading: a single flat-shaded icosahedron is readable as foliage at
-        forty metres and unmistakably a polyhedron at five. Overlapping lobes of
-        slightly different greens is what gives a canopy its silhouette.
-      */}
-      {[-19, -13, 8, 14, 19].map((x, i) => {
-        const j = Math.sin(i * 78.233) * 43758.5453;
-        const r = j - Math.floor(j);
-        return (
-          <group key={x} position={[x, 0, 12]} rotation={[0, r * Math.PI, 0]}>
-            <mesh position={[0, 1.0, 0]} castShadow>
-              <cylinderGeometry args={[0.08, 0.13, 2.0, 10]} />
-              <meshStandardMaterial color={MATERIAL.walnut} roughness={0.9} />
-            </mesh>
-            {(
-              [
-                [0, 2.35, 0, 1.05, "#6f8560"],
-                [0.52, 2.05, 0.3, 0.72, "#7d9068"],
-                [-0.45, 2.6, -0.28, 0.62, "#627a56"],
-              ] as const
-            ).map(([px, py, pz, rad, tone], k) => (
-              <mesh key={k} position={[px, py + r * 0.2, pz]} castShadow>
-                <icosahedronGeometry args={[rad * (0.9 + r * 0.25), 3]} />
-                <meshStandardMaterial color={tone} roughness={0.98} envMapIntensity={0.5} />
-              </mesh>
-            ))}
-          </group>
-        );
-      })}
+      <Vegetation />
 
       {/* ── Slab, roof plane, back wall — the long horizontal gesture ── */}
       <Floor position={[-1, 0.02, 0]} size={[40, 12]} color={MATERIAL.limestone} maps={limestone} />

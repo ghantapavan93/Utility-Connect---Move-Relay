@@ -2,10 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Lightformer, ContactShadows } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette, SSAO } from "@react-three/postprocessing";
-import { KernelSize, BlendFunction } from "postprocessing";
-import { motion, useScroll, useTransform, useReducedMotion, type MotionValue } from "framer-motion";
+import { Environment, Lightformer, ContactShadows, Sky } from "@react-three/drei";
+import { EffectComposer, Bloom, Vignette, N8AO, DepthOfField } from "@react-three/postprocessing";
+import { KernelSize, type DepthOfFieldEffect } from "postprocessing";
+import {
+  cubicBezier,
+  motion,
+  motionValue,
+  useMotionValueEvent,
+  useScroll,
+  useTransform,
+  useReducedMotion,
+  type MotionValue,
+} from "framer-motion";
 import * as THREE from "three";
 import { Residence, CHAPTER, lv } from "./Residence";
 import { SERVICE, LIGHT } from "./palette";
@@ -56,7 +65,25 @@ interface Station {
   pos: [number, number, number];
   look: [number, number, number];
   fov?: number;
+  /**
+   * How the camera arrives at THIS station. "transit" is the silk curve for
+   * walks between rooms; "settle" front-loads the move and spends the rest of
+   * the segment easing into stillness — the film language of a push-in that
+   * arrives at its subject and holds, rather than gliding past it at constant
+   * speed. The uniform smoothstep this replaces was most of why the walk read
+   * as a drone flight: every move had the same weightless rhythm.
+   */
+  ease?: "transit" | "settle";
 }
+
+/*
+  The two easing characters, from the cinematic-scroll playbook: a symmetric
+  "silk" bezier for transits and a hard-arriving, soft-settling curve for
+  push-ins. Micro-adjustments here change the perceived weight of the whole
+  camera, which is exactly why they are named rather than inlined.
+*/
+const EASE_TRANSIT = cubicBezier(0.45, 0.05, 0.55, 0.95);
+const EASE_SETTLE = cubicBezier(0.16, 0.85, 0.3, 1);
 
 /**
  * The walk. Left to right along the house, at eye height, with the courtyard
@@ -82,36 +109,36 @@ const WALK: Station[] = [
   // sat at −17.5 to −19.7, so the subject of the chapter was off-frame left and
   // the shot was a blank wall with a ring floating in front of it.
   { at: 0.15, pos: [-15.9, 1.66, 7.6], look: [-18.3, 1.15, 2.8], fov: 56 },
-  { at: 0.2, pos: [-16.6, EYE, 5.5], look: [-18.4, 1.1, 2.7], fov: 50 },
+  { at: 0.2, pos: [-16.6, EYE, 5.5], look: [-18.4, 1.1, 2.7], fov: 50, ease: "settle" },
   // Foyer — the Move Digital Twin, held in the double-height entry.
   // The aim sits just below eye height even though the core hangs above it:
   // aiming *at* the core pitched the lens up and gave away half the frame to
   // blank ceiling. Framing the room and letting the core enter the upper third
   // is how an interior photographer shoots a pendant — you never point at it.
   { at: 0.27, pos: [-13.6, EYE, 5.8], look: [-9.2, 1.5, 0.4], fov: 56 },
-  { at: 0.32, pos: [-11.8, 1.66, 4.3], look: [-8.8, 1.52, 0.2], fov: 50 },
+  { at: 0.32, pos: [-11.8, 1.66, 4.3], look: [-8.8, 1.52, 0.2], fov: 50, ease: "settle" },
   // Entry · security — turn back toward the front door, where the sensor is.
   // This beat used to play while the camera stood in the utility room eleven
   // metres away, so a caption about the entry sensor ran over a washing
   // machine. Turning at the threshold keeps the "never cut between rooms" rule
   // while still putting the subject in frame.
   { at: 0.335, pos: [-8.3, 1.66, 3.3], look: [-6.5, 2.02, 5.5], fov: 46 },
-  { at: 0.37, pos: [-7.35, 1.86, 4.5], look: [-6.38, 2.11, 5.62], fov: 34 },
+  { at: 0.37, pos: [-7.35, 1.86, 4.5], look: [-6.38, 2.11, 5.62], fov: 34, ease: "settle" },
   // Living — across the seating group to the router on the console
   { at: 0.42, pos: [-7.4, EYE, 1.5], look: [-3.4, 1.1, -2.6], fov: 58 },
-  { at: 0.46, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50 },
+  { at: 0.46, pos: [-4.4, EYE, 0.2], look: [-0.05, 0.95, -3.7], fov: 50, ease: "settle" },
   // Dining — the room between, so the mid-house move has a subject
   { at: 0.52, pos: [-1.6, EYE, 0.6], look: [1.4, 0.9, -2.6], fov: 55 },
   // Kitchen — the island, stools and pendants
   { at: 0.55, pos: [2.2, EYE, 0.8], look: [5.0, 1.0, -2.2], fov: 54 },
-  { at: 0.6, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48 },
+  { at: 0.6, pos: [4.6, EYE, -0.2], look: [5.4, 1.05, -2.4], fov: 48, ease: "settle" },
   // Through the doorway — the camera lines up with the 1.15m opening at
   // z ≈ −1.77 before crossing, so the transition frames the utility room
   // through the door rather than walking into the pier beside it.
   { at: 0.635, pos: [8.1, EYE, -1.77], look: [11.4, 1.3, -2.6], fov: 56 },
   // Utility — the machines and the shelf, then in tight on the circuit panel
   { at: 0.67, pos: [10.2, EYE, -1.9], look: [11.9, 1.2, -3.4], fov: 52 },
-  { at: 0.78, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40 },
+  { at: 0.78, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40, ease: "settle" },
   // Recovery — pull back down the length of the house. Held in the open
   // circulation zone rather than the utility threshold: the earlier position
   // put the doorway pier straight down the middle of the shot.
@@ -127,14 +154,13 @@ const WALK: Station[] = [
   { at: 1.0, pos: [-24, 4.4, 27], look: [-6, 2.0, 1.0], fov: 54 },
 ];
 
-const smooth = (t: number) => t * t * (3 - 2 * t);
-
 function walkAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): number {
   let i = 0;
   while (i < WALK.length - 2 && p > WALK[i + 1]!.at) i++;
   const a = WALK[i]!;
   const b = WALK[i + 1]!;
-  const t = smooth(THREE.MathUtils.clamp((p - a.at) / (b.at - a.at), 0, 1));
+  const ease = b.ease === "settle" ? EASE_SETTLE : EASE_TRANSIT;
+  const t = ease(THREE.MathUtils.clamp((p - a.at) / (b.at - a.at), 0, 1));
   pos.set(
     THREE.MathUtils.lerp(a.pos[0], b.pos[0], t),
     THREE.MathUtils.lerp(a.pos[1], b.pos[1], t),
@@ -163,6 +189,16 @@ function walkAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): number {
  */
 const captureLock = { held: false };
 
+/**
+ * What the rig knows that the lens needs: the distance from the camera to the
+ * current subject. The depth-of-field effect reads it every frame, so focus
+ * tracks the push-ins automatically — tight on the referral key, the room
+ * behind it softens; pull back for a transit and everything sharpens up.
+ * A module-level channel rather than context because both readers live inside
+ * useFrame, where a React re-render per scroll tick is the wrong currency.
+ */
+const rigState = { focus: 10 };
+
 function Rig({ progress }: { progress: MotionValue<number> }) {
   const target = useRef(new THREE.Vector3());
   const aim = useRef(new THREE.Vector3());
@@ -187,6 +223,7 @@ function Rig({ progress }: { progress: MotionValue<number> }) {
     look.current.lerp(aim.current, k);
     camera.position.copy(pos.current);
     camera.lookAt(look.current);
+    rigState.focus = pos.current.distanceTo(look.current);
 
     const cam = camera as THREE.PerspectiveCamera;
     if (Math.abs(cam.fov - fov) > 0.01) {
@@ -195,6 +232,29 @@ function Rig({ progress }: { progress: MotionValue<number> }) {
     }
   });
   return null;
+}
+
+/**
+ * Depth of field that follows the walk.
+ *
+ * The focus plane is the rig's current subject distance, eased so a scrub
+ * never snaps the lens. The focus RANGE scales with distance — tight shots get
+ * a shallow plane that melts the room behind the referral key; wide transits
+ * get a deep one, so the effect reads as a photographer pulling focus rather
+ * than a blur filter switching on. This is the second half of what makes the
+ * push-ins feel operated: the easing gives the camera weight, the focus gives
+ * it attention.
+ */
+function CinematicDof() {
+  const ref = useRef<DepthOfFieldEffect>(null);
+  useFrame(() => {
+    const effect = ref.current;
+    if (!effect) return;
+    const coc = effect.cocMaterial;
+    coc.worldFocusDistance = THREE.MathUtils.lerp(coc.worldFocusDistance || rigState.focus, rigState.focus, 0.14);
+    coc.worldFocusRange = Math.max(2.4, coc.worldFocusDistance * 0.9);
+  });
+  return <DepthOfField ref={ref} focusDistance={0.025} focalLength={0.05} bokehScale={2.4} />;
 }
 
 /** Sun/moon that warms as the home comes alive. */
@@ -300,6 +360,16 @@ interface ChapterCopy {
   catalogueRoom?: Room;
   accent?: string;
   label: "BUILT AND FUNCTIONING" | "INTERACTIVE CONCEPT" | "FUTURE HYPOTHESIS";
+  /**
+   * The world-space fixture this chapter is ABOUT — the referral key, the Move
+   * Record core, the router LED. When present (and on a screen wide enough),
+   * the caption stops being a plate parked in the corner and anchors to the
+   * projected screen position of this point: a dot on the object, a line, and
+   * the words fanning out beside it. The card in the corner was legible but
+   * disembodied — nothing on screen said which thing in the room the sentence
+   * was describing.
+   */
+  subject?: [number, number, number];
 }
 
 const CHAPTERS: ChapterCopy[] = [
@@ -314,6 +384,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.065, 0.209],
     room: "Garage · The handoff",
+    subject: [-18.35, 1.4, 3.15],
     catalogueRoom: "garage",
     title: "One move can begin in several places at once",
     body: "An agent refers a client. A brokerage uploads a spreadsheet. The customer fills the form herself. Three sources, three versions, and no two agree on the move date.",
@@ -324,6 +395,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.169, 0.308],
     room: "Foyer · The Move Record",
+    subject: [-9, 2.05, 1.4],
     catalogueRoom: "foyer",
     title: "One move. Every source preserved. Every decision explainable.",
     body: "The conflicting records hang unresolved — amber, because a disagreement needs judgement, not an error message. A named concierge approves one canonical value, and only then does the record turn verified.",
@@ -334,6 +406,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.3535, 0.49],
     room: "Living room · Connectivity",
+    subject: [-0.05, 0.86, -3.8],
     catalogueRoom: "living",
     title: "The router finds the line",
     body: "Internet and television are requested against the confirmed address. A small green blink on the console is the tell that a service actually arrived — not that a light was switched on.",
@@ -344,6 +417,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.45, 0.60],
     room: "Kitchen · Essential utilities",
+    subject: [5.0, 1.05, -2.2],
     catalogueRoom: "kitchen",
     title: "The services nobody notices until they are missing",
     body: "Electricity reaches the pendants, water reaches the tap. The house stops being an architectural shell and becomes somewhere you can live.",
@@ -354,6 +428,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.56, 0.72],
     room: "Utility room · Home systems",
+    subject: [11.6, 1.28, -3.45],
     catalogueRoom: "utility",
     title: "The last circuit is requested",
     body: "Laundry, home protection, warranty — the systems that run underneath a home. This is the request that goes out last, which is why it is the one the provider's silence will catch.",
@@ -364,6 +439,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.268, 0.3935],
     room: "Entry · Security",
+    subject: [-6.38, 2.11, 5.62],
     title: "Protection is a decision, not a default",
     body: "Security interest is conditional and price-sensitive. The system records that as a conditional interest rather than an order — AI may explain the options, it may not enrol anyone.",
     service: "Security · Home protection",
@@ -373,6 +449,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.68, 0.85],
     room: "The silence",
+    subject: [11.6, 1.28, -3.45],
     title: "The provider created the order. The response never arrived.",
     body: "The utility circuit stalls half-lit. Not red, not failed — UNKNOWN. A blind retry here would enrol this household twice at a real utility, so the system refuses and schedules reconciliation instead.",
     service: "OUTCOME_UNKNOWN · Blind retry blocked",
@@ -381,6 +458,10 @@ const CHAPTERS: ChapterCopy[] = [
   },
   {
     range: [0.81, 0.938],
+    // No subject on purpose: recovery's shot is the pull-back down the whole
+    // house, and its "subject" is the length of the room. An anchor here
+    // pinned the card to empty mid-air in the centre of the widest frame in
+    // the film — the lower third is the right home for a wide shot's caption.
     room: "Recovery",
     title: "Ask the provider. Finish the light.",
     body: "Reconciliation finds the order that existed all along. The stalled circuit completes and the entry sensor settles verified. One order. Never two. Every transition in the audit trail.",
@@ -405,7 +486,127 @@ const LABEL_STYLE: Record<ChapterCopy["label"], string> = {
   "FUTURE HYPOTHESIS": SERVICE.solar,
 };
 
-function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: ChapterCopy }) {
+/*
+  The bridge between the walk and the words.
+
+  The projector (inside the Canvas, where the camera lives) writes the active
+  chapter's subject as screen percentages; the caption cards (DOM, outside the
+  Canvas) read them as motion values. Module-level because both ends run per
+  frame — a React context would re-render the tree at scroll rate to move a
+  dot.
+*/
+const anchor = {
+  x: motionValue(50),
+  y: motionValue(55),
+  /**
+   * Index of the chapter that owns the anchor this frame, or −1 when no
+   * subject is actually on screen. Ownership is what stops two crossfading
+   * captions stacking on one dot, and what sends a caption back to the
+   * lower-third plate the moment its subject leaves the frustum — a card
+   * pointing at a wall the subject is behind was the first thing the
+   * screenshot pass caught.
+   */
+  owner: motionValue(-1),
+};
+
+function SubjectProjector({ progress }: { progress: MotionValue<number> }) {
+  const v = useRef(new THREE.Vector3());
+  const vv = useRef(new THREE.Vector3());
+  useFrame(({ camera }) => {
+    const p = progress.get();
+    const candidates = CHAPTERS.filter(
+      (c) => c.subject && p >= c.range[0] && p <= c.range[1],
+    );
+    // Chapters overlap at their edges by design; the one whose midpoint is
+    // nearest owns the anchor, so a crossfade hands the dot over exactly once.
+    const c = candidates.sort(
+      (a, b) =>
+        Math.abs((a.range[0] + a.range[1]) / 2 - p) - Math.abs((b.range[0] + b.range[1]) / 2 - p),
+    )[0];
+    if (!c?.subject) {
+      anchor.owner.set(-1);
+      return;
+    }
+    /*
+      In front of the lens, tested in VIEW space — NDC alone cannot answer
+      this. A point behind the camera divides by a negative w on projection,
+      which can flip it back inside ±1 and pin a caption to a subject the
+      viewer is walking away from.
+    */
+    vv.current.set(...c.subject).applyMatrix4(camera.matrixWorldInverse);
+    if (vv.current.z > -0.5) {
+      anchor.owner.set(-1);
+      return;
+    }
+    v.current.set(...c.subject).project(camera);
+    /*
+      And in the CENTRE of the frame, not merely inside the frustum. The first
+      screenshot pass caught the foyer caption anchored to a garage wall: the
+      Move Record core sat behind that wall, geometrically inside the frustum,
+      and a projection test cannot see occlusion. But the walk is authored so
+      that every chapter's subject is centre-frame when its beat peaks — so
+      "near the middle" is both the occlusion heuristic and the film grammar:
+      the dot lights up when the camera has arrived, and the caption rides the
+      lower third while it is still travelling.
+    */
+    if (Math.abs(v.current.x) > 0.6 || Math.abs(v.current.y) > 0.72) {
+      anchor.owner.set(-1);
+      return;
+    }
+    /*
+      Clamped into the frame's safe area rather than allowed to ride the exact
+      projection: the dot should sit ON the subject when it can, but a subject
+      near the frame edge must not drag the card off screen. The damped rig
+      makes the raw projection smooth already; the extra lerp keeps the
+      hand-over between chapters from snapping.
+    */
+    const tx = THREE.MathUtils.clamp(((v.current.x + 1) / 2) * 100, 7, 60);
+    const ty = THREE.MathUtils.clamp(((1 - v.current.y) / 2) * 100, 10, 52);
+    anchor.x.set(THREE.MathUtils.lerp(anchor.x.get(), tx, 0.16));
+    anchor.y.set(THREE.MathUtils.lerp(anchor.y.get(), ty, 0.16));
+    anchor.owner.set(CHAPTERS.indexOf(c));
+  });
+  return null;
+}
+
+/** The words, fanning out of the subject one at a time. */
+function FannedTitle({ title, active }: { title: string; active: boolean }) {
+  return (
+    <motion.h2
+      className="mt-2.5 text-xl font-semibold leading-[1.18] tracking-tight text-white sm:text-[1.6rem]"
+      initial={false}
+      animate={active ? "in" : "out"}
+      variants={{ in: { transition: { staggerChildren: 0.045, delayChildren: 0.1 } }, out: {} }}
+    >
+      {title.split(" ").map((word, i) => (
+        <motion.span
+          key={`${word}-${i}`}
+          className="inline-block whitespace-pre"
+          variants={{
+            in: { opacity: 1, y: 0, filter: "blur(0px)" },
+            out: { opacity: 0, y: 10, filter: "blur(6px)" },
+          }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {word}
+          {" "}
+        </motion.span>
+      ))}
+    </motion.h2>
+  );
+}
+
+function ChapterCard({
+  progress,
+  c,
+  index,
+  anchored,
+}: {
+  progress: MotionValue<number>;
+  c: ChapterCopy;
+  index: number;
+  anchored: boolean;
+}) {
   const [a, b] = c.range;
   /*
     The bands tile the scroll and overlap at their edges, so one chapter is
@@ -420,6 +621,63 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
   */
   const opacity = useTransform(progress, [a, a + 0.02, b - 0.02, b], [0, 1, 1, 0]);
   const y = useTransform(progress, [a, b], [22, -22]);
+
+  // Word-level animation needs a boolean, not a continuous value: the fan-out
+  // is a performance that plays once per arrival, not a scrubbed property.
+  const [active, setActive] = useState(false);
+  useMotionValueEvent(progress, "change", (p) => {
+    const inside = p > a + 0.008 && p < b - 0.008;
+    if (inside !== active) setActive(inside);
+  });
+
+  // Anchored only while this chapter owns the projected point — see `anchor`.
+  const [owns, setOwns] = useState(false);
+  useMotionValueEvent(anchor.owner, "change", (o) => {
+    const mine = o === index;
+    if (mine !== owns) setOwns(mine);
+  });
+
+  const left = useTransform(anchor.x, (v) => `${v}%`);
+  const top = useTransform(anchor.y, (v) => `${v}%`);
+
+  /*
+    Two placements, one card.
+
+    Anchored (desktop, chapter with a subject): the card grows out of the
+    projected point — dot on the fixture, short stem, then the plate, with the
+    whole cluster scaling up from the anchor corner so it visibly comes FROM
+    the thing it describes. Fallback (mobile, arrival, closing): the original
+    lower-third plate, which remains the right answer when the frame is small
+    or the subject is the whole house.
+  */
+  if (anchored && c.subject && owns) {
+    return (
+      <motion.div style={{ opacity, left, top }} className="pointer-events-none absolute">
+        <span
+          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            width: 9,
+            height: 9,
+            background: c.accent ?? "#fff",
+            boxShadow: `0 0 12px 2px ${c.accent ?? "#fff"}66`,
+          }}
+        />
+        <span
+          className="absolute left-0 top-0 w-px origin-top"
+          style={{ height: 26, background: `linear-gradient(${c.accent ?? "#fff"}, transparent)` }}
+        />
+        <motion.div
+          initial={false}
+          animate={active ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0.4 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-8 w-[24rem] max-w-[38vw] origin-top-left rounded-xl px-5 py-4 backdrop-blur-[3px]"
+          style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.84), rgba(10,14,20,0.94))" }}
+        >
+          <CardBody c={c} active={active} />
+        </motion.div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -436,48 +694,55 @@ function ChapterCard({ progress, c }: { progress: MotionValue<number>; c: Chapte
         className="max-w-md rounded-xl px-5 py-4 backdrop-blur-[3px]"
         style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.84), rgba(10,14,20,0.94))" }}
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          <span
-            className="whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
-            style={{ background: `${LABEL_STYLE[c.label]}22`, color: LABEL_STYLE[c.label] }}
-          >
-            {c.label}
-          </span>
-          <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
-            {c.room}
-          </span>
-        </div>
-        <h2 className="mt-2.5 text-xl font-semibold leading-[1.18] tracking-tight text-white sm:text-[1.6rem]">
-          {c.title}
-        </h2>
-        <p className="mt-2.5 text-[13px] leading-relaxed text-white/70 sm:text-sm">{c.body}</p>
-        {c.service && (
-          <div
-            className="mt-4 inline-flex items-center gap-2 border-l-2 pl-3 text-xs font-medium tracking-wide"
-            style={{ borderColor: c.accent, color: "rgba(255,255,255,0.8)" }}
-          >
-            {c.service}
-          </div>
-        )}
-        {/*
-          The services Utility Connect actually connects in this room, read from
-          the catalogue rather than typed into the caption. Set quieter than the
-          narrative line because it is reference, not story — but present in
-          every room, so the film covers all eighteen offered services instead
-          of the six that happened to look good on screen.
-        */}
-        {c.catalogueRoom && (
-          <div className="mt-3 border-t border-white/10 pt-2.5">
-            <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/40">
-              Connected here
-            </span>
-            <p className="mt-1 text-[11px] leading-relaxed text-white/60">
-              {roomServiceLine(c.catalogueRoom)}
-            </p>
-          </div>
-        )}
+        <CardBody c={c} active={active} />
       </div>
     </motion.div>
+  );
+}
+
+/** One caption's content — shared by both placements so they cannot drift. */
+function CardBody({ c, active }: { c: ChapterCopy; active: boolean }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        <span
+          className="whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
+          style={{ background: `${LABEL_STYLE[c.label]}22`, color: LABEL_STYLE[c.label] }}
+        >
+          {c.label}
+        </span>
+        <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
+          {c.room}
+        </span>
+      </div>
+      <FannedTitle title={c.title} active={active} />
+      <p className="mt-2.5 text-[13px] leading-relaxed text-white/70 sm:text-sm">{c.body}</p>
+      {c.service && (
+        <div
+          className="mt-4 inline-flex items-center gap-2 border-l-2 pl-3 text-xs font-medium tracking-wide"
+          style={{ borderColor: c.accent, color: "rgba(255,255,255,0.8)" }}
+        >
+          {c.service}
+        </div>
+      )}
+      {/*
+        The services Utility Connect actually connects in this room, read from
+        the catalogue rather than typed into the caption. Set quieter than the
+        narrative line because it is reference, not story — but present in
+        every room, so the film covers all eighteen offered services instead
+        of the six that happened to look good on screen.
+      */}
+      {c.catalogueRoom && (
+        <div className="mt-3 border-t border-white/10 pt-2.5">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/40">
+            Connected here
+          </span>
+          <p className="mt-1 text-[11px] leading-relaxed text-white/60">
+            {roomServiceLine(c.catalogueRoom)}
+          </p>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -493,6 +758,12 @@ export function LivingHome() {
   const bar = useTransform(scrollYProgress, [0, 1], [0, 1]);
   const hintOpacity = useTransform(scrollYProgress, [0, 0.025], [1, 0]);
   const hintShow = useTransform(scrollYProgress, (v) => (v > 0.035 ? "none" : "flex"));
+  /*
+    Subject-anchored captions need room beside the subject; below ~768px the
+    card would cover the very thing its dot points at, so phones keep the
+    lower-third plate.
+  */
+  const [anchored, setAnchored] = useState(false);
 
   useEffect(() => {
     try {
@@ -501,6 +772,11 @@ export function LivingHome() {
     } catch {
       setWebgl(false);
     }
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setAnchored(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
   }, []);
 
   if (reduce || !webgl) return <StaticChapters />;
@@ -634,16 +910,22 @@ export function LivingHome() {
           /*
             Tone mapping is the difference between a render that looks like a
             game and one that looks photographed. Three.js defaults to none,
-            which clips highlights hard and leaves midtones flat — the reason
-            every previous pass read as "3D" rather than as a photograph of a
-            room. ACES Filmic rolls the highlights off the way film does, so
-            the pendants bloom into warmth instead of blowing to white, and the
-            exposure lift keeps the architectural surfaces reading light.
+            which clips highlights hard and leaves midtones flat. ACES Filmic
+            was the previous answer; AgX replaces it because it handles the
+            exact failure ACES shows in this scene — saturated emissives (the
+            amber core, the cyan router LED) skewing hue as they brighten, and
+            sunlit plaster clipping to chalk. AgX is Blender 4's default view
+            transform for the same reason: it desaturates into white the way
+            over-exposed film does, which is most of what "photographed"
+            means. It meters darker than ACES, hence the exposure lift.
           */
           gl={{
             antialias: true,
-            toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 0.78,
+            toneMapping: THREE.AgXToneMapping,
+            // Metered against the two extremes: the security close-up, which
+            // frames mostly glazing and blows the sky out above ~1.15, and
+            // the recovery interior, which goes muddy below ~1.0.
+            toneMappingExposure: 1.08,
             /*
               Development only, and deliberately not in production.
 
@@ -659,8 +941,34 @@ export function LivingHome() {
           }}
           style={{ position: "absolute", inset: 0 }}
         >
-          <color attach="background" args={["#c3d2e2"]} />
+          {/*
+            A physical sky instead of a flat hex. The background colour was the
+            quietest fake in the frame: real sky is a gradient that brightens
+            toward the sun and pales at the horizon, and every arrival and
+            closing shot holds a third of it. The dome uses the same sun
+            direction the shadows come from, so the bright quarter of the sky
+            sits behind the light — the one relationship a viewer's eye checks
+            without knowing it is checking.
+          */}
+          <Sky
+            distance={450}
+            sunPosition={GI_SUN_POSITION as unknown as [number, number, number]}
+            turbidity={7.5}
+            rayleigh={1.6}
+            mieCoefficient={0.004}
+            mieDirectionalG={0.85}
+          />
           <fog attach="fog" args={["#cfdae7", 55, 170]} />
+          {/*
+            No PCSS, and the absence is a finding rather than an oversight.
+            drei's <SoftShadows> injects a chunk that calls unpackRGBAToDepth
+            inside shadowmap_pars_fragment — but three r155+ reads shadow maps
+            from real depth textures, the RGBA-packed path is gone from that
+            chunk, and the injected shader fails to compile on every standard
+            material in the scene (verified: Shader Error 0, VALIDATE_STATUS
+            false, on this exact build). PCFSoft at 4096 with a tight frustum
+            is the working ceiling for penumbra quality on this three version.
+          */}
 
           {/*
             A dusk environment. Cool sky above, warm bounce at floor level, and
@@ -696,62 +1004,57 @@ export function LivingHome() {
           <Residence progress={scrollYProgress} />
           <ContactShadows position={[0, 0.05, 0]} scale={54} resolution={1024} blur={2.5} opacity={0.32} far={8} color="#5a6470" frames={1} />
           <Rig progress={scrollYProgress} />
+          <SubjectProjector progress={scrollYProgress} />
 
-          <EffectComposer multisampling={0} enableNormalPass>
+          <EffectComposer multisampling={0}>
             {/*
               Ambient occlusion — the closest a browser gets to baked global
-              illumination without an offline bake.
+              illumination without an offline bake. What reads as "baked GI" in
+              an architectural render is mostly contact darkening: light does
+              not reach the inside of a corner, the gap under a counter, or the
+              seam where a stool meets the floor.
 
-              What reads as "baked GI" in an architectural render is mostly one
-              thing: contact darkening. Light does not reach the inside of a
-              corner, the gap under a counter, or the seam where a stool meets
-              the floor. Real-time lights cannot express that — they light
-              every exposed surface equally — which is precisely why earlier
-              passes looked flat no matter how the lights were tuned.
-
-              SSAO samples the depth and normal buffers to darken those
-              occluded creases each frame. Computed rather than pre-baked, so
-              it costs GPU time instead of a Blender pipeline, but it is the
-              same visual cue.
+              N8AO replaces the old SSAO pass. Same cue, better estimator — it
+              is a ground-truth-matched horizon-based AO with its own
+              denoiser, so it reads world-space distances (a 0.5m crease is a
+              0.5m crease at any camera distance) and does not shimmer on the
+              scrub the way the sampled SSAO did. It also needs no separate
+              normal pass, which pays for the depth-of-field pass below.
             */}
-            {/*
-              Radius back to 0.11 and intensity to 18. These had been cut to
-              0.06/7 while the scene was over-exposed, when the occlusion was
-              reading as grime — but the real problem then was the exposure, and
-              with that fixed the near-zero setting just made every junction
-              between a wall and a floor look like a decal. Contact darkening is
-              most of what tells the eye two surfaces are touching.
-            */}
-            <SSAO
-              blendFunction={BlendFunction.MULTIPLY}
-              samples={24}
-              radius={0.11}
-              intensity={18}
-              luminanceInfluence={0.6}
-              worldDistanceThreshold={12}
-              worldDistanceFalloff={2}
-              worldProximityThreshold={2}
-              worldProximityFalloff={1}
-            />
+            <N8AO aoRadius={0.55} distanceFalloff={1} intensity={3.4} quality="medium" halfRes />
+            <CinematicDof />
             <Bloom intensity={0.62} luminanceThreshold={0.8} luminanceSmoothing={0.4} kernelSize={KernelSize.LARGE} mipmapBlur />
             <Vignette eskil={false} offset={0.32} darkness={0.42} />
           </EffectComposer>
         </Canvas>
 
-        {CHAPTERS.map((c) => (
-          <ChapterCard key={c.range[0]} progress={scrollYProgress} c={c} />
-        ))}
+        {/*
+          The letterbox. A constant pair of slim bars, not a scroll-driven
+          performance: the widescreen crop is the single cheapest signal that
+          what is playing is a film rather than a viewport, and a bar that
+          animated its own height would spend that credibility on a gimmick.
+          The captions render above the bars — subtitles sit on the letterbox,
+          which is exactly where a viewer's eye expects words.
+        */}
+        <div aria-hidden data-letterbox className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[4svh] bg-black/90" />
+        <div aria-hidden data-letterbox className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[4svh] bg-black/90" />
+
+        <div className="absolute inset-0 z-20">
+          {CHAPTERS.map((c, i) => (
+            <ChapterCard key={c.range[0]} progress={scrollYProgress} c={c} index={i} anchored={anchored} />
+          ))}
+        </div>
 
         <motion.div
           style={{ opacity: hintOpacity, display: hintShow }}
-          className="pointer-events-none absolute inset-x-0 bottom-7 justify-center"
+          className="pointer-events-none absolute inset-x-0 bottom-12 z-20 justify-center"
         >
           <span className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/45">
             scroll to enter
           </span>
         </motion.div>
 
-        <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/10">
+        <div className="absolute inset-x-0 bottom-0 z-20 h-[2px] bg-white/10">
           <motion.div style={{ scaleX: bar, transformOrigin: "left" }} className="h-full">
             <div className="h-full w-full" style={{ background: SERVICE.verified }} />
           </motion.div>
