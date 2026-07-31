@@ -220,6 +220,14 @@ body {
   }
 }
 
+/* Text selection carries the brand. The one place a visitor "touches" the
+   page's surface directly, and the default blue is the only remaining stock
+   colour on the site. Dark ink on the brand cyan clears AA comfortably. */
+::selection {
+  background: rgba(0, 135, 181, 0.85);
+  color: #04070b;
+}
+
 /* ── Accessibility preferences ────────────────────────────────────────────
    Set by AccessibilityMenu as attributes on <html>, so the stylesheet does the
    work rather than a script reaching into elements. Nothing here overlays or

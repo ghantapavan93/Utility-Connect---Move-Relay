@@ -16,7 +16,15 @@ import { RouteDistinction } from "@/components/nav/RouteDistinction";
  */
 export default function StoryPage() {
   return (
-    <main style={{ background: "#0a0f15" }}>
+    <main className="relative" style={{ background: "#0a0f15" }}>
+      {/*
+        The aurora joins after the film's own visuals end — it sits behind
+        everything, and the LivingHome cinematic paints over it entirely, so
+        the drift only becomes visible exactly where the page used to go flat:
+        the live-run act and the closing.
+      */}
+      <div className="cine-aurora" aria-hidden />
+      <div className="relative" style={{ zIndex: 1 }}>
       <LivingHome />
       {/*
         After the film, before the live run.
@@ -30,6 +38,7 @@ export default function StoryPage() {
       <RouteDistinction />
       <FailureLive />
       <Closing />
+      </div>
     </main>
   );
 }
