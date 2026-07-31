@@ -132,6 +132,16 @@ export async function runCaseAgent(input: {
   organizationId: string;
   moveId: string;
   model?: string;
+  /**
+   * Fired after each step is persisted, with exactly the record that was
+   * pushed. This is what lets the HTTP layer stream the investigation as it
+   * happens instead of replaying it afterwards — and the ordering guarantee
+   * matters: the callback runs after the INSERT, so a client that saw the
+   * event can always read the same row back. An observer of the run, never a
+   * participant: nothing about planning or authority consults it, and a
+   * throwing callback is the caller's bug, not a new agent failure mode.
+   */
+  onStep?: (step: AgentStepRecord) => void;
 }): Promise<AgentRun> {
   const ctx = { organizationId: input.organizationId, moveId: input.moveId };
   const model = input.model ?? "deterministic";
@@ -151,7 +161,7 @@ export async function runCaseAgent(input: {
     seq += 1;
     const call = await invokeTool(tool, args, ctx);
     await recordStep(run.id, seq, call, args);
-    steps.push({
+    const record: AgentStepRecord = {
       seq,
       tool: call.tool,
       authority: call.authority,
@@ -159,7 +169,9 @@ export async function runCaseAgent(input: {
       note: call.note ?? null,
       durationMs: call.durationMs,
       observation: call.outcome === "ok" ? (call.observation ?? null) : null,
-    });
+    };
+    steps.push(record);
+    input.onStep?.(record);
     return call;
   };
 

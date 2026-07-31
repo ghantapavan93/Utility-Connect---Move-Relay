@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 import { useStillness } from "@/lib/use-stillness";
 import { accentColor, accentInk, type Accent } from "@/lib/accents";
-import type { AgentRun } from "@/lib/agent/case-agent";
+import type { AgentRun, AgentStepRecord } from "@/lib/agent/case-agent";
 import type { AgentEvalMetrics } from "@/lib/agent/eval";
 import {
   stagesFor,
@@ -113,6 +113,8 @@ export default function MoveOperationsCopilot() {
   const [tools, setTools] = useState<RegistryTool[]>([]);
   const [evaluation, setEvaluation] = useState<EvalState>({ metrics: null, running: false });
   const [rawOpen, setRawOpen] = useState(false);
+  /* Cross-panel spotlight: hovering a stage lights its node in the boundary. */
+  const [hoveredTool, setHoveredTool] = useState<string | null>(null);
 
   /*
     Reload reconstructs, rather than forgets.
@@ -172,19 +174,87 @@ export default function MoveOperationsCopilot() {
     setDecided(null);
     setRun(null);
     try {
-      const response = await fetch("/api/v1/agent/runs", {
+      /*
+        The investigation arrives as it happens. Each NDJSON step event is
+        emitted after that step was persisted, so every stage the page draws
+        already exists as a row — the stream is a live echo of the database,
+        not a preview of it. The partial run carries only the steps so far;
+        everything conclusive (the decision package, the contract, the draft)
+        waits for the final `run` event, because a conclusion derived from
+        half an investigation would be exactly the overstatement the
+        narrative layer exists to prevent.
+      */
+      const response = await fetch("/api/v1/agent/runs?stream=1", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ moveId }),
       });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "The investigation failed.");
-      setRun(body);
+      if (!response.ok || !response.body) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "The investigation failed.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let final: AgentRun | null = null;
+      const liveSteps: AgentStepRecord[] = [];
+
+      const handle = (line: string) => {
+        if (!line.trim()) return;
+        const event = JSON.parse(line) as
+          | { type: "step"; step: AgentStepRecord }
+          | { type: "run"; run: AgentRun }
+          | { type: "error"; error: string };
+        if (event.type === "step") {
+          liveSteps.push(event.step);
+          setRun({
+            id: "",
+            state: "running",
+            goal: "next_safe_action",
+            proposal: null,
+            refusal: null,
+            summary: "",
+            steps: [...liveSteps],
+          });
+        } else if (event.type === "run") {
+          final = event.run;
+        } else {
+          throw new Error(event.error);
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) handle(line);
+      }
+      if (buffer.trim()) handle(buffer);
+
+      /*
+        The assertion is load-bearing, not decoration. `final` is written only
+        inside the `handle` closure, which TypeScript's flow analysis does not
+        track — so at this line it believes the value is still `null`, and the
+        guard below would narrow a plainly-annotated const to `never`. Casting
+        resets the analysis to what is actually true: the stream may or may not
+        have delivered its closing event.
+      */
+      const completed = final as AgentRun | null;
+      if (!completed) {
+        // The stream ended without its closing event: an investigation that
+        // did not complete, reported as one.
+        throw new Error("The investigation ended before it finished. Nothing below is conclusive.");
+      }
+      setRun(completed);
       const url = new URL(window.location.href);
-      url.searchParams.set("run", body.id);
+      url.searchParams.set("run", completed.id);
       window.history.replaceState(null, "", url);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setRun(null);
     } finally {
       setInvestigating(false);
     }
@@ -321,7 +391,15 @@ export default function MoveOperationsCopilot() {
   );
 
   return (
-    <main className="mx-auto min-w-0 max-w-6xl px-6 py-14">
+    <main className="relative min-h-dvh bg-[#04070b]">
+      {/*
+        The aurora, but no film grain: this is an operating surface, and grain
+        belongs to the cinematic pages. The light is what the glass panels
+        below diffuse — which is the specific job that earns them their blur.
+      */}
+      <div className="cine-aurora" aria-hidden />
+
+      <div className="relative mx-auto min-w-0 max-w-6xl px-6 py-14" style={{ zIndex: 1 }}>
       <Link href="/demo" className="text-sm" style={{ color: "var(--color-state-verified)" }}>
         ← Back to the demo
       </Link>
@@ -414,7 +492,7 @@ export default function MoveOperationsCopilot() {
 
         <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
           {/* ── Panel A: the case, in business language ── */}
-          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
+          <div className="cine-glass min-w-0 rounded-2xl p-4">
             <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("conflict") }}>
               The case
             </h3>
@@ -484,29 +562,29 @@ export default function MoveOperationsCopilot() {
           </div>
 
           {/* ── Panel B: the copilot at work ── */}
-          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: accentColor("internet", 0.25) }}>
+          <div className="cine-glass min-w-0 rounded-2xl p-4" style={{ borderColor: accentColor("internet", 0.3) }}>
             <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("internet") }}>
               The copilot
             </h3>
             <div className="mt-2">
-              <Investigation stages={stages} running={investigating} />
+              <Investigation stages={stages} running={investigating} onHoverTool={setHoveredTool} />
             </div>
           </div>
 
           {/* ── Panel C: the boundary, drawn for this run ── */}
-          <div className="min-w-0 rounded-2xl border p-4" style={{ borderColor: accentColor("security", 0.25) }}>
+          <div className="cine-glass min-w-0 rounded-2xl p-4" style={{ borderColor: accentColor("security", 0.3) }}>
             <h3 className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("security") }}>
               The control boundary
             </h3>
             <div className="mt-2">
-              <ControlBoundary run={run} />
+              <ControlBoundary run={run} highlightTool={hoveredTool} />
             </div>
           </div>
         </div>
       </section>
 
       {/* ════════════════ THE DECISION PACKAGE ════════════════ */}
-      {run && decision && (
+      {run && run.state !== "running" && decision && (
         <section aria-labelledby="package-heading" className="mt-14 min-w-0">
           <h2 id="package-heading" className="sr-only">
             The prepared decision
@@ -836,6 +914,7 @@ export default function MoveOperationsCopilot() {
           )}
         </section>
       )}
+      </div>
     </main>
   );
 }

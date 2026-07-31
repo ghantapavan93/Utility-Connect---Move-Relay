@@ -56,16 +56,78 @@ function StageIcon({ state }: { state: Stage["state"] }) {
   return <Circle {...props} />;
 }
 
+/**
+ * The run's time, as one bar.
+ *
+ * Every stage row already prints its milliseconds; this is the same persisted
+ * data given shape, because "the reads took 400ms and the refusal cost
+ * nothing" is a sentence about proportions, and proportions are what a list
+ * of numbers hides. Each segment is a real `durationMs` from `agent_steps` —
+ * nothing is interpolated, and a step whose duration was not recorded simply
+ * contributes no width rather than an invented one.
+ */
+function RunTiming({ stages }: { stages: Stage[] }) {
+  const timed = stages.filter((s) => s.durationMs !== null && s.durationMs > 0);
+  const total = timed.reduce((n, s) => n + (s.durationMs ?? 0), 0);
+  if (timed.length < 2 || total === 0) return null;
+
+  const tone: Record<Stage["state"], string> = {
+    completed: accentColor("internet", 0.75),
+    refused: accentColor("security", 0.85),
+    failed: accentColor("failed", 0.85),
+    running: accentColor("internet", 0.4),
+    queued: "rgba(255,255,255,0.15)",
+  };
+
+  return (
+    <figure className="mt-3 min-w-0">
+      <figcaption className="flex items-baseline justify-between text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--color-text-lo)" }}>
+        <span>Where the run&rsquo;s time went</span>
+        <span className="font-mono normal-case tracking-normal">{total}ms total</span>
+      </figcaption>
+      <div
+        className="mt-1.5 flex h-2 w-full overflow-hidden rounded-full"
+        role="img"
+        aria-label={`Run timing: ${timed.map((s) => `${s.label} ${s.durationMs}ms`).join(", ")}`}
+        style={{ background: "rgba(255,255,255,0.06)" }}
+      >
+        {timed.map((s, i) => (
+          <div
+            key={`${s.tool}-${i}`}
+            title={`${s.label} — ${s.durationMs}ms`}
+            style={{
+              width: `${((s.durationMs ?? 0) / total) * 100}%`,
+              background: tone[s.state],
+              // A hairline seam so adjacent same-tone segments stay countable.
+              boxShadow: "inset -1px 0 0 rgba(4,7,11,0.8)",
+              minWidth: 2,
+            }}
+          />
+        ))}
+      </div>
+    </figure>
+  );
+}
+
 export function Investigation({
   stages,
   running,
+  onHoverTool,
 }: {
   stages: Stage[];
   running: boolean;
+  /**
+   * Fired with the stage's tool on pointer-over and null on leave, so the
+   * boundary diagram beside this list can answer — the same panels-talk-to-
+   * each-other grammar the thesis's failure switch established. Optional and
+   * purely additive: with no listener the rows behave exactly as before.
+   */
+  onHoverTool?: (tool: string | null) => void;
 }) {
   const still = useStillness();
 
   return (
+    <>
     <ol className="min-w-0 space-y-1.5" aria-label="Investigation steps">
       {stages.map((stage, i) => {
         const accent = STATE_ACCENT[stage.state];
@@ -92,6 +154,8 @@ export function Investigation({
               borderColor: accentColor(accent, notable ? 0.45 : 0.2),
               background: notable ? accentColor(accent, 0.07) : "rgba(255,255,255,0.02)",
             }}
+            onMouseEnter={() => onHoverTool?.(stage.tool)}
+            onMouseLeave={() => onHoverTool?.(null)}
           >
             <div className="flex min-w-0 items-start gap-2.5">
               <span
@@ -171,5 +235,7 @@ export function Investigation({
         </li>
       )}
     </ol>
+    {!running && <RunTiming stages={stages} />}
+    </>
   );
 }
