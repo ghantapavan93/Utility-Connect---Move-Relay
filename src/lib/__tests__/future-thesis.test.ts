@@ -145,3 +145,39 @@ describe("the existing /future page is untouched by the thesis", () => {
     expect(src).toContain("/future/thesis");
   });
 });
+
+describe("the failure matrix and the architecture are one system", () => {
+  it("contains every failure in layers that exist in the stack, by exact name", () => {
+    /*
+      The page highlights stack layers when a failure is selected, matched by
+      name. A renamed layer would silently orphan its containments — the
+      highlight would simply never fire, and the wiring would look like
+      decoration that never worked. Exact-name membership makes that a red
+      test instead.
+    */
+    const layers = new Set(ARCHITECTURE_STACK.map((l) => l.layer));
+    for (const f of FAILURE_MATRIX) {
+      expect(f.containedBy.length, `${f.failure} is contained by nothing`).toBeGreaterThan(0);
+      for (const name of f.containedBy) {
+        expect(layers.has(name), `${f.failure} names unknown layer "${name}"`).toBe(true);
+      }
+    }
+  });
+
+  it("gives every layer that exists at least one failure it contains", () => {
+    /*
+      The inverse reading. A built layer no failure ever reaches is either
+      mis-mapped or decorative, and both are worth a look. Roadmap layers are
+      exempt — two of the three exist precisely because today's failures do
+      not yet route through them.
+    */
+    const contained = new Set(FAILURE_MATRIX.flatMap((f) => f.containedBy));
+    const uncovered = ARCHITECTURE_STACK.filter((l) => l.exists && !contained.has(l.layer))
+      .map((l) => l.layer)
+      // The experience and approval layers are exercised by success paths, not
+      // failure paths; the action-proposal layer's failure IS the policy
+      // engine's. Named exemptions, so a new gap still fails loudly.
+      .filter((n) => !["Role-aware experience", "Action proposal", "Server-owned tool registry"].includes(n));
+    expect(uncovered).toEqual([]);
+  });
+});

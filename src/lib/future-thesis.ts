@@ -70,7 +70,7 @@ const HORIZON_0: Capability[] = [
     problem: "A move described by three sources is three stories until something holds the canonical one.",
     scenario:
       "Partner API, CSV and the customer's own form each describe Maya's move. One record holds the verified state, every value keeps its source and verification tier, conflicts stay visible until a named person resolves them, and each audience sees only its own projection.",
-    smallestExperiment: "Already run: 575 tests against a real Postgres, three audience projections diffed live on /views.",
+    smallestExperiment: "Already run: 582 tests against a real Postgres, three audience projections diffed live on /views.",
     aiResponsibility: "None. The record is deterministic ground truth the AI reads through tools.",
     deterministicResponsibility: "Provenance, conflict detection, consent, projections, the append-only audit trail.",
     requiredData: ["field_versions with channel and verification", "auth_tuples", "consent_events", "audit_events"],
@@ -130,7 +130,7 @@ const HORIZON_0: Capability[] = [
     problem: "A safety claim that has never been attacked is a hope with a heading.",
     scenario:
       "Replay protection, stale-write handling, authorization boundaries, prompt-injection resistance and evidence grounding are each exercised by seeded attacks — in the suite and interactively — and each check was proven to discriminate by restoring the defect it exists to catch.",
-    smallestExperiment: "Already run: 575 tests, 54 browser specs, live SLOs computed from rows on /reliability.",
+    smallestExperiment: "Already run: 582 tests, 54 browser specs, live SLOs computed from rows on /reliability.",
     aiResponsibility: "Being the subject under attack.",
     deterministicResponsibility: "Every verdict, every metric, every refusal being counted.",
     requiredData: ["seeded eval tenants", "the audit trail the attacks leave behind"],
@@ -459,27 +459,37 @@ export interface FailureCase {
   failure: string;
   interfaceShows: string;
   systemResponse: string;
+  /**
+   * Which layers of the architecture stack contain this failure — the names
+   * must match `ARCHITECTURE_STACK` exactly, and a test enforces it. This is
+   * what turns two adjacent lists into one system: select a failure and the
+   * stack shows where it dies. A containment naming a roadmap layer is
+   * honest, not aspirational — the stack already marks each layer as exists
+   * or roadmap, so the reader sees precisely which parts of the contract are
+   * running today.
+   */
+  containedBy: string[];
 }
 
 export const FAILURE_MATRIX: FailureCase[] = [
-  { failure: "Model provider unavailable", interfaceShows: "AI assistance unavailable; domain workflow intact", systemResponse: "Deterministic fallback" },
-  { failure: "Model times out", interfaceShows: "No verdict reached", systemResponse: "Safe retry, or the briefing ships without generation" },
-  { failure: "Tool times out", interfaceShows: "Evidence incomplete", systemResponse: "Inconclusive — no consequential action" },
-  { failure: "Invalid structured output", interfaceShows: "Response could not be validated", systemResponse: "One repair attempt, then fallback" },
-  { failure: "Prompt injection", interfaceShows: "Untrusted instruction detected", systemResponse: "Treated as evidence, never as direction" },
-  { failure: "Cross-tenant request", interfaceShows: "Nothing — an indistinguishable denial", systemResponse: "No protected state disclosed" },
-  { failure: "Stale recommendation", interfaceShows: "Evidence changed after generation", systemResponse: "Invalidate and rerun" },
-  { failure: "Model recommends a forbidden action", interfaceShows: "Policy blocked, with the safe alternative", systemResponse: "Refusal recorded" },
-  { failure: "Provider state conflicts", interfaceShows: "Conflicting evidence", systemResponse: "Unknown preserved; escalate or reconcile" },
-  { failure: "Cost budget exceeded", interfaceShows: "Reduced model capability", systemResponse: "Smaller model or deterministic result" },
-  { failure: "Context too large", interfaceShows: "Omissions disclosed", systemResponse: "Retrieve relevant evidence; never silent truncation" },
-  { failure: "Local model unavailable", interfaceShows: "LOCAL PROVIDER UNAVAILABLE", systemResponse: "Deterministic or configured cloud provider" },
-  { failure: "Cloud model unavailable", interfaceShows: "Provider degradation", systemResponse: "Route per the allowed fallback policy" },
-  { failure: "Audit write fails", interfaceShows: "Result visible, evidence persistence failed", systemResponse: "Alert and retry; never falsely claim fully recorded" },
-  { failure: "Trace export fails", interfaceShows: "Nothing — business operation continues", systemResponse: "Buffer or retry telemetry" },
-  { failure: "Human approves an old version", interfaceShows: "Stale conflict", systemResponse: "Reject without overwriting newer state" },
-  { failure: "Duplicate agent request", interfaceShows: "The existing run", systemResponse: "Idempotent reconstruction" },
-  { failure: "Evaluation cannot complete", interfaceShows: "NO VERDICT", systemResponse: "Per-case inconclusive state, no aggregate score" },
+  { failure: "Model provider unavailable", interfaceShows: "AI assistance unavailable; domain workflow intact", systemResponse: "Deterministic fallback", containedBy: ["Model router"] },
+  { failure: "Model times out", interfaceShows: "No verdict reached", systemResponse: "Safe retry, or the briefing ships without generation", containedBy: ["Model router"] },
+  { failure: "Tool times out", interfaceShows: "Evidence incomplete", systemResponse: "Inconclusive — no consequential action", containedBy: ["Server-owned tool registry", "Evidence verifier"] },
+  { failure: "Invalid structured output", interfaceShows: "Response could not be validated", systemResponse: "One repair attempt, then fallback", containedBy: ["Structured output validator", "Model router"] },
+  { failure: "Prompt injection", interfaceShows: "Untrusted instruction detected", systemResponse: "Treated as evidence, never as direction", containedBy: ["Context assembler", "Policy engine"] },
+  { failure: "Cross-tenant request", interfaceShows: "Nothing — an indistinguishable denial", systemResponse: "No protected state disclosed", containedBy: ["Identity and relationship authorization"] },
+  { failure: "Stale recommendation", interfaceShows: "Evidence changed after generation", systemResponse: "Invalidate and rerun", containedBy: ["Evidence verifier", "Existing deterministic domain service"] },
+  { failure: "Model recommends a forbidden action", interfaceShows: "Policy blocked, with the safe alternative", systemResponse: "Refusal recorded", containedBy: ["Policy engine"] },
+  { failure: "Provider state conflicts", interfaceShows: "Conflicting evidence", systemResponse: "Unknown preserved; escalate or reconcile", containedBy: ["Existing deterministic domain service"] },
+  { failure: "Cost budget exceeded", interfaceShows: "Reduced model capability", systemResponse: "Smaller model or deterministic result", containedBy: ["Model router"] },
+  { failure: "Context too large", interfaceShows: "Omissions disclosed", systemResponse: "Retrieve relevant evidence; never silent truncation", containedBy: ["Context assembler"] },
+  { failure: "Local model unavailable", interfaceShows: "LOCAL PROVIDER UNAVAILABLE", systemResponse: "Deterministic or configured cloud provider", containedBy: ["Model router"] },
+  { failure: "Cloud model unavailable", interfaceShows: "Provider degradation", systemResponse: "Route per the allowed fallback policy", containedBy: ["Model router"] },
+  { failure: "Audit write fails", interfaceShows: "Result visible, evidence persistence failed", systemResponse: "Alert and retry; never falsely claim fully recorded", containedBy: ["Backend verification"] },
+  { failure: "Trace export fails", interfaceShows: "Nothing — business operation continues", systemResponse: "Buffer or retry telemetry", containedBy: ["Backend verification"] },
+  { failure: "Human approves an old version", interfaceShows: "Stale conflict", systemResponse: "Reject without overwriting newer state", containedBy: ["Named approval or automation policy", "Existing deterministic domain service"] },
+  { failure: "Duplicate agent request", interfaceShows: "The existing run", systemResponse: "Idempotent reconstruction", containedBy: ["AI experience API"] },
+  { failure: "Evaluation cannot complete", interfaceShows: "NO VERDICT", systemResponse: "Per-case inconclusive state, no aggregate score", containedBy: ["Evidence verifier"] },
 ];
 
 export const OBSERVABILITY_SIGNALS: Array<{ signal: string; why: string }> = [
