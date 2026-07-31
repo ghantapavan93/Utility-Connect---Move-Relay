@@ -5,7 +5,17 @@ import { useFrame } from "@react-three/fiber";
 import type { MotionValue } from "framer-motion";
 import * as THREE from "three";
 import { MATERIAL, SERVICE, LIGHT } from "./palette";
-import { DiningTable, Chair, Stool, CoffeeTable, Shelving, Planter, Artwork, Rug, Sofa, Sideboard, Ottoman, FloorLamp, Basket, SideTable } from "./Furniture";
+import { Shelving, Artwork, Rug, Sideboard, Ottoman, FloorLamp, Basket } from "./Furniture";
+import {
+  RealArmChair,
+  RealCoffeeTable,
+  RealDiningChair,
+  RealDiningTable,
+  RealPlant,
+  RealSideTable,
+  RealSofa,
+  RealStool,
+} from "./RealFurniture";
 import { ServiceFixtures } from "./ServiceFixtures";
 import { Vegetation } from "./Vegetation";
 import { applyGIBake } from "./gi-apply";
@@ -200,7 +210,14 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
   const root = useRef<THREE.Group>(null);
 
   // Real PBR map sets, generated procedurally and shared across surfaces.
-  const oak = useMemo(() => oakMaps([4, 4]), []);
+  /*
+    12, not 4. The repeat was tuned for the procedural grain, which had plank
+    seams drawn into it at 1/5 of the tile; the photographed floor covers
+    roughly two metres of real planks per tile, so at 4 repeats across a 9m
+    slab every plank rendered half a metre wide — lumber that exists only in
+    gymnasiums. 12 puts the photographed planks back at floorboard width.
+  */
+  const oak = useMemo(() => oakMaps([12, 12]), []);
   const limestone = useMemo(() => limestoneMaps([10, 4]), []);
   const walnut = useMemo(() => walnutMaps([2, 2]), []);
   const stone = useMemo(() => stoneMaps([2, 1]), []);
@@ -607,7 +624,10 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         <planeGeometry args={[4.3, 4]} />
         <meshStandardMaterial color={MATERIAL.linen} roughness={0.98} />
       </mesh>
-      <Sofa position={[-3.6, FURNITURE_Y, -3.35]} />
+      <RealSofa position={[-3.6, FURNITURE_Y, -3.35]} />
+      {/* An arm chair closes the seating group toward the lamp — the scanned
+          set finally has a second seat, which every real living room does. */}
+      <RealArmChair position={[-5.15, FURNITURE_Y, -1.75]} rotationY={2.35} />
       {/*
         Floor density.
 
@@ -625,7 +645,7 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         standing in the shot.
       */}
       <FloorLamp position={[-5.45, FURNITURE_Y, -3.5]} />
-      <SideTable position={[-1.95, FURNITURE_Y, -3.25]} />
+      <RealSideTable position={[-1.95, FURNITURE_Y, -3.25]} />
       <Ottoman position={[-1.75, FURNITURE_Y, -2.35]} rotation={0.22} />
       <Basket position={[-1.88, FURNITURE_Y, -3.78]} scale={0.95} />
       {/*
@@ -1072,36 +1092,52 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
       {/* Foyer: a runner, a planter, and art to look at on approach */}
       <Rug position={[-9, RUG_Y, 3.2]} size={[2.2, 5.5]} color="#cdc4b6" />
-      <Planter position={[-11.4, FURNITURE_Y, 0.6]} scale={1.1} />
+      <RealPlant position={[-11.4, FURNITURE_Y, 0.6]} scale={1.1} variant="anthurium" />
       <Artwork position={[-9, 1.75, -5.7]} w={1.5} h={1.05} tone="#7f8f93" />
 
       {/* Living: coffee table on the rug, shelving on the back wall, planting */}
-      <CoffeeTable position={[-3.4, FURNITURE_Y, -1.9]} />
+      <RealCoffeeTable position={[-3.4, FURNITURE_Y, -1.9]} />
       <Shelving position={[-7.6, FURNITURE_Y, -5.5]} />
       {/* Against the wall, not in the walking line — a planter parked in the
           circulation path becomes a green wall across every mid-house shot. */}
-      <Planter position={[-0.5, FURNITURE_Y, -5.1]} scale={0.9} />
+      <RealPlant position={[-0.5, FURNITURE_Y, -5.1]} scale={0.9} variant="calathea" />
       <Artwork position={[-4.6, 1.85, -5.72]} w={1.1} h={1.4} tone="#8a7f6c" />
 
       {/* Dining — the room between living and kitchen. Its absence was the
           dead zone the mid-house camera kept pointing into. */}
       <Rug position={[1.4, RUG_Y, -2.6]} size={[3.4, 2.6]} color="#c4bcae" />
-      <DiningTable position={[1.4, FURNITURE_Y, -2.6]} />
-      <Chair position={[0.55, FURNITURE_Y, -1.85]} rotation={Math.PI} />
-      <Chair position={[1.4, FURNITURE_Y, -1.85]} rotation={Math.PI} />
-      <Chair position={[2.25, FURNITURE_Y, -1.85]} rotation={Math.PI} />
-      <Chair position={[0.55, FURNITURE_Y, -3.35]} />
-      <Chair position={[1.4, FURNITURE_Y, -3.35]} />
-      <Chair position={[2.25, FURNITURE_Y, -3.35]} />
+      <RealDiningTable position={[1.4, FURNITURE_Y, -2.6]} />
+      {/*
+        Five on a circle, not six on a grid. The primitive table was
+        rectangular and its chairs sat in two ranks; the scanned table is
+        round, and ranked chairs around a round table read as a rehearsal
+        room. Five leaves the sixth seat open toward the corridor — which is
+        also where the camera walks, and a chair back to the lens at 1.2m
+        would have been the whole frame.
+      */}
+      {[0.55, 0.35, 0.5, 0.65, 0.45].map((jitter, i) => {
+        const angle = (i / 5) * Math.PI * 2 + Math.PI / 5 + (jitter - 0.5) * 0.07;
+        const cx = 1.4 + Math.cos(angle) * 1.08;
+        const cz = -2.6 + Math.sin(angle) * 1.08;
+        return (
+          <RealDiningChair
+            key={i}
+            position={[cx, FURNITURE_Y, cz]}
+            // Face the table's centre, with the same small human misalignment
+            // the jitter gives the spacing — nobody squares their chair.
+            rotation={Math.atan2(1.4 - cx, -2.6 - cz) + (jitter - 0.5) * 0.2}
+          />
+        );
+      })}
 
       {/* Kitchen: stools at the island */}
-      <Stool position={[4.1, FURNITURE_Y, -1.35]} />
-      <Stool position={[5.0, FURNITURE_Y, -1.35]} />
-      <Stool position={[5.9, FURNITURE_Y, -1.35]} />
+      <RealStool position={[4.1, FURNITURE_Y, -1.35]} />
+      <RealStool position={[5.0, FURNITURE_Y, -1.35]} />
+      <RealStool position={[5.9, FURNITURE_Y, -1.35]} />
 
       {/* Utility: a planter softens the hardest-working room, set back
           against the dividing wall so it never crosses the walk */}
-      <Planter position={[9.6, FURNITURE_Y, -4.6]} scale={0.8} />
+      <RealPlant position={[9.6, FURNITURE_Y, -4.6]} scale={0.8} variant="calathea" />
 
       {/* ── Courtyard glazing — the long sightline ───────────── */}
       <Glazing x={-2} z={5.9} width={16} />
