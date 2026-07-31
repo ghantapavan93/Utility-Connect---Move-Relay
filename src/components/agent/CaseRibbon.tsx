@@ -67,11 +67,8 @@ export function CaseRibbon({ facts }: { facts: CaseFacts }) {
   return (
     <section
       aria-label={`Selected case ${facts.reference}`}
-      className="min-w-0 rounded-2xl border p-4"
-      style={{
-        borderColor: accentColor(attention ? "conflict" : "verified", 0.35),
-        background: "rgba(255,255,255,0.02)",
-      }}
+      className="cine-glass min-w-0 rounded-2xl p-4"
+      style={{ borderColor: accentColor(attention ? "conflict" : "verified", 0.4) }}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-mono text-sm font-bold text-white">{facts.reference}</span>

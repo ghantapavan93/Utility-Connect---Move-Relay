@@ -160,6 +160,13 @@ export interface LaneItem {
   detail: string;
   /** Named rows or counts this rests on. Never prose alone. */
   evidence: string;
+  /**
+   * The audit event type the evidence line refers to, when it refers to one.
+   * The console uses it to make the line a control: click it and the move's
+   * timeline highlights the exact rows the count was made from — the same
+   * summary-to-material wiring the copilot's evidence rows already have.
+   */
+  eventType?: string;
   /** For `recommend` and `authority`: what to do next. */
   action?: string;
   /**
@@ -248,6 +255,7 @@ export function lanesFor(input: {
     items.push({
       id: "retry-blocked",
       lane: "automation",
+      eventType: "provider.retry.blocked",
       headline: `${plural(stats.duplicatesPrevented, "blind retry")} refused`,
       detail: "The provider was not contacted again while an outcome was unknown, so no second order exists.",
       evidence: `${stats.duplicatesPrevented} provider.retry.blocked audit events`,
@@ -258,6 +266,7 @@ export function lanesFor(input: {
     items.push({
       id: "reconciled",
       lane: "automation",
+      eventType: "provider.reconciliation.completed",
       headline: `${plural(stats.ordersRecovered, "provider order")} recovered`,
       detail: "Reconciliation asked the provider using the original operation identity and adopted what already existed.",
       evidence: `${stats.ordersRecovered} submissions in state reconciled`,

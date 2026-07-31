@@ -54,10 +54,13 @@ export function DecisionLanes({
   items,
   load,
   onAction,
+  onEvidence,
 }: {
   items: LaneItem[];
   load: LoadState;
   onAction?: (id: string) => void;
+  /** Fired with the item's audit event type when its evidence line is clicked. */
+  onEvidence?: (eventType: string) => void;
 }) {
   const still = useStillness();
 
@@ -128,9 +131,20 @@ export function DecisionLanes({
                         {item.detail}
                       </p>
 
-                      <p className="mt-2 font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
-                        {item.evidence}
-                      </p>
+                      {item.eventType && onEvidence ? (
+                        <button
+                          type="button"
+                          onClick={() => onEvidence(item.eventType!)}
+                          className="mt-2 block min-h-11 text-left font-mono text-[10px] underline decoration-dotted underline-offset-4"
+                          style={{ color: accentInk(lane.accent) }}
+                        >
+                          {item.evidence} — show the rows
+                        </button>
+                      ) : (
+                        <p className="mt-2 font-mono text-[10px]" style={{ color: "var(--color-text-lo)" }}>
+                          {item.evidence}
+                        </p>
+                      )}
 
                       {/*
                         Authority travels with the recommendation, never below

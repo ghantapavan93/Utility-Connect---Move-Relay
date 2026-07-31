@@ -111,8 +111,11 @@ export function DecisionPackageCard({
       initial={{ opacity: 0, y: still ? 0 : 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: still ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
-      className="min-w-0 rounded-2xl border p-5 sm:p-6"
-      style={{ borderColor: accentColor("security", 0.35), background: accentColor("security", 0.05) }}
+      className="cine-glass min-w-0 rounded-2xl p-5 sm:p-6"
+      style={{
+        borderColor: accentColor("security", 0.4),
+        boxShadow: `0 18px 60px -30px ${accentColor("security", 0.5)}`,
+      }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3

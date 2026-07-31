@@ -208,6 +208,22 @@ function DecisionSection({ d, index }: { d: Decision; index: number }) {
           >
             {d.proof}
           </p>
+
+          {/*
+            The proof names the index or the test; this is the same guarantee
+            exercised live, for the reader who will not open the repository.
+            A decision page whose evidence requires cloning it is arguing only
+            with people who already agree.
+          */}
+          {d.see && (
+            <a
+              href={d.see.href}
+              className="mt-3 inline-flex min-h-11 items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em]"
+              style={{ color: accentInk(d.accent) }}
+            >
+              {d.see.label} →
+            </a>
+          )}
         </div>
 
         <div className={`relative min-w-0 ${flip ? "lg:order-1" : "lg:order-2"}`}>

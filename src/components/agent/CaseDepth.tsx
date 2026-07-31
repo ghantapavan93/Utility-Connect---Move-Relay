@@ -193,17 +193,37 @@ export function ConsentLine({ consent }: { consent: ConsentDetail[] }) {
  * truncated silently would be the one place on this page where "what you see
  * is what was read" quietly stopped being true.
  */
-export function AuditTimeline({ trail }: { trail: AuditEntry[] }) {
+export function AuditTimeline({
+  trail,
+  highlightEvent,
+}: {
+  trail: AuditEntry[];
+  /** An event type to spotlight — the rows a lane's count was made from. */
+  highlightEvent?: string | null;
+}) {
   const [expanded, setExpanded] = useState(false);
   if (trail.length === 0) return null;
 
-  const shown = expanded ? trail : trail.slice(0, 6);
+  /*
+    A highlighted event must be visible even when it lives past the fold of
+    the six-entry preview — a spotlight pointing at a hidden row would read as
+    a claim with no referent.
+  */
+  const mustExpand =
+    !!highlightEvent && trail.slice(6).some((e) => e.event === highlightEvent);
+  const shown = expanded || mustExpand ? trail : trail.slice(0, 6);
 
   return (
     <div className="min-w-0">
       <ol className="min-w-0 space-y-0 border-l" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
-        {shown.map((entry, i) => (
-          <li key={`${entry.event}-${i}`} className="relative min-w-0 pb-3 pl-4 last:pb-0">
+        {shown.map((entry, i) => {
+          const lit = highlightEvent === entry.event;
+          return (
+          <li
+            key={`${entry.event}-${i}`}
+            className="relative min-w-0 rounded-lg pb-3 pl-4 last:pb-0"
+            style={lit ? { background: accentColor("conflict", 0.08), outline: `1px solid ${accentColor("conflict", 0.4)}` } : undefined}
+          >
             <span
               aria-hidden
               className="absolute -left-[3.5px] top-[7px] h-[7px] w-[7px] rounded-full"
@@ -222,7 +242,8 @@ export function AuditTimeline({ trail }: { trail: AuditEntry[] }) {
               {entry.at ? ` · ${new Date(entry.at).toLocaleString()}` : ""}
             </p>
           </li>
-        ))}
+          );
+        })}
       </ol>
       {trail.length > 6 && (
         <button

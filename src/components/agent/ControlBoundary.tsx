@@ -37,7 +37,14 @@ const LABEL_X = 60;
 const TOP = 28;
 const ROW = 44;
 
-export function ControlBoundary({ run }: { run: AgentRun | null }) {
+export function ControlBoundary({
+  run,
+  highlightTool,
+}: {
+  run: AgentRun | null;
+  /** A tool to spotlight — set by hovering the matching investigation stage. */
+  highlightTool?: string | null;
+}) {
   const still = useStillness();
 
   if (!run) {
@@ -91,9 +98,13 @@ export function ControlBoundary({ run }: { run: AgentRun | null }) {
         const y = TOP + i * ROW;
         const ok = s.outcome === "ok";
         const color = ok ? accentInk("internet") : accentInk("failed");
+        const lit = highlightTool === s.tool;
+        const faded = !!highlightTool && !lit;
         return (
-          <g key={`${s.tool}-${i}`}>
-            <circle cx={NODE_X} cy={y} r={5} fill={color} />
+          <g key={`${s.tool}-${i}`} opacity={faded ? 0.3 : 1}>
+            <circle cx={NODE_X} cy={y} r={lit ? 7 : 5} fill={color}>
+              {lit && <title>{stageLabel(s.tool)}</title>}
+            </circle>
             <text x={LABEL_X} y={y - 2} fontSize={11} fontWeight={600} fill="rgba(255,255,255,0.88)">
               {stageLabel(s.tool)}
             </text>
@@ -152,7 +163,7 @@ export function ControlBoundary({ run }: { run: AgentRun | null }) {
 
       {/* ── The refused branch: reaches the line and is severed ── */}
       {refused && (
-        <>
+        <g opacity={highlightTool && highlightTool !== refused.tool ? 0.3 : 1}>
           <motion.path
             d={`M ${W - 70} ${decisionY} L ${W - 70} ${boundaryY - 8}`}
             fill="none"
@@ -170,7 +181,7 @@ export function ControlBoundary({ run }: { run: AgentRun | null }) {
           <text x={W - 70} y={decisionY - 12} fontSize={10} fontWeight={600} fill={accentInk("failed")} textAnchor="middle">
             refused
           </text>
-        </>
+        </g>
       )}
 
       {/* ── The boundary itself. Dashed, static, labelled. ── */}

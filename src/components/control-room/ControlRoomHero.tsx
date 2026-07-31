@@ -141,8 +141,8 @@ export function ControlRoomHero({
       {/* ---------------- the shift brief ---------------- */}
       <section
         aria-labelledby="brief-heading"
-        className="mt-6 min-w-0 rounded-2xl border p-5"
-        style={{ borderColor: accentColor("security", 0.28), background: accentColor("security", 0.04) }}
+        className="cine-glass mt-6 min-w-0 rounded-2xl p-5"
+        style={{ borderColor: accentColor("security", 0.35) }}
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="brief-heading" className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: accentInk("security") }}>

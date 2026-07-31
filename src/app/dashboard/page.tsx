@@ -79,6 +79,8 @@ export default function Dashboard() {
     everywhere else on this page: not read is not the same fact as empty.
   */
   const [auditTrail, setAuditTrail] = useState<AuditEntry[] | null>(null);
+  /* The audit event a lane's evidence line asked to see, or null. */
+  const [flashEvent, setFlashEvent] = useState<string | null>(null);
   const [projection, setProjection] = useState<ConciergeProjection | null>(null);
   const [batch, setBatch] = useState<BatchResult | null>(null);
   const [load, setLoad] = useState<LoadState>("loading");
@@ -269,7 +271,13 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="relative flex min-h-dvh">
+      {/*
+        The console gets the same drifting light as the rest of the system.
+        Quietly — no grain here; this is a working surface, and the aurora's
+        job is to give the glass panels above it something to diffuse.
+      */}
+      <div className="cine-aurora" aria-hidden />
       <AppSidebar />
 
       <div className="min-w-0 flex-1 overflow-x-hidden">
@@ -324,7 +332,18 @@ export default function Dashboard() {
           )}
 
           <div ref={lanesRef} className="mt-8 min-w-0">
-            <DecisionLanes items={lanes} load={load} onAction={onLaneAction} />
+            <DecisionLanes
+              items={lanes}
+              load={load}
+              onAction={onLaneAction}
+              /*
+                The evidence line becomes a control: "1 provider.retry.blocked
+                audit events" is a summary, and clicking it highlights the
+                exact rows in the timeline below that the count was made from.
+                Clicking again releases the spotlight.
+              */
+              onEvidence={(e) => setFlashEvent((cur) => (cur === e ? null : e))}
+            />
           </div>
 
           <div ref={batchRef} className="mt-8 min-w-0">
@@ -382,7 +401,7 @@ export default function Dashboard() {
                         No events recorded yet.
                       </p>
                     ) : (
-                      <AuditTimeline trail={auditTrail} />
+                      <AuditTimeline trail={auditTrail} highlightEvent={flashEvent} />
                     )}
                   </div>
                 </section>

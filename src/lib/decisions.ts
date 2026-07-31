@@ -29,6 +29,14 @@ export interface Decision {
   /** Why this is not the default choice. */
   unusual: string;
   proof: string;
+  /**
+   * Where to watch the decision hold, live. The proof string names the index
+   * or test; this names the page where the same guarantee is exercised in
+   * front of you — because "concurrent-merge.test.ts" is evidence only to
+   * someone willing to open the repository, and a decision worth defending
+   * should be demonstrable to someone who is not.
+   */
+  see?: { label: string; href: string };
   accent: Accent;
 }
 
@@ -52,6 +60,7 @@ export const DECISIONS: Decision[] = [
     unusual:
       "Most systems put this in the service layer, where it is easier to read and easier to bypass. Pushing it into a partial index means the guarantee survives code nobody on the team has written yet.",
     proof: "field_versions_one_canonical_idx · concurrent-merge.test.ts",
+    see: { label: "Race two merges on the dashboard", href: "/dashboard" },
     accent: "verified",
   },
   {
@@ -73,6 +82,7 @@ export const DECISIONS: Decision[] = [
     unusual:
       "The boundary is usually written in a prompt or a policy document. Here it is a column that cannot be null, which is the only version of the rule a language model cannot talk its way past.",
     proof: "canonical_requires_actor CHECK · verify-constraints.mjs",
+    see: { label: "Watch the copilot stop at the line", href: "/agent" },
     accent: "security",
   },
   {
@@ -97,6 +107,7 @@ export const DECISIONS: Decision[] = [
     unusual:
       "Two states is the norm: succeeded or failed. A third state that means 'ask them' costs a reconciliation job and a queue, and it is the only honest answer when the reply never arrived.",
     proof: "provider-submission.ts · fulfillment.test.ts · scenario.test.ts Act 3",
+    see: { label: "Lose the response yourself", href: "/theater" },
     accent: "unknown",
   },
   {
@@ -119,6 +130,7 @@ export const DECISIONS: Decision[] = [
     unusual:
       "Correctness that survives cache eviction is slower and duller than a lock, and it is the difference between a guarantee and a strong tendency.",
     proof: "provider_submissions_operation_key_idx · concurrent-provider.test.ts",
+    see: { label: "Replay a batch on the demo", href: "/demo" },
     accent: "electricity",
   },
   {
@@ -142,6 +154,7 @@ END; $$ LANGUAGE plpgsql;`,
     unusual:
       "Raising is louder and more inconvenient than silently discarding, which is the whole point: a system that lets you believe you edited history has a worse problem than one that stops you.",
     proof: "audit_events_no_update / _no_delete triggers · audit-immutable.test.ts",
+    see: { label: "Read a move's trail", href: "/dashboard" },
     accent: "conflict",
   },
   {

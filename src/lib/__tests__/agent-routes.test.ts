@@ -338,3 +338,62 @@ describe("POST /api/v1/agent/runs/:id — the decision", () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe("the streamed run is the persisted run, event for event", () => {
+  /*
+    `?stream=1` promises two things worth holding: every step event is written
+    AFTER its row exists, and the final `run` event equals what a later GET
+    reads back. A stream that got ahead of the database — or a final event
+    assembled differently from the read path — would be the page showing an
+    investigation the server cannot corroborate.
+  */
+  it("emits one step event per persisted step, then the complete run", async () => {
+    const response = await startRun(
+      new Request("http://test.local/api/v1/agent/runs?stream=1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moveId: move }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/x-ndjson");
+
+    const text = await response.text();
+    const events = text
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as { type: string; step?: { seq: number; tool: string }; run?: { id: string; steps: unknown[]; state: string } });
+
+    const steps = events.filter((e) => e.type === "step");
+    const finals = events.filter((e) => e.type === "run");
+
+    // Exactly one closing event, and it arrives last.
+    expect(finals).toHaveLength(1);
+    expect(events[events.length - 1]!.type).toBe("run");
+
+    const finalRun = finals[0]!.run!;
+    // Every streamed step is in the final run, in the same order.
+    expect(steps.map((e) => e.step!.seq)).toEqual(
+      finalRun.steps.map((s) => (s as { seq: number }).seq),
+    );
+    expect(steps.map((e) => e.step!.tool)).toEqual(
+      finalRun.steps.map((s) => (s as { tool: string }).tool),
+    );
+
+    // And the final event matches the database's own read of the run.
+    const readback = await readRun(new Request("http://test.local"), {
+      params: Promise.resolve({ id: finalRun.id }),
+    });
+    const stored = (await readback.json()) as { state: string; steps: unknown[] };
+    expect(stored.state).toBe(finalRun.state);
+    expect(stored.steps.length).toBe(finalRun.steps.length);
+  });
+
+  it("keeps the plain POST byte-compatible for existing callers", async () => {
+    const response = await startRun(json({ moveId: move }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    const run = (await response.json()) as { id: string; steps: unknown[] };
+    expect(run.steps.length).toBeGreaterThan(0);
+  });
+});
