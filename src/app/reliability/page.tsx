@@ -117,16 +117,22 @@ export default function ReliabilityPage() {
         ]}
         actions={
           <>
+            {/*
+              `min-h-11` rather than trusting the padding. `py-3` plus a
+              14px line box lands a hair under 44px, which the 320px sweep
+              measures and WCAG 2.5.8 counts as a failure — the kind of miss
+              that only ever shows up against a real layout engine.
+            */}
             <button
               onClick={() => tableRef.current?.scrollIntoView({ behavior: "smooth" })}
-              className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full px-7 py-3 text-sm font-bold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
               style={{ background: accentColor("verified", 1) }}
             >
               Read the objectives <ArrowDown className="h-4 w-4" />
             </button>
             <MagneticLink
               href="/theater"
-              className="inline-flex items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border px-7 py-3 text-sm font-bold uppercase tracking-wide text-white/90"
               {...{ style: { borderColor: "rgba(255,255,255,0.26)" } }}
             >
               Go break something first <ArrowRight className="h-4 w-4" />

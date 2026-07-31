@@ -35,6 +35,17 @@ const ROUTES = [
   { path: "/connect-flow", name: "connect flow" },
   { path: "/views", name: "audience lens" },
   { path: "/dashboard", name: "control room" },
+  /*
+    The Continuum modules carry the newest drawings on the site, and they are
+    the exact shape this sweep exists for: fixed-viewBox SVG with 9px labels,
+    scaled down to a phone. `tinySvgText` computes the *rendered* size rather
+    than the authored one, which is the only number a reader experiences —
+    move-relay is the densest of the seven and partner-growth is the one built
+    from text rows rather than a diagram, so between them they cover both
+    failure modes.
+  */
+  { path: "/future/move-relay", name: "continuum module (diagram)" },
+  { path: "/future/partner-growth", name: "continuum module (rows)" },
 ] as const;
 
 /**
@@ -118,7 +129,15 @@ async function smallTargets(page: Page) {
  * An SVG scales rather than reflows, so a viewBox wider than its container
  * shrinks every label inside it. Measuring the declared `font-size` would miss
  * this entirely — the number in the source was always 13, and what reached the
- * screen was 2.8. Rendered size is `fontSize × (renderedWidth ÷ viewBoxWidth)`.
+ * screen was 2.8.
+ *
+ * The scale is `min(width/viewBoxWidth, height/viewBoxHeight)`, not the width
+ * ratio alone. That correction matters: the default `preserveAspectRatio` is
+ * `xMidYMid meet`, so a box that is proportionally wider than its viewBox is
+ * letterboxed and limited by *height*. Using width alone reported a Continuum
+ * diagram's labels at 17px on a desktop viewport when the browser was actually
+ * drawing them at 8.6 — the check that exists to catch unreadable text was
+ * reading the wrong axis and calling it fine.
  */
 async function tinySvgText(page: Page) {
   return page.evaluate(() => {
@@ -126,8 +145,9 @@ async function tinySvgText(page: Page) {
     for (const svg of document.querySelectorAll("svg")) {
       const box = svg.getBoundingClientRect();
       const vb = svg.getAttribute("viewBox");
-      if (!vb || box.width === 0) continue;
-      const scale = box.width / Number(vb.split(/\s+/)[2]);
+      if (!vb || box.width === 0 || box.height === 0) continue;
+      const [, , vbW, vbH] = vb.split(/\s+/).map(Number) as [number, number, number, number];
+      const scale = Math.min(box.width / vbW, box.height / vbH);
       for (const t of svg.querySelectorAll("text")) {
         const content = (t.textContent ?? "").trim();
         if (!content) continue;

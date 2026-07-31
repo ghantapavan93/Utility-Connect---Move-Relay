@@ -371,12 +371,21 @@ export default function ViewsPage() {
           console — not a fixture that could have been special-cased.
         */}
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <span className="text-white/45">Move</span>
+          {/*
+            A `<select>` takes its intrinsic width from its longest option, and
+            "MR-2026-0001 · canonical" is wider than a 320px screen once the
+            label and the page gutters are paid for — 45px of it sat past the
+            right edge, where the only way to read the chosen move was to
+            scroll the whole page sideways. `min-w-0` is what actually lets a
+            flex child shrink below its content; without it the two classes
+            beside it do nothing.
+          */}
+          <label className="flex min-w-0 max-w-full items-center gap-2 text-sm">
+            <span className="shrink-0 text-white/45">Move</span>
             <select
               value={moveId ?? ""}
               onChange={(e) => setMoveId(e.target.value || null)}
-              className="rounded-lg border bg-transparent px-3 py-2 font-mono text-sm text-white"
+              className="min-w-0 flex-1 rounded-lg border bg-transparent px-3 py-2 font-mono text-sm text-white"
               style={{ borderColor: "rgba(255,255,255,0.18)" }}
             >
               {moves.length === 0 && <option value="">no moves in this tenant</option>}
