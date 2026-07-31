@@ -5,7 +5,7 @@ import { join } from "node:path";
 /**
  * The scanned furniture, pinned to the files that carry it.
  *
- * RealFurniture.tsx names nine Poly Haven photoscans (CC0) by URL. A model
+ * RealFurniture.tsx names ten Poly Haven photoscans (CC0) by URL. A model
  * that fails to fetch does not crash the scene — the Suspense fallback keeps
  * the primitive understudy on stage forever, which is the designed behaviour
  * on a slow network and a silent regression if the file is simply gone. These
@@ -13,7 +13,7 @@ import { join } from "node:path";
  *
  * Provenance: sofa_02, modern_arm_chair_01, dining_chair_02,
  * round_wooden_table_01, bar_chair_round_01, modern_coffee_table_01,
- * side_table_01, calathea_orbifolia_01, anthurium_botany_01 — Poly Haven,
+ * side_table_01, calathea_orbifolia_01, anthurium_botany_01, covered_car — Poly Haven,
  * CC0, 1K textures, downloaded with every file's size verified against the
  * API's declared size.
  */
@@ -25,8 +25,8 @@ describe("every scan the scene names exists on disk", () => {
   const source = readFileSync(COMPONENT, "utf8");
   const urls = [...source.matchAll(/"\/models\/([^"]+\.gltf)"/g)].map((m) => m[1]!);
 
-  it("names nine models and each resolves to a real file", () => {
-    expect(urls).toHaveLength(9);
+  it("names ten models and each resolves to a real file", () => {
+    expect(urls).toHaveLength(10);
     for (const rel of urls) {
       const p = join(ROOT, rel);
       expect(existsSync(p), `${rel} is named by RealFurniture.tsx but missing`).toBe(true);
@@ -51,7 +51,7 @@ describe("every scan the scene names exists on disk", () => {
 
   it("stays within the repository's media budget", () => {
     /*
-      13.7MB today, 16MB ceiling. Same reasoning as the texture budget, larger
+      15.9MB today, 18MB ceiling. Same reasoning as the texture budget, larger
       allowance: these are the heaviest legitimate assets the project will
       ever carry, the repository has purged 143MB of media once already, and
       the difference between a budget and a hope is that one of them fails.
@@ -66,7 +66,7 @@ describe("every scan the scene names exists on disk", () => {
       }
     };
     walk(ROOT);
-    expect(total).toBeLessThan(16 * 1024 * 1024);
+    expect(total).toBeLessThan(18 * 1024 * 1024);
   });
 
   it("keeps a directory for every named model and no orphans", () => {

@@ -6,6 +6,7 @@ import { Environment, Lightformer, ContactShadows, Sky } from "@react-three/drei
 import { EffectComposer, Bloom, Vignette, N8AO, DepthOfField } from "@react-three/postprocessing";
 import { KernelSize, type DepthOfFieldEffect } from "postprocessing";
 import {
+  AnimatePresence,
   cubicBezier,
   motion,
   motionValue,
@@ -92,17 +93,19 @@ const EASE_SETTLE = cubicBezier(0.16, 0.85, 0.3, 1);
  * Every station is aimed at a SUBJECT that exists at those coordinates — the
  * referral key at (−18.35, 1.62, 3.15), the Move Record core at (−9, 2.1, 1.4),
  * the router LED at (−0.05, 0.78, −3.85), the island at (5, 0.95, −2.2), the
- * circuit panel at (11.6, 1.28, −3.5). An earlier pass aimed at empty space
+ * circuit panel on the rear wall at (11.6, 1.45, −5.7). An earlier pass aimed at empty space
  * between rooms and framed blank plaster; a station with no subject is a
  * missing shot, not a transition.
  */
 const WALK: Station[] = [
-  // Arrival — the residence from the drive. Shot low and close rather than
-  // high and wide: from 7.5m the house flattened into a strip with half the
-  // frame given to empty sky, which is the one composition luxury-property
-  // photography never uses. Standing height and a three-quarter approach lets
-  // the cantilever read as something you walk under.
-  { at: 0.0, pos: [-30, 2.6, 17.5], look: [-8, 2.1, 0.5], fov: 52 },
+  // Arrival — through the gate and down the drive, the way anyone actually
+  // reaches a house. The film used to open mid-lawn with no threshold at all;
+  // it now opens on the street side of an open gate, the drive running dead
+  // straight to the garage, the covered car answering "someone lives here".
+  // Then the camera swings off the drive into the three-quarter approach that
+  // lets the cantilever read as something you walk under.
+  { at: 0.0, pos: [-17, 1.8, 27.5], look: [-11, 2.0, 2], fov: 46 },
+  { at: 0.045, pos: [-17.3, 1.85, 19.5], look: [-12, 2.0, 1.5], fov: 48 },
   { at: 0.08, pos: [-22.5, 2.3, 12.5], look: [-11.5, 2.0, 0], fov: 50 },
   // Garage — down to eye level, framing the referral key on the boxes. The
   // camera used to look straight down the bay at x ≈ −17 while the whole stack
@@ -137,21 +140,30 @@ const WALK: Station[] = [
   // through the door rather than walking into the pier beside it.
   { at: 0.635, pos: [8.1, EYE, -1.77], look: [11.4, 1.3, -2.6], fov: 56 },
   // Utility — the machines and the shelf, then in tight on the circuit panel
-  { at: 0.67, pos: [10.2, EYE, -1.9], look: [11.9, 1.2, -3.4], fov: 52 },
-  { at: 0.78, pos: [11.5, 1.55, -1.5], look: [11.6, 1.28, -3.45], fov: 40, ease: "settle" },
-  // Recovery — pull back down the length of the house. Held in the open
-  // circulation zone rather than the utility threshold: the earlier position
-  // put the doorway pier straight down the middle of the shot.
-  { at: 0.88, pos: [8.6, 1.86, 2.9], look: [-2.4, 1.3, -1.9], fov: 58 },
-  // Continuum — the closing image.
+  { at: 0.67, pos: [10.2, EYE, -1.6], look: [11.7, 1.4, -5.2], fov: 52 },
+  { at: 0.78, pos: [11.5, 1.62, -2.0], look: [11.6, 1.45, -5.7], fov: 38, ease: "settle" },
+  // Recovery — pull back down the length of the house, shot FROM the doorway
+  // line so the retreat from the wall-mounted panel exits through the actual
+  // opening. The previous position sat in the open zone at z 2.9, and the
+  // transit from the new panel close-up grazed the dividing wall face-on —
+  // a full frame of plaster, caught by the beat screenshots.
+  { at: 0.88, pos: [8.8, 1.86, -1.77], look: [-2.4, 1.3, -1.9], fov: 58 },
+  // Continuum — the closing, in two beats.
   //
-  // This was shot from 17m up, which on a single-storey house with a solid roof
-  // frames exactly one thing: the roof. The last frame of the film was a blank
-  // white plane. A closing hero is taken from the ground, far enough back to
-  // read the whole length, low enough to see the lit interior through the
-  // glazing — the warm-inside-against-cool-outside contrast that is the entire
-  // emotional payload of the reference work.
-  { at: 1.0, pos: [-24, 4.4, 27], look: [-6, 2.0, 1.0], fov: 54 },
+  // First the ground hero: the whole length of the house, low enough to see
+  // the lit interior through the glazing — the warm-inside-against-cool-
+  // outside contrast that is the emotional payload of the reference work.
+  // Then the camera cranes up and away to a high three-quarter where the
+  // solar array, the rooflight, the courtyard, the pool, the drive and the
+  // gate all read in one frame. An earlier attempt at an aerial failed from
+  // 17m straight overhead — it framed nothing but roof membrane. The fix is
+  // distance and angle, not altitude alone: far enough out that the facade
+  // survives, high enough that the array is unmistakably a solar roof. The
+  // Continuum chapter claims the home's ONGOING relationship — renewals,
+  // solar, seasonal work — and this is the one camera position where that
+  // future is visible instead of narrated.
+  { at: 0.94, pos: [-24, 4.4, 27], look: [-6, 2.0, 1.0], fov: 54 },
+  { at: 1.0, pos: [-27, 16.5, 24], look: [-6.5, 1.8, -1.5], fov: 46, ease: "settle" },
 ];
 
 function walkAt(p: number, pos: THREE.Vector3, look: THREE.Vector3): number {
@@ -252,9 +264,20 @@ function CinematicDof() {
     if (!effect) return;
     const coc = effect.cocMaterial;
     coc.worldFocusDistance = THREE.MathUtils.lerp(coc.worldFocusDistance || rigState.focus, rigState.focus, 0.14);
-    coc.worldFocusRange = Math.max(2.4, coc.worldFocusDistance * 0.9);
+    /*
+      1.5× the focus distance, floored at 3.5m — wider than a photographer's
+      instinct, and deliberately so. At 0.9× the background melt was beautiful
+      on the courtyard tree and catastrophic on the utility glazing: its thin
+      charcoal mullions, ten metres out against sun-blown grass, smeared into
+      a diagonal of fat floating slabs that read as broken geometry rather
+      than as bokeh. (An hour of hunting for the "floating slabs" ended at
+      this line, not in the scene graph.) Thin dark lines on blown white are
+      the pathological case for big bokeh; the wider in-focus field keeps
+      them structural while close subjects still separate.
+    */
+    coc.worldFocusRange = Math.max(3.5, coc.worldFocusDistance * 1.5);
   });
-  return <DepthOfField ref={ref} focusDistance={0.025} focalLength={0.05} bokehScale={2.4} />;
+  return <DepthOfField ref={ref} focusDistance={0.025} focalLength={0.05} bokehScale={1.8} />
 }
 
 /** Sun/moon that warms as the home comes alive. */
@@ -428,7 +451,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.56, 0.72],
     room: "Utility room · Home systems",
-    subject: [11.6, 1.28, -3.45],
+    subject: [11.6, 1.45, -5.7],
     catalogueRoom: "utility",
     title: "The last circuit is requested",
     body: "Laundry, home protection, warranty — the systems that run underneath a home. This is the request that goes out last, which is why it is the one the provider's silence will catch.",
@@ -449,7 +472,7 @@ const CHAPTERS: ChapterCopy[] = [
   {
     range: [0.68, 0.85],
     room: "The silence",
-    subject: [11.6, 1.28, -3.45],
+    subject: [11.6, 1.45, -5.7],
     title: "The provider created the order. The response never arrived.",
     body: "The utility circuit stalls half-lit. Not red, not failed — UNKNOWN. A blind retry here would enrol this household twice at a real utility, so the system refuses and schedules reconciliation instead.",
     service: "OUTCOME_UNKNOWN · Blind retry blocked",
@@ -549,7 +572,15 @@ function SubjectProjector({ progress }: { progress: MotionValue<number> }) {
       the dot lights up when the camera has arrived, and the caption rides the
       lower third while it is still travelling.
     */
-    if (Math.abs(v.current.x) > 0.6 || Math.abs(v.current.y) > 0.72) {
+    /*
+      0.35/0.5, tightened from 0.6/0.72: the looser box let the utility panel
+      claim its anchor while the camera was still in the doorway with a
+      concrete pier between them — a lit dot on blank plaster. The walk
+      centres every subject to within ~0.1 NDC at its settle, so the tight box
+      costs nothing at the moments that matter and ends ownership the moment
+      a transit begins.
+    */
+    if (Math.abs(v.current.x) > 0.35 || Math.abs(v.current.y) > 0.5) {
       anchor.owner.set(-1);
       return;
     }
@@ -569,182 +600,204 @@ function SubjectProjector({ progress }: { progress: MotionValue<number> }) {
   return null;
 }
 
-/** The words, fanning out of the subject one at a time. */
-function FannedTitle({ title, active }: { title: string; active: boolean }) {
+/**
+ * THE CAPTION — one card at a time, set like a title, handed off like a cut.
+ *
+ * The captions used to be ten independent components, each fading on its own
+ * scroll band, which guaranteed the one thing a film's titles must never do:
+ * two of them on screen at once, stacked in the same corner, wherever bands
+ * overlapped. The critique called the result "generated", and both halves of
+ * that were right — the collision was generated, and so was the styling, a
+ * workhorse sans doing a title card's job.
+ *
+ * Now there is ONE card. The dominant chapter owns it; AnimatePresence plays
+ * the hand-off, so an arriving caption visibly replaces the departing one — a
+ * cut, not a pile-up. The title is set in the film's display serif, the body
+ * stays in the working sans, and the only ornament that survives is
+ * information: the short rule under the kicker is the chapter's colour, and
+ * the hairline along the plate's foot is the chapter's own progress.
+ */
+
+/** Which chapter owns the caption at this scroll position. */
+function dominantAt(p: number): number {
+  let best = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < CHAPTERS.length; i++) {
+    const [a, b] = CHAPTERS[i]!.range;
+    if (p < a || p > b) continue;
+    const d = Math.abs((a + b) / 2 - p);
+    if (d < bestDist) {
+      bestDist = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** The title, one word at a time, out of the thing it describes. */
+function TitleWords({ title }: { title: string }) {
   return (
     <motion.h2
-      className="mt-2.5 text-xl font-semibold leading-[1.18] tracking-tight text-white sm:text-[1.6rem]"
-      initial={false}
-      animate={active ? "in" : "out"}
-      variants={{ in: { transition: { staggerChildren: 0.045, delayChildren: 0.1 } }, out: {} }}
+      className="mt-3 text-[clamp(1.32rem,1.9vw,1.68rem)] font-medium leading-[1.16] tracking-[-0.012em] text-white"
+      style={{ fontFamily: "var(--font-display), Georgia, serif" }}
+      variants={{ in: { transition: { staggerChildren: 0.042, delayChildren: 0.12 } } }}
     >
       {title.split(" ").map((word, i) => (
         <motion.span
           key={`${word}-${i}`}
-          className="inline-block whitespace-pre"
+          className="inline-block whitespace-pre will-change-transform"
           variants={{
+            out: { opacity: 0, y: 12, filter: "blur(6px)" },
             in: { opacity: 1, y: 0, filter: "blur(0px)" },
-            out: { opacity: 0, y: 10, filter: "blur(6px)" },
           }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          {word}
-          {" "}
+          {word}{" "}
         </motion.span>
       ))}
     </motion.h2>
   );
 }
 
-function ChapterCard({
-  progress,
+function CaptionCard({
   c,
-  index,
-  anchored,
+  placement,
+  progress,
 }: {
-  progress: MotionValue<number>;
   c: ChapterCopy;
-  index: number;
-  anchored: boolean;
+  placement: "anchor" | "corner";
+  progress: MotionValue<number>;
 }) {
   const [a, b] = c.range;
-  /*
-    The bands tile the scroll and overlap at their edges, so one chapter is
-    always fading in as the one before it fades out.
-
-    They used to sit apart with a two-percent gap between each pair, and each
-    band spent 0.036 of its width in a fade — which measured out as **half the
-    scroll showing no caption at all**: 52 of 103 sampled positions had nothing
-    on screen. A viewer got long stretches of a beautiful empty house and no
-    idea what they were looking at, which is the one thing a scroll-driven story
-    cannot afford.
-  */
-  const opacity = useTransform(progress, [a, a + 0.02, b - 0.02, b], [0, 1, 1, 0]);
-  const y = useTransform(progress, [a, b], [22, -22]);
-
-  // Word-level animation needs a boolean, not a continuous value: the fan-out
-  // is a performance that plays once per arrival, not a scrubbed property.
-  const [active, setActive] = useState(false);
-  useMotionValueEvent(progress, "change", (p) => {
-    const inside = p > a + 0.008 && p < b - 0.008;
-    if (inside !== active) setActive(inside);
-  });
-
-  // Anchored only while this chapter owns the projected point — see `anchor`.
-  const [owns, setOwns] = useState(false);
-  useMotionValueEvent(anchor.owner, "change", (o) => {
-    const mine = o === index;
-    if (mine !== owns) setOwns(mine);
-  });
-
+  // The plate's foot carries the chapter's own progress — the one ornament
+  // on the card that is data rather than decoration.
+  const chapterT = useTransform(progress, [a, b], [0, 1]);
   const left = useTransform(anchor.x, (v) => `${v}%`);
   const top = useTransform(anchor.y, (v) => `${v}%`);
+  const accent = c.accent ?? "rgba(255,255,255,0.75)";
 
-  /*
-    Two placements, one card.
-
-    Anchored (desktop, chapter with a subject): the card grows out of the
-    projected point — dot on the fixture, short stem, then the plate, with the
-    whole cluster scaling up from the anchor corner so it visibly comes FROM
-    the thing it describes. Fallback (mobile, arrival, closing): the original
-    lower-third plate, which remains the right answer when the frame is small
-    or the subject is the whole house.
-  */
-  if (anchored && c.subject && owns) {
-    return (
-      <motion.div style={{ opacity, left, top }} className="pointer-events-none absolute">
+  const plate = (
+    <motion.div
+      variants={{
+        out: { opacity: 0, y: 16, scale: 0.985, filter: "blur(7px)" },
+        in: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          filter: "blur(0px)",
+          transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+        },
+        exit: {
+          opacity: 0,
+          y: -12,
+          filter: "blur(6px)",
+          transition: { duration: 0.3, ease: [0.5, 0, 0.75, 0] },
+        },
+      }}
+      className="pointer-events-none relative w-[24.5rem] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl px-6 pb-5 pt-[1.15rem] backdrop-blur-md"
+      style={{
+        background: "linear-gradient(168deg, rgba(9,13,19,0.82), rgba(9,13,19,0.95))",
+        border: "1px solid rgba(255,255,255,0.09)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), 0 18px 50px -18px rgba(0,0,0,0.6)",
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <span
-          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            width: 9,
-            height: 9,
-            background: c.accent ?? "#fff",
-            boxShadow: `0 0 12px 2px ${c.accent ?? "#fff"}66`,
-          }}
-        />
-        <span
-          className="absolute left-0 top-0 w-px origin-top"
-          style={{ height: 26, background: `linear-gradient(${c.accent ?? "#fff"}, transparent)` }}
-        />
-        <motion.div
-          initial={false}
-          animate={active ? { scale: 1, opacity: 1 } : { scale: 0.9, opacity: 0.4 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-8 w-[24rem] max-w-[38vw] origin-top-left rounded-xl px-5 py-4 backdrop-blur-[3px]"
-          style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.84), rgba(10,14,20,0.94))" }}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[8.5px] font-bold uppercase tracking-[0.17em]"
+          style={{ background: `${LABEL_STYLE[c.label]}1f`, color: LABEL_STYLE[c.label] }}
         >
-          <CardBody c={c} active={active} />
-        </motion.div>
+          <span className="h-1 w-1 rounded-full" style={{ background: LABEL_STYLE[c.label] }} />
+          {c.label}
+        </span>
+        <span className="whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.3em] text-white/50">
+          {c.room}
+        </span>
+      </div>
+      {/* the chapter's colour, stated once, as a rule rather than a wash */}
+      <div
+        className="mt-3 h-px w-9"
+        style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
+      />
+      <TitleWords title={c.title} />
+      <motion.div
+        variants={{
+          out: { opacity: 0, y: 8 },
+          in: { opacity: 1, y: 0, transition: { duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] } },
+        }}
+      >
+        <p className="mt-2.5 max-w-[60ch] text-[13.5px] leading-[1.62] text-white/72">{c.body}</p>
+        {c.service && (
+          <div className="mt-3.5 flex items-center gap-2">
+            <span className="h-[5px] w-[5px] rounded-full" style={{ background: accent }} />
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/80">
+              {c.service}
+            </span>
+          </div>
+        )}
+        {c.catalogueRoom && (
+          <div className="mt-3.5 border-t border-white/[0.08] pt-2.5">
+            <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/38">
+              Connected here
+            </span>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-white/60">
+              {roomServiceLine(c.catalogueRoom)}
+            </p>
+          </div>
+        )}
+      </motion.div>
+      {/* chapter progress, in the chapter's colour, at the plate's foot */}
+      <motion.div
+        className="absolute inset-x-0 bottom-0 h-[2px] origin-left"
+        style={{ scaleX: chapterT, background: accent, opacity: 0.75 }}
+      />
+    </motion.div>
+  );
+
+  if (placement === "anchor") {
+    return (
+      <motion.div
+        initial="out"
+        animate="in"
+        exit="exit"
+        style={{ left, top }}
+        className="pointer-events-none absolute hidden md:block"
+      >
+        {/* the dot on the fixture, and the stem that hands it to the words */}
+        <motion.span
+          variants={{
+            out: { scale: 0, opacity: 0 },
+            in: { scale: 1, opacity: 1, transition: { duration: 0.4, ease: [0.34, 1.56, 0.64, 1] } },
+            exit: { scale: 0, opacity: 0, transition: { duration: 0.2 } },
+          }}
+          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ width: 8, height: 8, background: accent, boxShadow: `0 0 14px 2px ${accent}55` }}
+        />
+        <motion.span
+          variants={{
+            out: { scaleY: 0, opacity: 0 },
+            in: { scaleY: 1, opacity: 1, transition: { duration: 0.35, delay: 0.12 } },
+            exit: { opacity: 0, transition: { duration: 0.2 } },
+          }}
+          className="absolute left-0 top-1 w-px origin-top"
+          style={{ height: 30, background: `linear-gradient(${accent}, transparent)` }}
+        />
+        <div className="mt-10">{plate}</div>
       </motion.div>
     );
   }
 
   return (
     <motion.div
-      style={{ opacity, y }}
-      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-start px-6 pb-12 sm:px-14"
+      initial="out"
+      animate="in"
+      exit="exit"
+      className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-start px-6 pb-14 sm:px-14"
     >
-      {/*
-        The copy carries its own scrim. Once the interior is daylit, white text
-        over a white wall is unreadable — and a caption that cannot be read is
-        not a caption. A dark, softly blurred plate keeps the type legible over
-        any part of the room without dimming the room itself.
-      */}
-      <div
-        className="max-w-md rounded-xl px-5 py-4 backdrop-blur-[3px]"
-        style={{ background: "linear-gradient(180deg, rgba(10,14,20,0.84), rgba(10,14,20,0.94))" }}
-      >
-        <CardBody c={c} active={active} />
-      </div>
+      {plate}
     </motion.div>
   );
 }
 
-/** One caption's content — shared by both placements so they cannot drift. */
-function CardBody({ c, active }: { c: ChapterCopy; active: boolean }) {
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        <span
-          className="whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em]"
-          style={{ background: `${LABEL_STYLE[c.label]}22`, color: LABEL_STYLE[c.label] }}
-        >
-          {c.label}
-        </span>
-        <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">
-          {c.room}
-        </span>
-      </div>
-      <FannedTitle title={c.title} active={active} />
-      <p className="mt-2.5 text-[13px] leading-relaxed text-white/70 sm:text-sm">{c.body}</p>
-      {c.service && (
-        <div
-          className="mt-4 inline-flex items-center gap-2 border-l-2 pl-3 text-xs font-medium tracking-wide"
-          style={{ borderColor: c.accent, color: "rgba(255,255,255,0.8)" }}
-        >
-          {c.service}
-        </div>
-      )}
-      {/*
-        The services Utility Connect actually connects in this room, read from
-        the catalogue rather than typed into the caption. Set quieter than the
-        narrative line because it is reference, not story — but present in
-        every room, so the film covers all eighteen offered services instead
-        of the six that happened to look good on screen.
-      */}
-      {c.catalogueRoom && (
-        <div className="mt-3 border-t border-white/10 pt-2.5">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/40">
-            Connected here
-          </span>
-          <p className="mt-1 text-[11px] leading-relaxed text-white/60">
-            {roomServiceLine(c.catalogueRoom)}
-          </p>
-        </div>
-      )}
-    </>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Shell
@@ -764,6 +817,19 @@ export function LivingHome() {
     lower-third plate.
   */
   const [anchored, setAnchored] = useState(false);
+  // The single caption's owner and placement — see the CaptionCard block.
+  const [activeChapter, setActiveChapter] = useState(0);
+  const [owns, setOwns] = useState(false);
+  useMotionValueEvent(scrollYProgress, "change", (p) => {
+    const i = dominantAt(p);
+    if (i !== activeChapter) setActiveChapter(i);
+  });
+  useMotionValueEvent(anchor.owner, "change", (o) => {
+    const mine = o >= 0 && o === activeChapter;
+    if (mine !== owns) setOwns(mine);
+  });
+  const placement: "anchor" | "corner" =
+    anchored && owns && CHAPTERS[activeChapter]?.subject ? "anchor" : "corner";
 
   useEffect(() => {
     try {
@@ -1048,9 +1114,22 @@ export function LivingHome() {
         <div aria-hidden data-letterbox className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[4svh] bg-black/90" />
 
         <div className="absolute inset-0 z-20">
-          {CHAPTERS.map((c, i) => (
-            <ChapterCard key={c.range[0]} progress={scrollYProgress} c={c} index={i} anchored={anchored} />
-          ))}
+          {/*
+            One caption at a time. The key carries both the chapter and the
+            placement, so a chapter whose card moves from the lower third to
+            its subject anchor re-deals visibly rather than teleporting — and
+            two chapters can never stack, because there is nothing to stack.
+          */}
+          <AnimatePresence mode="popLayout">
+            {activeChapter >= 0 && (
+              <CaptionCard
+                key={`${activeChapter}-${placement}`}
+                c={CHAPTERS[activeChapter]!}
+                placement={placement}
+                progress={scrollYProgress}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
         <motion.div
@@ -1088,7 +1167,7 @@ function StaticChapters() {
               </span>
               <span className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.28em] text-white/55">{c.room}</span>
             </div>
-            <h2 className="mt-3 text-2xl font-semibold leading-tight text-white">{c.title}</h2>
+            <h2 className="mt-3 text-2xl font-medium leading-tight text-white" style={{ fontFamily: "var(--font-display), Georgia, serif" }}>{c.title}</h2>
             <p className="mt-3 leading-relaxed text-white/70">{c.body}</p>
             {c.service && (
               <div className="mt-3 border-l-2 pl-3 text-xs" style={{ borderColor: c.accent, color: "rgba(255,255,255,0.75)" }}>

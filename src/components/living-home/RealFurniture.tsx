@@ -49,6 +49,7 @@ const MODELS = {
   sideTable: "/models/side_table_01/side_table_01_1k.gltf",
   calathea: "/models/calathea_orbifolia_01/calathea_orbifolia_01_1k.gltf",
   anthurium: "/models/anthurium_botany_01/anthurium_botany_01_1k.gltf",
+  coveredCar: "/models/covered_car/covered_car_1k.gltf",
 } as const;
 
 /**
@@ -186,6 +187,27 @@ export function RealPlant({
         position={position}
         scale={scale}
       />
+    </Suspense>
+  );
+}
+
+export function RealCar({
+  position,
+  rotationY = 0,
+}: {
+  position: [number, number, number];
+  rotationY?: number;
+}) {
+  /*
+    A car under a fitted cover, on the drive. The honest choice twice over: a
+    scan of a real object rather than a modelled car, and a COVERED one — so
+    the film gets the "someone lives here" signal a parked car carries without
+    inventing a brand, a plate, or a paint colour the practice would then be
+    lying about. Additive scenery, so the fallback is nothing.
+  */
+  return (
+    <Suspense fallback={null}>
+      <Scan url={MODELS.coveredCar} position={position} rotationY={rotationY} />
     </Suspense>
   );
 }

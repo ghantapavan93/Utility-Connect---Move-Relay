@@ -8,6 +8,7 @@ import { MATERIAL, SERVICE, LIGHT } from "./palette";
 import { Shelving, Artwork, Rug, Sideboard, Ottoman, FloorLamp, Basket } from "./Furniture";
 import {
   RealArmChair,
+  RealCar,
   RealCoffeeTable,
   RealDiningChair,
   RealDiningTable,
@@ -412,6 +413,84 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         <planeGeometry args={[46, 5.6]} />
         <meshStandardMaterial {...groundMaps} color={MATERIAL.limestone} roughness={0.72} envMapIntensity={0.7} />
       </mesh>
+
+      {/* ── The arrival sequence — gate, drive, car, steps ────── */}
+      {/*
+        The film used to open on a house standing in an unbroken lawn, which
+        is how architecture is photographed and not how anyone arrives. A real
+        property answers three questions before the front door does: where the
+        street hands over (the gate), how a vehicle gets in (the drive), and
+        whether anybody is home (the car). The walk now enters through all
+        three, and the geometry exists so the camera has something true to
+        pass — every element is on the garage's axis, so the approach reads
+        as one straight line from the street to the handoff the garage
+        chapter is about.
+      */}
+      {/* driveway — same cast concrete as the shell, worn a step darker */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-17, 0.006, 16.9]} receiveShadow>
+        <planeGeometry args={[5.2, 13.4]} />
+        <meshStandardMaterial {...ceilingMaps} color="#b7b3ab" roughness={0.92} envMapIntensity={0.4} />
+      </mesh>
+      {/* expansion joints — a poured drive without them reads as a texture */}
+      {[13.3, 17.1, 20.9].map((z) => (
+        <mesh key={z} rotation={[-Math.PI / 2, 0, 0]} position={[-17, 0.012, z]}>
+          <planeGeometry args={[5.2, 0.045]} />
+          <meshStandardMaterial color="#8e8a83" roughness={1} />
+        </mesh>
+      ))}
+      {/* gate piers, on the drive's edges at the boundary */}
+      {[-19.85, -14.15].map((x) => (
+        <mesh key={x} position={[x, 0.8, 23.6]} castShadow receiveShadow>
+          <boxGeometry args={[0.5, 1.6, 0.5]} />
+          <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.85} />
+        </mesh>
+      ))}
+      {/*
+        The gate itself, standing open — a closed gate at the first frame
+        would read as "keep out", and the film is an invitation. Two slatted
+        charcoal leaves, each swung ~70° inward, hinged at the piers.
+      */}
+      {[
+        { px: -19.6, rot: 1.22 },
+        { px: -14.4, rot: -1.22 },
+      ].map(({ px, rot }) => (
+        <group key={px} position={[px, 0, 23.35]} rotation={[0, rot, 0]}>
+          {[0.22, 0.5, 0.78, 1.06, 1.34].map((y) => (
+            <mesh key={y} position={[1.15, y, 0]} castShadow>
+              <boxGeometry args={[2.3, 0.12, 0.045]} />
+              <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.6} metalness={0.35} />
+            </mesh>
+          ))}
+          <mesh position={[0.06, 0.78, 0]} castShadow>
+            <boxGeometry args={[0.09, 1.5, 0.07]} />
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.6} metalness={0.35} />
+          </mesh>
+        </group>
+      ))}
+      {/* low boundary walls running off both piers — a gate in an open field
+          protects nothing; the wall is what makes it a threshold */}
+      <mesh position={[-24.4, 0.42, 23.6]} castShadow receiveShadow>
+        <boxGeometry args={[8.6, 0.84, 0.3]} />
+        <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.88} />
+      </mesh>
+      <mesh position={[-3.6, 0.42, 23.6]} castShadow receiveShadow>
+        <boxGeometry args={[20.6, 0.84, 0.3]} />
+        <meshStandardMaterial {...ceilingMaps} color={MATERIAL.concrete} roughness={0.88} />
+      </mesh>
+      {/* the household car, covered, parked on the drive's east half */}
+      <RealCar position={[-15.35, 0, 13.2]} rotationY={Math.PI / 2 + 0.06} />
+      {/* entry steps — two travertine treads up to the front door threshold.
+          The slab used to meet the lawn with no transition at all, and a door
+          you step up to is most of what "front door" means. */}
+      {[
+        { y: 0.038, z: 6.55, d: 0.42 },
+        { y: 0.114, z: 6.2, d: 0.38 },
+      ].map((s) => (
+        <mesh key={s.z} position={[-6.5, s.y, s.z]} castShadow receiveShadow>
+          <boxGeometry args={[3.0, 0.076, s.d]} />
+          <meshStandardMaterial {...groundMaps} color={MATERIAL.limestone} roughness={0.7} />
+        </mesh>
+      ))}
       {/* reflecting pool along the courtyard side */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-2, 0.01, 9.5]} receiveShadow>
         <planeGeometry args={[26, 4.5]} />
@@ -955,8 +1034,22 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
 
           The shared `utilityLed` material drives only the stalled row, so the
           existing state animation keeps working untouched.
+
+          Mounted on the BACK wall, not floating over the machines. The unit
+          used to hang at z −3.48 — mid-air above the washer run, which read
+          exactly as wrong as it sounds the moment a viewer noticed. A
+          consumer unit lives on a wall; this one sits flush against the
+          house's rear wall at eye height, the machines two metres in front
+          of it, so the tight shot reads the whole enclosure over their tops
+          with nothing occluded.
         */}
-        <group position={[0, 1.3, -0.28]}>
+        <group position={[0, 1.5, -2.52]}>
+          {/* conduit drop — the cable run that visually ties the unit to the
+              machines it feeds; a panel with no conduit floats even on a wall */}
+          <mesh position={[0, -1.02, 0.02]} castShadow>
+            <cylinderGeometry args={[0.016, 0.016, 1.6, 8]} />
+            <meshStandardMaterial color="#b9bcc2" roughness={0.4} metalness={0.3} />
+          </mesh>
           {/* enclosure and recessed door frame */}
           <mesh castShadow receiveShadow>
             <boxGeometry args={[0.6, 0.46, 0.11]} />
@@ -1047,13 +1140,58 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
       </group>
 
       {/* ── STAIR + ROOF ENERGY ──────────────────────────────── */}
-      <group position={[15.4, 0, -1]}>
-        {Array.from({ length: 9 }, (_, i) => (
-          <mesh key={i} position={[0, 0.19 + i * 0.19, -i * 0.29]} castShadow receiveShadow>
-            <boxGeometry args={[1.5, 0.1, 0.3]} />
+      {/*
+        The roof stair, rebuilt as a stair.
+
+        The old version was nine cantilevered treads with no stringer, no
+        rail, and a fatal arithmetic problem: nine 19cm risers climb to 1.7m
+        on a house whose roof deck sits at 3.4 — a flight to nowhere, ending
+        in mid-air. From inside the utility room its floating treads read as
+        broken geometry drifting over the lawn, and a viewer said exactly
+        that. A real exterior stair is a pair of steel stringers, nineteen
+        risers, a handrail, and a landing that arrives somewhere — here, the
+        roof deck the solar array lives on, which is also what the closing
+        aerial is about: the stair is HOW that roof is a place.
+      */}
+      <group position={[15.35, 0, 2.35]}>
+        {/* two steel stringers, ground to roof edge */}
+        {[-0.58, 0.58].map((x) => (
+          <mesh
+            key={x}
+            position={[x, 1.72, -2.43]}
+            rotation={[0.591, 0, 0]}
+            castShadow
+            receiveShadow
+          >
+            <boxGeometry args={[0.07, 0.26, 5.95]} />
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.5} metalness={0.45} />
+          </mesh>
+        ))}
+        {/* nineteen walnut treads — 18.1cm rise × 27cm run lands the top
+            tread at 3.44m, flush with the deck */}
+        {Array.from({ length: 19 }, (_, i) => (
+          <mesh key={i} position={[0, 0.151 + i * 0.181, -i * 0.27]} castShadow receiveShadow>
+            <boxGeometry args={[1.24, 0.055, 0.3]} />
             <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
           </mesh>
         ))}
+        {/* handrail on the open side: posts off every fourth tread, one
+            continuous rail on the stringer's slope */}
+        {[0, 4, 8, 12, 16].map((i) => (
+          <mesh key={i} position={[0.6, 0.63 + i * 0.181, -i * 0.27]} castShadow>
+            <boxGeometry args={[0.035, 0.9, 0.035]} />
+            <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.5} metalness={0.45} />
+          </mesh>
+        ))}
+        <mesh position={[0.6, 2.62, -2.43]} rotation={[0.591, 0, 0]} castShadow>
+          <boxGeometry args={[0.045, 0.045, 6.1]} />
+          <meshStandardMaterial color={MATERIAL.charcoal} roughness={0.4} metalness={0.55} />
+        </mesh>
+        {/* the landing — the stair arrives at the deck instead of at air */}
+        <mesh position={[-0.35, 3.47, -5.31]} castShadow receiveShadow>
+          <boxGeometry args={[1.9, 0.06, 0.95]} />
+          <meshStandardMaterial {...walnut} color={MATERIAL.walnut} envMapIntensity={0.95} />
+        </mesh>
       </group>
       {/*
         Solar array, on the slab and clear of the rooflight.
@@ -1065,13 +1203,23 @@ export function Residence({ progress }: { progress: MotionValue<number> }) {
         bug: the one opening in the roof had the one opaque thing on the roof
         parked on top of it.
 
-        Now at z −4.2, sitting entirely on the deep slab, and raised to 3.88 so
-        the tilted panels clear the roof membrane rather than slicing through
-        it — which is also how an array is really mounted, on rails above the
-        finish.
+        Now at z −3.45, on the deep slab and clear of the slot, raised to 3.88
+        on rails above the finish — and tilted TOWARD the sun. The first tilt
+        went the other way, which the closing aerial exposed twice over: the
+        panels leaned away from the camera into invisibility, and away from a
+        sun that rises at +z, which no installer on earth would do.
       */}
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[-13.6 + i * 2.3, 3.88, -4.2]} rotation={[-0.16, 0, 0]} castShadow>
+      {/* two mounting rails, because from the closing aerial the array is a
+          subject rather than a rooftop detail — panels floating with no rail
+          would be the frame's most visible fake */}
+      {[-2.7, -4.2].map((z) => (
+        <mesh key={z} position={[-7.85, 3.83, z]} castShadow>
+          <boxGeometry args={[13.8, 0.05, 0.09]} />
+          <meshStandardMaterial color="#9aa0a8" roughness={0.35} metalness={0.7} />
+        </mesh>
+      ))}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <mesh key={i} position={[-13.6 + i * 2.3, 3.88, -3.45]} rotation={[0.16, 0, 0]} castShadow>
           <boxGeometry args={[2.0, 0.06, 3.0]} />
           <meshStandardMaterial
             ref={i === 1 ? solarMat : undefined}

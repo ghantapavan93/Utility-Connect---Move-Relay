@@ -139,7 +139,9 @@ function buildSpecs(): TreeSpec[] {
   }
 
   // Courtyard specimens — near the arrival camera, so they carry the realism.
-  for (const [i, x] of [-19, -13, 8, 14, 19].entries()) {
+  // −21.8, not −19: the driveway now runs x −19.6..−14.4, and the westernmost
+  // specimen stood in the middle of the pour.
+  for (const [i, x] of [-21.8, -13, 8, 14, 19].entries()) {
     const r = prng(i + 40);
     specs.push({
       x,

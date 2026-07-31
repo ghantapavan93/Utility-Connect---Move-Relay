@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Open_Sans } from "next/font/google";
+import { Fraunces, Open_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import { AccessibilityMenu } from "@/components/AccessibilityMenu";
 import "./globals.css";
@@ -10,6 +10,19 @@ const openSans = Open_Sans({
   subsets: ["latin"],
   weight: ["400", "600", "700", "800"],
   variable: "--font-open-sans",
+});
+
+/**
+ * The film's display face. Open Sans carries the working surfaces well, but
+ * every caption in the story film was set in it too — a workhorse sans doing
+ * a title card's job, which is most of why the captions read as generated.
+ * Fraunces is a display serif with real optical sizing; self-hosted through
+ * next/font like everything else, so no runtime font request leaves the app.
+ */
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: "variable",
+  variable: "--font-display",
 });
 
 /**
@@ -67,7 +80,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={openSans.variable}>
+    <html lang="en" className={`${openSans.variable} ${fraunces.variable}`}>
       <body className="min-h-dvh antialiased">
         {children}
         {/* Every route, not just the marketing pages. An accessibility control
