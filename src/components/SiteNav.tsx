@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
+import { asRoute } from "@/lib/routes";
 
 /**
  * Sticky top navigation. Transparent over the hero, then it gains a solid
@@ -52,7 +53,7 @@ export function SiteNav() {
 function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
-      href={href as never}
+      href={asRoute(href)}
       className="hidden rounded-md px-3 py-1.5 font-medium transition-colors hover:text-white sm:block"
       style={{ color: "var(--color-text-mid)" }}
     >

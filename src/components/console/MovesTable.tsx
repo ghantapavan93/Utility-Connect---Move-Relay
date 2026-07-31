@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { StateBadge, type State } from "@/components/StateBadge";
+import { asRoute } from "@/lib/routes";
 
 /**
  * Every move in the tenant, read from the database.
@@ -143,7 +144,7 @@ export function MovesTable({
                 </td>
               )}
               <td className="py-2.5 pr-3">
-                <Link href={`/moves/${m.id}` as never} className="font-mono text-xs hover:underline">
+                <Link href={asRoute(`/moves/${m.id}`)} className="font-mono text-xs hover:underline">
                   {m.reference}
                 </Link>
                 <div className="text-[10px]" style={{ color: "var(--color-text-lo)" }}>

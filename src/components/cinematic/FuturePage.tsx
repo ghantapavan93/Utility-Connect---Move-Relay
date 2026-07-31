@@ -10,6 +10,7 @@ import { CONTINUUM, labelCounts, type ContinuumModule } from "@/lib/continuum";
 import { accentColor, accentInk } from "@/lib/accents";
 import { ParticleCanvas } from "@/components/ui/particle-canvas";
 import { SCENES, AuthorityStackScene } from "@/components/continuum/Scenes";
+import { asRoute } from "@/lib/routes";
 import {
   ChapterMarker,
   FilmGrain,
@@ -98,7 +99,7 @@ function StorySection({ m, index }: { m: ContinuumModule; index: number }) {
 
           <div className="mt-7 flex flex-wrap items-center gap-5">
             <Link
-              href={`/future/${m.slug}` as never}
+              href={asRoute(`/future/${m.slug}`)}
               className="group inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.14em]"
               style={{ color: accentInk(m.accent) }}
             >
@@ -107,7 +108,7 @@ function StorySection({ m, index }: { m: ContinuumModule; index: number }) {
             </Link>
             {m.proof && (
               <Link
-                href={m.proof.href as never}
+                href={asRoute(m.proof.href)}
                 className="group inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white/55 transition-colors hover:text-white/90"
               >
                 {m.proof.label}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 
 import { useStillness } from "@/lib/use-stillness";
+import { asRoute } from "@/lib/routes";
 
 /**
  * A card that tilts toward the pointer.
@@ -92,7 +93,7 @@ export function TiltCard({
       }}
     >
     <Link
-      href={href as never}
+      href={asRoute(href)}
       onFocus={() => setHovered(true)}
       onBlur={release}
       className="group relative block h-full rounded-xl border p-5"

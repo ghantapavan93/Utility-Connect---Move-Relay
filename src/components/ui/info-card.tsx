@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 
 import { useStillness } from "@/lib/use-stillness";
 import { IndustryScene } from "@/components/ui/industry-scene";
+import { asRoute } from "@/lib/routes";
 
 /**
  * A card that resolves under the pointer: border, mark and pattern all arrive
@@ -51,7 +52,7 @@ export function InfoCard({
       transition={{ duration: 0.24, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       <Link
-        href={href as never}
+        href={asRoute(href)}
         onMouseEnter={() => setLit(true)}
         onMouseLeave={() => setLit(false)}
         onFocus={() => setLit(true)}

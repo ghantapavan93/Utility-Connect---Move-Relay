@@ -4,6 +4,7 @@ import { MarketingHeader } from "@/components/MarketingHeader";
 import { Reveal } from "@/components/Reveal";
 import { INDUSTRIES, getIndustry } from "@/lib/industries-data";
 import { RelayForIndustry } from "@/components/industries/RelayForIndustry";
+import { asRoute } from "@/lib/routes";
 
 /**
  * A dedicated page per industry, mirroring Utility Connect's own "Who we work
@@ -190,7 +191,7 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {others.map((o, i) => (
               <Reveal key={o.slug} delay={(i % 3) * 0.05}>
-                <Link href={`/industries/${o.slug}` as never} className="flex items-center gap-3 rounded-xl border p-4 transition-colors hover:border-white" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
+                <Link href={asRoute(`/industries/${o.slug}`)} className="flex items-center gap-3 rounded-xl border p-4 transition-colors hover:border-white" style={{ borderColor: "var(--color-ground-3)", background: "var(--color-ground-1)" }}>
                   <span className="text-lg" style={{ color: "var(--color-state-verified)" }} aria-hidden>{o.glyph}</span>
                   <span className="text-sm font-medium">{o.name}</span>
                 </Link>

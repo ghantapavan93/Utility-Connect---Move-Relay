@@ -5,6 +5,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { INDUSTRIES } from "@/lib/industries-data";
 import type { Lang } from "@/lib/site-copy";
+import { asRoute } from "@/lib/routes";
 
 /**
  * The marketing header — a faithful match to Utility Connect's own: a dark navy
@@ -51,7 +52,7 @@ export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
                   {INDUSTRIES.map((i) => (
                     <Link
                       key={i.slug}
-                      href={`/industries/${i.slug}` as never}
+                      href={asRoute(`/industries/${i.slug}`)}
                       className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-[#f1f1f1]"
                       style={{ color: "#1a2128" }}
                     >
@@ -169,7 +170,7 @@ export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
               ].map((item) => (
                 <Link
                   key={item.href}
-                  href={item.href as never}
+                  href={asRoute(item.href)}
                   onClick={() => setMobileOpen(false)}
                   className="block rounded-lg px-3 py-2.5 text-sm font-semibold uppercase tracking-wide text-white/85"
                 >
@@ -181,7 +182,7 @@ export function MarketingHeader({ lang = "en" }: { lang?: Lang }) {
                 {INDUSTRIES.slice(0, 6).map((i) => (
                   <Link
                     key={i.slug}
-                    href={`/industries/${i.slug}` as never}
+                    href={asRoute(`/industries/${i.slug}`)}
                     onClick={() => setMobileOpen(false)}
                     className="rounded-lg px-3 py-2 text-sm text-white/75"
                   >

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { asRoute } from "@/lib/routes";
 
 /**
  * The application sidebar — the product shell.
@@ -65,7 +66,7 @@ export function AppSidebar() {
           return (
             <Link
               key={item.href}
-              href={item.href as never}
+              href={asRoute(item.href)}
               className="mb-0.5 flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
               style={{
                 background: active ? "color-mix(in oklab, var(--color-state-verified) 14%, transparent)" : "transparent",

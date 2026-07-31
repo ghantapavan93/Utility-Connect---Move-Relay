@@ -7,6 +7,7 @@ import { CONTINUUM, continuumModule } from "@/lib/continuum";
 import { accentColor, accentInk } from "@/lib/accents";
 import { ChapterMarker, FilmGrain, Pill } from "@/components/cinematic";
 import { ParticleCanvas } from "@/components/ui/particle-canvas";
+import { asRoute } from "@/lib/routes";
 
 /**
  * One module of the Continuum, in full.
@@ -96,7 +97,7 @@ export default async function ContinuumModulePage({
 
           {m.proof && (
             <Link
-              href={m.proof.href as never}
+              href={asRoute(m.proof.href)}
               className="mt-7 inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-wide text-white"
               style={{ background: accentColor(m.accent, 1) }}
             >
@@ -227,7 +228,7 @@ export default async function ContinuumModulePage({
 
         <section className="mx-auto max-w-[1100px] px-5 pb-24 sm:px-8">
           <Link
-            href={`/future/${next.slug}` as never}
+            href={asRoute(`/future/${next.slug}`)}
             className="cine-glass group flex items-center justify-between gap-4 rounded-2xl p-6 transition-colors hover:bg-white/[0.06]"
           >
             <span>

@@ -8,6 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { accentColor, accentInk, type Accent } from "@/lib/accents";
 import { useStillness } from "@/lib/use-stillness";
 import { Pulse } from "@/components/diagram/primitives";
+import { asRoute } from "@/lib/routes";
 
 /**
  * The last thing on the home page, and the only one that leads anywhere deep.
@@ -267,7 +268,7 @@ export function RelayConstellation() {
               transition={{ duration: 0.35, delay: still ? 0 : i * 0.05 }}
             >
               <Link
-                href={p.href as never}
+                href={asRoute(p.href)}
                 className="group relative block h-full overflow-hidden rounded-xl border p-5 transition-colors"
                 style={{
                   borderColor: p.recommended ? accentColor(p.accent, 0.55) : "rgba(255,255,255,0.12)",

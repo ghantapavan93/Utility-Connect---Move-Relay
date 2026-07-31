@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { accentColor, accentInk, type Accent } from "@/lib/accents";
+import { asRoute } from "@/lib/routes";
 
 /**
  * Why three routes tell the same story, stated on all three.
@@ -126,7 +127,7 @@ export function RouteDistinction() {
             ) : (
               <Link
                 key={m.href}
-                href={m.href as never}
+                href={asRoute(m.href)}
                 className="rounded-xl border p-4 transition-colors hover:bg-white/[0.04]"
                 style={style}
               >
