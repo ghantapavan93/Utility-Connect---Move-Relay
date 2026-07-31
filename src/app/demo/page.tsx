@@ -429,7 +429,7 @@ export default function DemoPage() {
           {
             eyebrow: "Code",
             accent: "recovered",
-            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 575 tests against a real database.",
+            body: "Next.js and React over PostgreSQL. Persisted idempotency, append-only audit, durable workflow steps, relationship-based authorization. 582 tests against a real database.",
           },
         ]}
         actions={
